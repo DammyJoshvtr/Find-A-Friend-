@@ -44,6 +44,8 @@
       "typedRoutes": true
     },
     "extra": {
+      "supabaseUrl": "https://vcbtvhociaioeyhhsczh.supabase.co",
+      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjYnR2aG9jaWFpb2V5aGhzY3poIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ4MzIyMzAsImV4cCI6MjA2MDQwODIzMH0.your-actual-key",
       "router": {},
       "eas": {
         "projectId": "c91925a9-42d3-43de-bc48-1bd279422541"
