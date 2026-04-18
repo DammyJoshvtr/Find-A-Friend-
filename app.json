@@ -21,7 +21,9 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0d0d14"
       },
-      "package": "com.faf.campus"
+      "package": "com.ayomideenoch.faf",
+       "enableProguardInReleaseBuilds": true,
+  "enableShrinkResourcesInReleaseBuilds": true
     },
     "web": {
       "bundler": "metro",
