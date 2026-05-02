@@ -17,6 +17,9 @@ import { sendConnectionRequest } from '../../lib/connections'
 import { calculateMatchScore, getInitials, getTimeAgo } from '../../lib/matching'
 import { createPost, getFeedPosts } from '../../lib/posts'
 import { getAllProfiles, getCurrentProfile } from '../../lib/profiles'
+import * as ImagePicker from 'expo-image-picker'
+import { Image } from 'react-native'
+import { supabase } from '../../lib/supabase'
 
 export default function HomeScreen() {
   const [posts, setPosts] = useState<any[]>([])
@@ -28,6 +31,7 @@ export default function HomeScreen() {
   const [newPostBody, setNewPostBody] = useState('')
   const [newPostTags, setNewPostTags] = useState('')
   const [posting, setPosting] = useState(false)
+  const [selectedImage, setSelectedImage] = useState(null)
 
   const loadData = useCallback(async () => {
     try {
@@ -64,13 +68,50 @@ export default function HomeScreen() {
   const submitPost = async () => {
     if (!newPostBody.trim()) return
     setPosting(true)
+    let imageUrl = null
+    if (selectedImage) {
+      imageUrl = await uploadImage(selectedImage)
+    }
     const tags = newPostTags.split(',').map(t => t.trim()).filter(Boolean)
-    await createPost(newPostBody.trim(), tags)
+    await createPost(newPostBody.trim(), tags, imageUrl)
     setNewPostBody('')
     setNewPostTags('')
+    setSelectedImage(null)
     setPosting(false)
     setShowNewPost(false)
     loadData()
+  }
+
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Please allow access to your photos')
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    })
+    if (!result.canceled) {
+      setSelectedImage(result.assets[0].uri)
+    }
+  }
+
+  const uploadImage = async (uri) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+    const ext = uri.split('.').pop()
+    const fileName = user.id + '_' + Date.now() + '.' + ext
+    const response = await fetch(uri)
+    const blob = await response.blob()
+    const { data, error } = await supabase.storage
+      .from('posts-media')
+      .upload(fileName, blob, { contentType: 'image/' + ext })
+    if (error) { console.log('Upload error:', error); return null }
+    const { data: urlData } = supabase.storage.from('posts-media').getPublicUrl(fileName)
+    return urlData.publicUrl
   }
 
   const handleShare = (post: any) => {
@@ -274,6 +315,22 @@ export default function HomeScreen() {
               value={newPostTags}
               onChangeText={setNewPostTags}
             />
+            {selectedImage && (
+              <View style={{ marginBottom: 10, borderRadius: 12, overflow: 'hidden' }}>
+                <Image source={{ uri: selectedImage }} style={{ width: '100%', height: 200, borderRadius: 12 }} />
+                <TouchableOpacity
+                  onPress={() => setSelectedImage(null)}
+                  style={{ position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12, padding: 4 }}>
+                  <Text style={{ color: '#fff', fontSize: 12 }}>✕ Remove</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14, padding: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.1)' }}
+              onPress={pickImage}>
+              <Text style={{ fontSize: 20 }}>📷</Text>
+              <Text style={{ color: 'rgba(240,240,255,0.6)', fontSize: 13 }}>{selectedImage ? 'Change photo' : 'Add a photo'}</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[styles.postBtn, posting && { opacity: 0.6 }]}
               onPress={submitPost}
