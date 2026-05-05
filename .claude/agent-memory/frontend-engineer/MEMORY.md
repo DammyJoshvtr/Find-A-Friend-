@@ -1,0 +1,2 @@
+- [Project Stack](project_stack.md) — Expo 54 + React Native 0.81 + TypeScript, Supabase backend, Zustand stores, MMKV
+- [User Profile](user_profile.md) — Building a school social feed app (FAF), working through a full frontend pass

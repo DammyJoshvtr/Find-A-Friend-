@@ -1,0 +1,2 @@
+- [User Profile](user_profile.md) — builder of FAF campus social app, React Native/Expo/Supabase, all 9 feature segments
+- [Project Context](project_faf.md) — FAF app architecture: existing stack, schema, conventions, and 9-segment expansion plan

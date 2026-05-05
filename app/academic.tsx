@@ -1,164 +1,368 @@
+/**
+ * app/academic.tsx
+ * Academic hub — tab bar: My Courses | Study Groups | Resources
+ */
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import {
-  View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, ActivityIndicator
+  View, Text, StyleSheet, FlatList, ScrollView,
+  TouchableOpacity, TextInput, ActivityIndicator,
+  RefreshControl, Alert,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useState, useEffect } from 'react'
+import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
-import { supabase } from '../lib/supabase'
-import { getCurrentProfile } from '../lib/profiles'
+import {
+  getMyEnrolledCourses, getStudyGroups, getResources,
+  enrollInCourse, unenrollFromCourse, getCourses,
+} from '../lib/academic'
+import StudyGroupCard from '../components/academic/StudyGroupCard'
+import type { Course, StudyGroup, AcademicResource } from '../lib/academic'
+import { getTimeAgo } from '../lib/matching'
 
-export default function AcademicScreen() {
-  const [profile, setProfile] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
+type Tab = 'courses' | 'groups' | 'resources'
 
-  useEffect(() => {
-    getCurrentProfile().then(p => {
-      setProfile(p)
-      setLoading(false)
-    })
-  }, [])
+const RESOURCE_TYPE_ICONS: Record<string, keyof typeof import('@expo/vector-icons').Ionicons.glyphMap> = {
+  note: 'document-text-outline',
+  past_question: 'help-circle-outline',
+  textbook: 'book-outline',
+  slide: 'easel-outline',
+  other: 'attach-outline',
+}
 
-  const courses = [
-    {
-      code: profile?.department === 'Computer Science' ? 'CSC 301' : 'GEN 301',
-      name: 'Data Structures & Algorithms',
-      lecturer: 'Prof. Adeyemi',
-      time: 'Mon/Wed 8am',
-      coursemates: 24,
-      color: '#a78bfa',
-    },
-    {
-      code: profile?.department === 'Computer Science' ? 'CSC 305' : 'GEN 305',
-      name: 'Database Management',
-      lecturer: 'Prof. Okafor',
-      time: 'Tue/Thu 10am',
-      coursemates: 18,
-      color: '#60a5fa',
-    },
-    {
-      code: 'GEN 201',
-      name: 'Technical Writing',
-      lecturer: 'Prof. Nwosu',
-      time: 'Fri 2pm',
-      coursemates: 42,
-      color: '#34d399',
-    },
-  ]
+const RESOURCE_TYPE_COLORS: Record<string, string> = {
+  note: '#60a5fa',
+  past_question: '#f472b6',
+  textbook: '#34d399',
+  slide: '#fbbf24',
+  other: 'rgba(240,240,255,0.4)',
+}
 
-  const studyGroups = [
-    {
-      name: 'DSA Final Prep',
-      members: 6,
-      venue: 'Library Room 3',
-      time: 'Today 7pm',
-      color: '#a78bfa',
-    },
-    {
-      name: 'Database Project Group',
-      members: 4,
-      venue: 'Online — Google Meet',
-      time: 'Sat 3pm',
-      color: '#60a5fa',
-    },
-    {
-      name: 'GEN 201 Study Circle',
-      members: 8,
-      venue: 'SUB Room 2',
-      time: 'Sun 2pm',
-      color: '#34d399',
-    },
-  ]
+// ---------------------------------------------------------------------------
+// Sub-component: Course row
+// ---------------------------------------------------------------------------
+
+interface CourseRowProps {
+  course: Course
+  onUnenroll: (id: string) => void
+}
+
+function CourseRow({ course, onUnenroll }: CourseRowProps) {
+  const [loading, setLoading] = useState(false)
+
+  const handleUnenroll = () => {
+    Alert.alert(
+      'Unenroll',
+      `Remove ${course.code} from your courses?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove', style: 'destructive',
+          onPress: async () => {
+            setLoading(true)
+            const { error } = await unenrollFromCourse(course.id)
+            setLoading(false)
+            if (error) {
+              Alert.alert('Error', 'Could not unenroll. Please try again.')
+            } else {
+              onUnenroll(course.id)
+            }
+          },
+        },
+      ]
+    )
+  }
 
   return (
-    <SafeAreaView style={s.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={s.back}>← Back</Text>
+    <TouchableOpacity
+      style={s.courseCard}
+      onPress={() => router.push(`/course/${course.id}` as any)}
+      activeOpacity={0.85}>
+      <View style={s.courseAccent} />
+      <View style={s.courseBody}>
+        <View style={{ flex: 1 }}>
+          <Text style={s.courseCode}>{course.code}</Text>
+          <Text style={s.courseName} numberOfLines={1}>{course.name}</Text>
+          {(course.department || course.level) && (
+            <Text style={s.courseMeta}>
+              {[course.department, course.level].filter(Boolean).join(' · ')}
+            </Text>
+          )}
+        </View>
+        <View style={s.courseActions}>
+          <TouchableOpacity
+            style={s.studyGroupBtn}
+            onPress={() => router.push(`/course/${course.id}` as any)}>
+            <Ionicons name="people-outline" size={12} color="#a78bfa" />
+            <Text style={s.studyGroupBtnText}>Groups</Text>
           </TouchableOpacity>
-          <Text style={s.title}>Academic hub</Text>
-          <TouchableOpacity style={s.addBtn}>
-            <Text style={s.addText}>+ Course</Text>
+          <TouchableOpacity
+            style={s.unenrollBtn}
+            onPress={handleUnenroll}
+            disabled={loading}>
+            {loading
+              ? <ActivityIndicator size="small" color="rgba(239,68,68,0.7)" />
+              : <Ionicons name="close-outline" size={16} color="rgba(239,68,68,0.7)" />}
           </TouchableOpacity>
         </View>
+      </View>
+    </TouchableOpacity>
+  )
+}
 
-        {loading ? (
-          <ActivityIndicator color="#a78bfa" style={{ marginTop: 40 }} />
-        ) : (
-          <>
-            <View style={s.profileBanner}>
-              <Text style={s.bannerName}>
-                {profile?.full_name ?? 'Student'}
-              </Text>
-              <Text style={s.bannerDept}>
-                {profile?.department ?? 'Student'} · {profile?.level ?? ''}
-              </Text>
-            </View>
+// ---------------------------------------------------------------------------
+// Sub-component: Resource row
+// ---------------------------------------------------------------------------
 
-            <View style={s.section}>
-              <Text style={s.sectionTitle}>Your courses this semester</Text>
-            </View>
+function ResourceRow({ resource }: { resource: AcademicResource }) {
+  const icon = RESOURCE_TYPE_ICONS[resource.resource_type] ?? 'attach-outline'
+  const color = RESOURCE_TYPE_COLORS[resource.resource_type] ?? 'rgba(240,240,255,0.4)'
+  const sizeLabel = resource.file_size_kb
+    ? resource.file_size_kb >= 1024
+      ? `${(resource.file_size_kb / 1024).toFixed(1)} MB`
+      : `${resource.file_size_kb} KB`
+    : null
 
-            {courses.map((c, i) => (
-              <View key={i} style={s.courseCard}>
-                <View style={[s.courseAccent, { backgroundColor: c.color }]} />
-                <View style={s.courseBody}>
-                  <View style={s.courseTop}>
-                    <View>
-                      <Text style={s.courseCode}>{c.code}</Text>
-                      <Text style={s.courseName}>{c.name}</Text>
-                      <Text style={s.courseLecturer}>
-                        {c.lecturer} · {c.time}
-                      </Text>
-                    </View>
-                    <View style={[s.coursemateBadge, { borderColor: c.color }]}>
-                      <Text style={[s.coursemateText, { color: c.color }]}>
-                        {c.coursemates} in common
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={s.courseActions}>
-                    <TouchableOpacity style={[s.courseBtn, { borderColor: c.color }]}>
-                      <Text style={[s.courseBtnText, { color: c.color }]}>
-                        Study group
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={s.courseBtnGray}>
-                      <Text style={s.courseBtnGrayText}>Past questions</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            ))}
+  return (
+    <TouchableOpacity
+      style={s.resourceCard}
+      onPress={() => router.push(`/resource/${resource.id}` as any)}
+      activeOpacity={0.85}>
+      <View style={[s.resourceIcon, { backgroundColor: color + '18' }]}>
+        <Ionicons name={icon} size={18} color={color} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={s.resourceTitle} numberOfLines={1}>{resource.title}</Text>
+        <View style={s.resourceMeta}>
+          {resource.courses && (
+            <Text style={s.resourceCourse}>{resource.courses.code}</Text>
+          )}
+          <Text style={s.resourceTime}>{getTimeAgo(resource.created_at)}</Text>
+          {sizeLabel && <Text style={s.resourceSize}>{sizeLabel}</Text>}
+        </View>
+      </View>
+      <View style={s.downloadBadge}>
+        <Ionicons name="download-outline" size={11} color="rgba(240,240,255,0.35)" />
+        <Text style={s.downloadCount}>{resource.download_count}</Text>
+      </View>
+    </TouchableOpacity>
+  )
+}
 
-            <View style={s.section}>
-              <Text style={s.sectionTitle}>Active study groups</Text>
-            </View>
+// ---------------------------------------------------------------------------
+// Main screen
+// ---------------------------------------------------------------------------
 
-            {studyGroups.map((g, i) => (
-              <TouchableOpacity key={i} style={s.groupCard}>
-                <View style={[s.groupIcon, { backgroundColor: g.color + '20', borderColor: g.color + '40' }]}>
-                  <Text style={s.groupIconText}>📖</Text>
-                </View>
-                <View style={s.groupInfo}>
-                  <Text style={s.groupName}>{g.name}</Text>
-                  <Text style={s.groupDetails}>
-                    {g.members} members · {g.venue}
-                  </Text>
-                  <Text style={[s.groupTime, { color: g.color }]}>{g.time}</Text>
-                </View>
-                <TouchableOpacity style={[s.joinBtn, { borderColor: g.color }]}>
-                  <Text style={[s.joinText, { color: g.color }]}>Join</Text>
-                </TouchableOpacity>
+export default function AcademicScreen() {
+  const [activeTab, setActiveTab] = useState<Tab>('courses')
+
+  const [courses, setCourses] = useState<Course[]>([])
+  const [studyGroups, setStudyGroups] = useState<StudyGroup[]>([])
+  const [resources, setResources] = useState<AcademicResource[]>([])
+
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const [resourceSearch, setResourceSearch] = useState('')
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    loadTab(activeTab)
+  }, [activeTab])
+
+  const loadTab = async (tab: Tab, refresh = false) => {
+    if (!refresh) setLoading(true)
+    switch (tab) {
+      case 'courses': {
+        const { data } = await getMyEnrolledCourses()
+        setCourses(data ?? [])
+        break
+      }
+      case 'groups': {
+        const { data } = await getStudyGroups()
+        // Hydrate is_member — always false on initial load (joined groups come from server)
+        setStudyGroups(data ?? [])
+        break
+      }
+      case 'resources': {
+        const { data } = await getResources()
+        setResources(data ?? [])
+        break
+      }
+    }
+    setLoading(false)
+    setRefreshing(false)
+  }
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true)
+    loadTab(activeTab, true)
+  }, [activeTab])
+
+  const handleResourceSearch = (text: string) => {
+    setResourceSearch(text)
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(async () => {
+      setLoading(true)
+      const { data } = await getResources({ search: text || undefined })
+      setResources(data ?? [])
+      setLoading(false)
+    }, 300)
+  }
+
+  const handleCourseUnenrolled = (courseId: string) => {
+    setCourses(prev => prev.filter(c => c.id !== courseId))
+  }
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={s.centeredWrap}>
+          <ActivityIndicator size="large" color="#a78bfa" />
+        </View>
+      )
+    }
+
+    if (activeTab === 'courses') {
+      return (
+        <FlatList
+          data={courses}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <CourseRow course={item} onUnenroll={handleCourseUnenrolled} />
+          )}
+          ListEmptyComponent={
+            <View style={s.empty}>
+              <Ionicons name="book-outline" size={40} color="rgba(240,240,255,0.1)" />
+              <Text style={s.emptyTitle}>No enrolled courses</Text>
+              <Text style={s.emptySub}>Browse and enroll in courses below</Text>
+              <TouchableOpacity
+                style={s.browseBtn}
+                onPress={() => router.push('/course-browser' as any)}>
+                <Text style={s.browseBtnText}>Browse Courses</Text>
               </TouchableOpacity>
-            ))}
+            </View>
+          }
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#a78bfa" />
+          }
+          contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
+          scrollEnabled={false}
+        />
+      )
+    }
 
-            <View style={{ height: 30 }} />
-          </>
-        )}
+    if (activeTab === 'groups') {
+      return (
+        <FlatList
+          data={studyGroups}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => <StudyGroupCard group={item} />}
+          ListEmptyComponent={
+            <View style={s.empty}>
+              <Ionicons name="people-outline" size={40} color="rgba(240,240,255,0.1)" />
+              <Text style={s.emptyTitle}>No study groups yet</Text>
+              <Text style={s.emptySub}>Create one and invite your coursemates</Text>
+            </View>
+          }
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#a78bfa" />
+          }
+          contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
+          scrollEnabled={false}
+        />
+      )
+    }
+
+    // Resources tab
+    return (
+      <>
+        <View style={s.searchBar}>
+          <Ionicons name="search-outline" size={15} color="rgba(240,240,255,0.3)" />
+          <TextInput
+            style={s.searchInput}
+            placeholder="Search notes, past questions..."
+            placeholderTextColor="rgba(240,240,255,0.3)"
+            value={resourceSearch}
+            onChangeText={handleResourceSearch}
+          />
+          {resourceSearch.length > 0 && (
+            <TouchableOpacity onPress={() => { setResourceSearch(''); loadTab('resources') }}>
+              <Ionicons name="close-circle" size={15} color="rgba(240,240,255,0.3)" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <FlatList
+          data={resources}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => <ResourceRow resource={item} />}
+          ListEmptyComponent={
+            <View style={s.empty}>
+              <Ionicons name="document-outline" size={40} color="rgba(240,240,255,0.1)" />
+              <Text style={s.emptyTitle}>No resources found</Text>
+              <Text style={s.emptySub}>Upload notes or past questions to share</Text>
+            </View>
+          }
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#a78bfa" />
+          }
+          contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
+          scrollEnabled={false}
+        />
+      </>
+    )
+  }
+
+  return (
+    <SafeAreaView style={s.container} edges={['top']}>
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={20} color="#f0f0ff" />
+        </TouchableOpacity>
+        <Text style={s.title}>Academic Hub</Text>
+        <TouchableOpacity
+          style={s.createBtn}
+          onPress={() => {
+            if (activeTab === 'groups') router.push('/create-study-group' as any)
+            else if (activeTab === 'resources') router.push('/upload-resource' as any)
+            else router.push('/course-browser' as any)
+          }}>
+          <Ionicons name="add" size={20} color="#a78bfa" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Tab bar */}
+      <View style={s.tabBar}>
+        {(['courses', 'groups', 'resources'] as Tab[]).map(tab => (
+          <TouchableOpacity
+            key={tab}
+            style={[s.tab, activeTab === tab && s.tabActive]}
+            onPress={() => setActiveTab(tab)}>
+            <Text style={[s.tabText, activeTab === tab && s.tabTextActive]}>
+              {tab === 'courses' ? 'My Courses' : tab === 'groups' ? 'Study Groups' : 'Resources'}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Content — ScrollView wraps FlatList (scrollEnabled=false) for pull-to-refresh on non-list content */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ flexGrow: 1, paddingTop: 8 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#a78bfa" />
+        }>
+        {renderContent()}
       </ScrollView>
+
+      {/* FAB */}
+      {activeTab === 'groups' && (
+        <TouchableOpacity
+          style={s.fab}
+          onPress={() => router.push('/create-study-group' as any)}>
+          <Ionicons name="add" size={26} color="#fff" />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   )
 }
@@ -166,81 +370,109 @@ export default function AcademicScreen() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0d0d14' },
   header: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', paddingHorizontal: 16,
-    paddingTop: 8, paddingBottom: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)',
   },
-  back: { fontSize: 14, color: '#a78bfa' },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
+  },
   title: { fontSize: 18, fontWeight: '700', color: '#f0f0ff' },
-  addBtn: {
+  createBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
+  },
+  tabBar: {
+    flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8,
+    gap: 8, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  tab: {
+    flex: 1, paddingVertical: 8, borderRadius: 20,
+    backgroundColor: '#1c1c2e', alignItems: 'center',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+  },
+  tabActive: {
     backgroundColor: 'rgba(167,139,250,0.15)',
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,
+    borderColor: 'rgba(167,139,250,0.4)',
+  },
+  tabText: { fontSize: 11, color: 'rgba(240,240,255,0.4)', fontWeight: '500' },
+  tabTextActive: { color: '#a78bfa', fontWeight: '700' },
+  centeredWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
+  // Course card
+  courseCard: {
+    flexDirection: 'row', marginHorizontal: 16, marginBottom: 8,
+    backgroundColor: '#1c1c2e', borderRadius: 14, overflow: 'hidden',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+  },
+  courseAccent: { width: 4, backgroundColor: '#a78bfa' },
+  courseBody: {
+    flex: 1, padding: 12, flexDirection: 'row',
+    alignItems: 'center', gap: 10,
+  },
+  courseCode: { fontSize: 10, color: '#a78bfa', marginBottom: 2 },
+  courseName: { fontSize: 13, fontWeight: '600', color: '#f0f0ff', marginBottom: 3 },
+  courseMeta: { fontSize: 10, color: 'rgba(240,240,255,0.35)' },
+  courseActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  studyGroupBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(167,139,250,0.1)', borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 5,
     borderWidth: 0.5, borderColor: 'rgba(167,139,250,0.3)',
   },
-  addText: { fontSize: 12, color: '#a78bfa', fontWeight: '500' },
-  profileBanner: {
-    marginHorizontal: 16, marginBottom: 16,
-    backgroundColor: '#1c1c2e', borderRadius: 14,
-    padding: 14, borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
+  studyGroupBtnText: { fontSize: 10, color: '#a78bfa', fontWeight: '500' },
+  unenrollBtn: {
+    width: 30, height: 30, borderRadius: 15,
+    backgroundColor: 'rgba(239,68,68,0.08)', alignItems: 'center', justifyContent: 'center',
   },
-  bannerName: { fontSize: 16, fontWeight: '600', color: '#f0f0ff', marginBottom: 3 },
-  bannerDept: { fontSize: 12, color: 'rgba(240,240,255,0.4)' },
-  section: { paddingHorizontal: 16, marginBottom: 10 },
-  sectionTitle: { fontSize: 13, fontWeight: '500', color: 'rgba(240,240,255,0.5)' },
-  courseCard: {
-    marginHorizontal: 16, marginBottom: 10,
-    backgroundColor: '#1c1c2e', borderRadius: 14,
-    flexDirection: 'row', overflow: 'hidden',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
-  },
-  courseAccent: { width: 4 },
-  courseBody: { flex: 1, padding: 12 },
-  courseTop: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'flex-start', marginBottom: 10,
-  },
-  courseCode: { fontSize: 11, color: 'rgba(240,240,255,0.4)', marginBottom: 2 },
-  courseName: { fontSize: 13, fontWeight: '600', color: '#f0f0ff', marginBottom: 3 },
-  courseLecturer: { fontSize: 11, color: 'rgba(240,240,255,0.35)' },
-  coursemateBadge: {
-    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
-    borderWidth: 0.5,
-  },
-  coursemateText: { fontSize: 9, fontWeight: '500' },
-  courseActions: { flexDirection: 'row', gap: 8 },
-  courseBtn: {
-    flex: 1, borderRadius: 20, paddingVertical: 6,
-    alignItems: 'center', borderWidth: 0.5,
-    backgroundColor: 'transparent',
-  },
-  courseBtnText: { fontSize: 11, fontWeight: '500' },
-  courseBtnGray: {
-    flex: 1, borderRadius: 20, paddingVertical: 6,
-    alignItems: 'center', borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'transparent',
-  },
-  courseBtnGrayText: { fontSize: 11, color: 'rgba(240,240,255,0.4)' },
-  groupCard: {
+  // Resource card
+  resourceCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
     marginHorizontal: 16, marginBottom: 8,
-    backgroundColor: '#1c1c2e', borderRadius: 14,
-    padding: 12, flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#1c1c2e', borderRadius: 14, padding: 12,
     borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
   },
-  groupIcon: {
-    width: 44, height: 44, borderRadius: 12,
+  resourceIcon: {
+    width: 38, height: 38, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 0.5,
   },
-  groupIconText: { fontSize: 20 },
-  groupInfo: { flex: 1 },
-  groupName: { fontSize: 13, fontWeight: '600', color: '#f0f0ff', marginBottom: 2 },
-  groupDetails: { fontSize: 11, color: 'rgba(240,240,255,0.35)', marginBottom: 2 },
-  groupTime: { fontSize: 11, fontWeight: '500' },
-  joinBtn: {
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6,
-    borderWidth: 0.5,
+  resourceTitle: { fontSize: 13, fontWeight: '500', color: '#f0f0ff', marginBottom: 4 },
+  resourceMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  resourceCourse: {
+    fontSize: 9, color: '#a78bfa', fontWeight: '600',
+    backgroundColor: 'rgba(167,139,250,0.1)', borderRadius: 6,
+    paddingHorizontal: 5, paddingVertical: 1,
   },
-  joinText: { fontSize: 12, fontWeight: '500' },
+  resourceTime: { fontSize: 10, color: 'rgba(240,240,255,0.35)' },
+  resourceSize: { fontSize: 10, color: 'rgba(240,240,255,0.25)' },
+  downloadBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  downloadCount: { fontSize: 10, color: 'rgba(240,240,255,0.35)' },
+  // Search
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 16, marginBottom: 10,
+    backgroundColor: '#1c1c2e', borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+  },
+  searchInput: { flex: 1, fontSize: 13, color: '#f0f0ff' },
+  // Empty state
+  empty: {
+    alignItems: 'center', paddingTop: 60, paddingBottom: 40, gap: 8,
+  },
+  emptyTitle: { fontSize: 15, fontWeight: '600', color: 'rgba(240,240,255,0.4)' },
+  emptySub: { fontSize: 12, color: 'rgba(240,240,255,0.25)', textAlign: 'center', paddingHorizontal: 32 },
+  browseBtn: {
+    marginTop: 8, backgroundColor: '#a78bfa', borderRadius: 20,
+    paddingHorizontal: 20, paddingVertical: 9,
+  },
+  browseBtnText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  // FAB
+  fab: {
+    position: 'absolute', bottom: 24, right: 20,
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: '#a78bfa', alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#a78bfa', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
+  },
 })

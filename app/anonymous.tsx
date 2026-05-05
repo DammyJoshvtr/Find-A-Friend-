@@ -1,0 +1,168 @@
+/**
+ * app/anonymous.tsx
+ * Anonymous / confessions feed.
+ */
+import React, { useEffect, useState, useCallback } from 'react'
+import {
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  RefreshControl, ActivityIndicator,
+} from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
+import { router } from 'expo-router'
+import { getAnonymousPosts } from '../lib/anonymous'
+import AnonPostCard from '../components/anonymous/AnonPostCard'
+import CommentSheet from '../components/feed/CommentSheet'
+import type { AnonymousPost } from '../lib/anonymous'
+
+export default function AnonymousScreen() {
+  const [posts, setPosts] = useState<AnonymousPost[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [cursor, setCursor] = useState<string | undefined>()
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [commentPostId, setCommentPostId] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadPosts()
+  }, [])
+
+  const loadPosts = async () => {
+    setLoading(true)
+    const { data } = await getAnonymousPosts(undefined, 20)
+    const results = data ?? []
+    setPosts(results)
+    setCursor(results.length > 0 ? results[results.length - 1].created_at : undefined)
+    setHasMore(results.length === 20)
+    setLoading(false)
+  }
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true)
+    const { data } = await getAnonymousPosts(undefined, 20)
+    const results = data ?? []
+    setPosts(results)
+    setCursor(results.length > 0 ? results[results.length - 1].created_at : undefined)
+    setHasMore(results.length === 20)
+    setRefreshing(false)
+  }, [])
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore || !cursor) return
+    setLoadingMore(true)
+    const { data } = await getAnonymousPosts(cursor, 20)
+    const results = data ?? []
+    setPosts(prev => [...prev, ...results])
+    setCursor(results.length > 0 ? results[results.length - 1].created_at : cursor)
+    setHasMore(results.length === 20)
+    setLoadingMore(false)
+  }
+
+  return (
+    <SafeAreaView style={s.container} edges={['top']}>
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <Ionicons name="arrow-back" size={20} color="#f0f0ff" />
+        </TouchableOpacity>
+        <View>
+          <Text style={s.title}>Anonymous</Text>
+          <Text style={s.subtitle}>Campus confessions board</Text>
+        </View>
+        <View style={{ width: 36 }} />
+      </View>
+
+      {/* Disclaimer */}
+      <View style={s.disclaimer}>
+        <Ionicons name="shield-checkmark-outline" size={14} color="#60a5fa" />
+        <Text style={s.disclaimerText}>
+          Posts are anonymous to other users. School admins can view identity for safety.
+        </Text>
+      </View>
+
+      {loading ? (
+        <View style={s.loadingWrap}>
+          <ActivityIndicator size="large" color="#a78bfa" />
+        </View>
+      ) : (
+        <FlatList
+          data={posts}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <AnonPostCard post={item} onCommentPress={setCommentPostId} />
+          )}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#a78bfa" />
+          }
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMore ? (
+              <ActivityIndicator color="#a78bfa" style={{ paddingVertical: 16 }} />
+            ) : null
+          }
+          ListEmptyComponent={
+            <View style={s.empty}>
+              <Ionicons name="eye-off-outline" size={48} color="rgba(240,240,255,0.1)" />
+              <Text style={s.emptyTitle}>No anonymous posts yet</Text>
+              <Text style={s.emptyText}>Be the first to post anonymously</Text>
+            </View>
+          }
+          contentContainerStyle={{ paddingTop: 8, paddingBottom: 80 }}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={s.fab}
+        onPress={() => router.push('/create-anonymous-post' as any)}>
+        <Ionicons name="add" size={26} color="#fff" />
+      </TouchableOpacity>
+
+      <CommentSheet
+        postId={commentPostId ?? ''}
+        visible={!!commentPostId}
+        onClose={() => setCommentPostId(null)}
+      />
+    </SafeAreaView>
+  )
+}
+
+const s = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0d0d14' },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  backBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
+  },
+  title: { fontSize: 18, fontWeight: '700', color: '#f0f0ff', textAlign: 'center' },
+  subtitle: { fontSize: 10, color: 'rgba(240,240,255,0.35)', textAlign: 'center' },
+  disclaimer: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    marginHorizontal: 16, marginVertical: 10,
+    backgroundColor: 'rgba(96,165,250,0.08)',
+    borderRadius: 10, padding: 10,
+    borderWidth: 0.5, borderColor: 'rgba(96,165,250,0.2)',
+  },
+  disclaimerText: {
+    flex: 1, fontSize: 11, color: 'rgba(96,165,250,0.8)', lineHeight: 16,
+  },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#f0f0ff' },
+  emptyText: { fontSize: 13, color: 'rgba(240,240,255,0.4)' },
+  fab: {
+    position: 'absolute', bottom: 24, right: 20,
+    width: 54, height: 54, borderRadius: 27,
+    backgroundColor: '#f472b6',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#f472b6', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
+  },
+})

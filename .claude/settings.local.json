@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"\\(Get-Content 'c:\\\\Users\\\\Ayomide Enoch\\\\Desktop\\\\FAF\\\\faf\\\\supabase\\\\migrations\\\\20260504000000_social_feed_expansion.sql'\\).Count\")",
+      "Bash(supabase --version)",
+      "Bash(supabase status *)"
+    ]
+  }
+}

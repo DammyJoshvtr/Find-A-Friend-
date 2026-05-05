@@ -1,0 +1,1 @@
+- [FAF Project QA Findings](project_faf_qa.md) — Expo/React Native campus app: bug patterns, fixes applied across two QA passes, safe patterns for navigation and optimistic state

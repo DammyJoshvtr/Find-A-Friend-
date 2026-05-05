@@ -1,0 +1,442 @@
+/**
+ * lib/feed.ts
+ * Social feed helpers: posts, likes, comments, reposts, hashtags, trending.
+ *
+ * IMPORTANT: All feed queries use the `public_posts` VIEW, not the `posts`
+ * table directly. This ensures anonymous post author_ids are never exposed
+ * to clients at the database layer.
+ */
+import { supabase } from './supabase'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface FeedAuthor {
+  id: string
+  full_name: string | null
+  department: string | null
+  level: string | null
+  avatar_url: string | null
+}
+
+export interface FeedPost {
+  id: string
+  body: string
+  tags: string[] | null
+  image_url: string | null
+  is_anonymous: boolean
+  post_type: 'feed' | 'anonymous' | 'club' | 'academic'
+  club_id: string | null
+  study_group_id: string | null
+  repost_of: string | null
+  repost_count: number
+  likes_count: number
+  comments_count: number
+  author_id: string | null  // null when is_anonymous = true
+  created_at: string
+  profiles?: FeedAuthor | null
+  // Client-side derived field — populated after checking post_likes
+  is_liked?: boolean
+  // Reposted original post (populated when repost_of != null)
+  original_post?: FeedPost | null
+}
+
+export interface PostComment {
+  id: string
+  post_id: string
+  author_id: string
+  body: string
+  is_anonymous: boolean
+  created_at: string
+  profiles?: FeedAuthor | null
+}
+
+export interface TrendingHashtag {
+  hashtag_id: string
+  post_count: number
+  updated_at: string
+  hashtags?: { tag: string }
+}
+
+export interface CreatePostPayload {
+  body: string
+  tags?: string[]
+  imageUrl?: string | null
+  isAnonymous?: boolean
+  clubId?: string | null
+  studyGroupId?: string | null
+  postType?: 'feed' | 'anonymous' | 'club' | 'academic'
+}
+
+// ---------------------------------------------------------------------------
+// Feed
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches the main campus feed with cursor-based pagination.
+ * @param cursor ISO timestamp — returns posts created before this time
+ * @param limit  Number of posts to return (default 20)
+ */
+export async function getFeed(cursor?: string, limit = 20): Promise<{
+  data: FeedPost[] | null
+  error: Error | null
+}> {
+  try {
+    let query = supabase
+      .from('public_posts')
+      .select('*, profiles(id, full_name, department, level, avatar_url)')
+      .eq('is_anonymous', false)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (cursor) {
+      query = query.lt('created_at', cursor)
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+    return { data: data as FeedPost[], error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+/**
+ * Creates a new post and inserts associated hashtags into post_hashtags.
+ * Hashtag parsing happens client-side to keep SQL simple.
+ */
+export async function createPost(payload: CreatePostPayload): Promise<{
+  data: FeedPost | null
+  error: Error | null
+}> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const isAnon = payload.isAnonymous ?? false
+    const postType = payload.postType ?? (isAnon ? 'anonymous' : 'feed')
+
+    const { data: post, error: postError } = await supabase
+      .from('posts')
+      .insert({
+        author_id: user.id,
+        body: payload.body,
+        tags: payload.tags ?? [],
+        image_url: payload.imageUrl ?? null,
+        is_anonymous: isAnon,
+        post_type: postType,
+        club_id: payload.clubId ?? null,
+        study_group_id: payload.studyGroupId ?? null,
+      })
+      .select()
+      .single()
+
+    if (postError) throw postError
+
+    // Parse and upsert hashtags from the body text
+    const hashtagMatches = payload.body.match(/#(\w+)/g) ?? []
+    if (hashtagMatches.length > 0) {
+      const tags = hashtagMatches.map(h => h.slice(1).toLowerCase())
+      await _upsertPostHashtags(post.id, tags)
+    }
+
+    return { data: post as FeedPost, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+/** Internal: upsert hashtags and link them to a post */
+async function _upsertPostHashtags(postId: string, tags: string[]) {
+  for (const tag of tags) {
+    // Upsert hashtag row
+    const { data: hashtagRow } = await supabase
+      .from('hashtags')
+      .upsert({ tag }, { onConflict: 'tag' })
+      .select('id')
+      .single()
+
+    if (hashtagRow) {
+      await supabase
+        .from('post_hashtags')
+        .upsert({ post_id: postId, hashtag_id: hashtagRow.id })
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Likes
+// ---------------------------------------------------------------------------
+
+/**
+ * Toggles a like on a post.
+ * Uses the `toggle_post_like` SECURITY DEFINER RPC so the count update
+ * is atomic with the post_likes insert/delete.
+ */
+export async function likePost(postId: string): Promise<{
+  data: { liked: boolean } | null
+  error: Error | null
+}> {
+  try {
+    const { data, error } = await supabase
+      .rpc('toggle_post_like', { p_post_id: postId })
+    if (error) throw error
+    return { data: data as { liked: boolean }, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+/** Alias for likePost — kept for backwards compatibility with feed screens */
+export const unlikePost = likePost
+
+/**
+ * Returns the set of post IDs that the current user has liked.
+ * Used to hydrate the feed with liked state on initial load.
+ */
+export async function getMyLikedPostIds(postIds: string[]): Promise<string[]> {
+  if (!postIds.length) return []
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data } = await supabase
+    .from('post_likes')
+    .select('post_id')
+    .eq('user_id', user.id)
+    .in('post_id', postIds)
+
+  return (data ?? []).map((row: { post_id: string }) => row.post_id)
+}
+
+// ---------------------------------------------------------------------------
+// Comments
+// ---------------------------------------------------------------------------
+
+export async function commentOnPost(
+  postId: string,
+  body: string,
+  isAnonymous = false
+): Promise<{ data: PostComment | null; error: Error | null }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data, error } = await supabase
+      .from('post_comments')
+      .insert({
+        post_id: postId,
+        author_id: user.id,
+        body: body.trim(),
+        is_anonymous: isAnonymous,
+      })
+      .select('*, profiles(id, full_name, department, level, avatar_url)')
+      .single()
+
+    if (error) throw error
+    return { data: data as PostComment, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function getComments(postId: string): Promise<{
+  data: PostComment[] | null
+  error: Error | null
+}> {
+  try {
+    const { data, error } = await supabase
+      .from('post_comments')
+      .select('*, profiles(id, full_name, department, level, avatar_url)')
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true })
+
+    if (error) throw error
+    return { data: data as PostComment[], error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function deleteComment(commentId: string): Promise<{
+  data: null
+  error: Error | null
+}> {
+  try {
+    const { error } = await supabase
+      .from('post_comments')
+      .delete()
+      .eq('id', commentId)
+
+    if (error) throw error
+    return { data: null, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Reposts
+// ---------------------------------------------------------------------------
+
+/**
+ * Reposts (or quote-reposts) a post.
+ * Creates a row in `reposts` for tracking and a new `posts` row with
+ * `repost_of` set, so the feed timeline stays flat.
+ */
+export async function repostPost(
+  postId: string,
+  quoteBody?: string
+): Promise<{ data: FeedPost | null; error: Error | null }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    // Fetch original post to copy its content into the repost row
+    const { data: original, error: origError } = await supabase
+      .from('public_posts')
+      .select('body, tags, image_url')
+      .eq('id', postId)
+      .single()
+
+    if (origError) throw origError
+
+    // Insert the repost tracking record
+    const { error: repostError } = await supabase
+      .from('reposts')
+      .insert({ post_id: postId, user_id: user.id, quote_body: quoteBody ?? null })
+
+    if (repostError) throw repostError
+
+    // Insert a new post entry that references the original
+    const newBody = quoteBody
+      ? quoteBody
+      : `[Repost] ${original.body ?? ''}`
+
+    const { data: newPost, error: newPostError } = await supabase
+      .from('posts')
+      .insert({
+        author_id: user.id,
+        body: newBody,
+        tags: original.tags,
+        image_url: original.image_url,
+        repost_of: postId,
+        post_type: 'feed',
+      })
+      .select()
+      .single()
+
+    if (newPostError) throw newPostError
+    return { data: newPost as FeedPost, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Hashtags
+// ---------------------------------------------------------------------------
+
+export async function getHashtagPosts(
+  tag: string,
+  cursor?: string,
+  limit = 20
+): Promise<{ data: FeedPost[] | null; error: Error | null }> {
+  try {
+    // Resolve hashtag id
+    const { data: hashtagRow, error: hError } = await supabase
+      .from('hashtags')
+      .select('id')
+      .eq('tag', tag.toLowerCase())
+      .single()
+
+    if (hError) throw hError
+    if (!hashtagRow) return { data: [], error: null }
+
+    // Get post IDs for this hashtag
+    const { data: links, error: linkError } = await supabase
+      .from('post_hashtags')
+      .select('post_id')
+      .eq('hashtag_id', hashtagRow.id)
+
+    if (linkError) throw linkError
+
+    const postIds = (links ?? []).map((l: { post_id: string }) => l.post_id)
+    if (!postIds.length) return { data: [], error: null }
+
+    let query = supabase
+      .from('public_posts')
+      .select('*, profiles(id, full_name, department, level, avatar_url)')
+      .in('id', postIds)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (cursor) {
+      query = query.lt('created_at', cursor)
+    }
+
+    const { data, error } = await query
+    if (error) throw error
+    return { data: data as FeedPost[], error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function getTrending(): Promise<{
+  data: TrendingHashtag[] | null
+  error: Error | null
+}> {
+  try {
+    const { data, error } = await supabase
+      .from('trending_hashtags')
+      .select('*, hashtags(tag)')
+      .order('post_count', { ascending: false })
+      .limit(20)
+
+    if (error) throw error
+    return { data: data as TrendingHashtag[], error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Single post
+// ---------------------------------------------------------------------------
+
+export async function getPost(postId: string): Promise<{
+  data: FeedPost | null
+  error: Error | null
+}> {
+  try {
+    const { data, error } = await supabase
+      .from('public_posts')
+      .select('*, profiles(id, full_name, department, level, avatar_url)')
+      .eq('id', postId)
+      .single()
+
+    if (error) throw error
+    return { data: data as FeedPost, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function deletePost(postId: string): Promise<{
+  data: null
+  error: Error | null
+}> {
+  try {
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', postId)
+
+    if (error) throw error
+    return { data: null, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}

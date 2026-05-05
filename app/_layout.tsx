@@ -36,7 +36,41 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
-      <Stack screenOptions={{ headerShown: false }} />
+      <Stack screenOptions={{ headerShown: false }}>
+        {/* Tab navigator */}
+        <Stack.Screen name="(tabs)" />
+        {/* Auth flow */}
+        <Stack.Screen name="(auth)" />
+        {/* Posts */}
+        <Stack.Screen name="post/[id]" />
+        <Stack.Screen name="create-post" />
+        <Stack.Screen name="hashtag/[tag]" />
+        {/* Stories */}
+        <Stack.Screen name="create-story" />
+        {/* Events */}
+        <Stack.Screen name="event/[id]" />
+        <Stack.Screen name="create-event" />
+        {/* Anonymous / confessions */}
+        <Stack.Screen name="anonymous" />
+        <Stack.Screen name="create-anonymous-post" />
+        {/* Clubs */}
+        <Stack.Screen name="clubs" />
+        <Stack.Screen name="club/[id]" />
+        {/* Academic */}
+        <Stack.Screen name="academic" />
+        <Stack.Screen name="study-group/[id]" />
+        <Stack.Screen name="course/[id]" />
+        {/* Vendors / deals */}
+        <Stack.Screen name="vendors" />
+        <Stack.Screen name="vendor/[id]" />
+        <Stack.Screen name="vendor-apply" />
+        {/* Social */}
+        <Stack.Screen name="notifications" />
+        <Stack.Screen name="profile/[id]" />
+        <Stack.Screen name="search" />
+        {/* Map */}
+        <Stack.Screen name="map" />
+      </Stack>
     </ErrorBoundary>
   )
 }

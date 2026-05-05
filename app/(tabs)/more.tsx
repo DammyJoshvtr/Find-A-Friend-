@@ -3,16 +3,21 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useState, useEffect } from 'react'
 import { getCurrentProfile, getProfileStats } from '../../lib/profiles'
+import type { Profile, ProfileStats } from '../../lib/profiles'
 import { getInitials } from '../../lib/matching'
 import { useAuthStore } from '../../store/authStore'
 
-const features = [
+const features: Array<{
+  icon: string; title: string; subtitle: string
+  color: string; bg: string; border: string
+  route: string | null
+}> = [
   { icon: '🗺️', title: 'Campus map', subtitle: 'Live events & friends nearby', color: '#34d399', bg: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.25)', route: '/map' },
   { icon: '📚', title: 'Academic hub', subtitle: 'Courses, study groups & past questions', color: '#60a5fa', bg: 'rgba(96,165,250,0.12)', border: 'rgba(96,165,250,0.25)', route: '/academic' },
   { icon: '🏛️', title: 'Clubs & societies', subtitle: 'Join clubs, get announcements', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)', route: '/clubs' },
-  { icon: '🎭', title: 'Confession board', subtitle: 'Anonymous campus posts & shoutouts', color: '#f472b6', bg: 'rgba(244,114,182,0.12)', border: 'rgba(244,114,182,0.25)', route: '/confessions' },
-  { icon: '🏪', title: 'Campus deals', subtitle: 'Student-only discounts near you', color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.25)', route: '/deals' },
-  { icon: '👤', title: 'My profile', subtitle: 'Edit your bio, photos & interests', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)', route: '/profile' },
+  { icon: '🎭', title: 'Confession board', subtitle: 'Anonymous campus posts & shoutouts', color: '#f472b6', bg: 'rgba(244,114,182,0.12)', border: 'rgba(244,114,182,0.25)', route: '/anonymous' },
+  { icon: '🏪', title: 'Campus deals', subtitle: 'Student-only discounts near you', color: '#fbbf24', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.25)', route: '/vendors' },
+  { icon: '👤', title: 'My profile', subtitle: 'Edit your bio, photos & interests', color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)', route: null },
 ]
 
 const menuItems = [
@@ -24,10 +29,10 @@ const menuItems = [
 ]
 
 export default function MoreScreen() {
-  const [profile, setProfile] = useState(null)
-  const [stats, setStats] = useState({ posts: 0, friends: 0 })
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [stats, setStats] = useState<ProfileStats>({ posts: 0, friends: 0, followers: 0, following: 0, clubs: 0 })
   const [loading, setLoading] = useState(true)
-  const { signOut } = useAuthStore()
+  const { signOut, user } = useAuthStore()
 
   useEffect(() => {
     Promise.all([getCurrentProfile(), getProfileStats()]).then(([p, s]) => {
@@ -57,12 +62,12 @@ export default function MoreScreen() {
 
         <View style={s.header}>
           <Text style={s.title}>More</Text>
-          <TouchableOpacity style={s.settingsBtn} onPress={() => router.push('/profile' as any)}>
+          <TouchableOpacity style={s.settingsBtn} onPress={() => user?.id && router.push(`/profile/${user.id}` as any)}>
             <Text style={s.settingsIcon}>⚙️</Text>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={s.profileCard} onPress={() => router.push('/profile' as any)}>
+        <TouchableOpacity style={s.profileCard} onPress={() => user?.id && router.push(`/profile/${user.id}` as any)}>
           {loading ? (
             <View style={[s.profileAvatar, { justifyContent: 'center', alignItems: 'center' }]}>
               <ActivityIndicator size="small" color="#a78bfa" />
@@ -109,7 +114,14 @@ export default function MoreScreen() {
             <TouchableOpacity
               key={index}
               style={s.featureCard}
-              onPress={() => router.push(feature.route as any)}>
+              onPress={() => {
+                if (feature.route === null) {
+                  // My profile — navigate to the dynamic profile route
+                  if (user?.id) router.push(`/profile/${user.id}` as any)
+                } else {
+                  router.push(feature.route as any)
+                }
+              }}>
               <View style={[s.featureIconWrap, { backgroundColor: feature.bg, borderColor: feature.border }]}>
                 <Text style={s.featureIcon}>{feature.icon}</Text>
               </View>

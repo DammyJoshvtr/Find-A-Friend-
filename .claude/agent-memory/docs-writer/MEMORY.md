@@ -1,0 +1,1 @@
+- [FAF project context](project_faf.md) — stack, 9 segments, anonymous privacy model, map approach, single migration file

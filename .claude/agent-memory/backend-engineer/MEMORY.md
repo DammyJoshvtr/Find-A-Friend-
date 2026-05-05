@@ -1,0 +1,1 @@
+- [FAF Project Architecture](project_faf_architecture.md) — Key DB/API decisions for the FAF school social app (public_posts view, anon audit, RPC patterns, bucket layout)

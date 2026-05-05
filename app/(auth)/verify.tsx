@@ -9,6 +9,8 @@ export default function VerifyScreen() {
   const [loading, setLoading] = useState(false)
   const [otpSent, setOtpSent] = useState(false)
   const [otp, setOtp] = useState('')
+  const [showPasswordLogin, setShowPasswordLogin] = useState(false)
+  const [password, setPassword] = useState('')
 
   const isUniversityEmail = (e: string) => {
     const validDomains = [
@@ -41,6 +43,29 @@ export default function VerifyScreen() {
       Alert.alert('Error', error.message)
     } else {
       setOtpSent(true)
+    }
+  }
+
+  const signInWithPassword = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter your email and password')
+      return
+    }
+    setLoading(true)
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.toLowerCase().trim(),
+      password,
+    })
+    setLoading(false)
+    if (error) {
+      Alert.alert('Error', error.message)
+    } else if (data.session) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', data.session.user.id)
+        .maybeSingle()
+      router.replace(profile ? '/(tabs)' : '/(auth)/onboarding')
     }
   }
 
@@ -116,6 +141,36 @@ export default function VerifyScreen() {
                 : <Text style={s.btnText}>Send verification code</Text>
               }
             </TouchableOpacity>
+
+            <TouchableOpacity style={s.resendBtn} onPress={() => setShowPasswordLogin(v => !v)}>
+              <Text style={s.resendText}>{showPasswordLogin ? 'Hide password login' : 'Sign in with password instead'}</Text>
+            </TouchableOpacity>
+
+            {showPasswordLogin && (
+              <>
+                <View style={s.inputWrap}>
+                  <Text style={s.inputLabel}>Password</Text>
+                  <TextInput
+                    style={s.input}
+                    placeholder="Your password"
+                    placeholderTextColor="rgba(240,240,255,0.25)"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                    autoCapitalize="none"
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[s.btnPrimary, { backgroundColor: '#2a1e40' }, loading && s.btnDisabled]}
+                  onPress={signInWithPassword}
+                  disabled={loading}>
+                  {loading
+                    ? <ActivityIndicator color="#a78bfa" />
+                    : <Text style={[s.btnText, { color: '#a78bfa' }]}>Sign in with password</Text>
+                  }
+                </TouchableOpacity>
+              </>
+            )}
           </>
         ) : (
           <>

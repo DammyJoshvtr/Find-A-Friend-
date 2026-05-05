@@ -1,104 +1,147 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native'
+/**
+ * app/(tabs)/events.tsx
+ * Events tab — Upcoming | My RSVPs | Past with FAB to create.
+ */
+import React, { useEffect, useState, useCallback } from 'react'
+import {
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  RefreshControl, ActivityIndicator,
+} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
+import { router } from 'expo-router'
+import { getEvents, getMyRsvps } from '../../lib/events'
+import EventCard from '../../components/events/EventCard'
+import type { Event } from '../../lib/events'
 
-// TODO: replace with dynamic week range based on current date
-const dates = [
-  { day: 'Mon', num: '14' },
-  { day: 'Tue', num: '15' },
-  { day: 'Wed', num: '16', active: true },
-  { day: 'Thu', num: '17' },
-  { day: 'Fri', num: '18' },
-  { day: 'Sat', num: '19' },
-]
+type Tab = 'upcoming' | 'rsvps' | 'past'
 
-// TODO: replace with Supabase query — select * from events order by starts_at asc
-const events = [
-  {
-    month: 'APR', day: '16', title: 'Annual Tech Expo 2026',
-    venue: 'Engineering Hall', time: '10am – 4pm',
-    category: 'Technology', attending: 42, color: '#a78bfa',
-    bg: 'rgba(167,139,250,0.12)',
-  },
-  {
-    month: 'APR', day: '16', title: 'Spoken Word Night',
-    venue: 'Arts Centre', time: '6pm – 9pm',
-    category: 'Culture', attending: 28, color: '#f472b6',
-    bg: 'rgba(244,114,182,0.12)',
-  },
-  {
-    month: 'APR', day: '16', title: 'Football Intramural Finals',
-    venue: 'Sports Complex', time: '4pm',
-    category: 'Sports', attending: 85, color: '#34d399',
-    bg: 'rgba(52,211,153,0.12)',
-  },
-  {
-    month: 'APR', day: '17', title: 'Photography Exhibition',
-    venue: 'Gallery Block', time: '2pm – 7pm',
-    category: 'Art', attending: 19, color: '#60a5fa',
-    bg: 'rgba(96,165,250,0.12)',
-  },
-  {
-    month: 'APR', day: '17', title: 'Debate Club Open Night',
-    venue: 'Law Faculty Hall', time: '5pm – 8pm',
-    category: 'Academic', attending: 33, color: '#fbbf24',
-    bg: 'rgba(251,191,36,0.12)',
-  },
+const TABS: { label: string; value: Tab }[] = [
+  { label: 'Upcoming', value: 'upcoming' },
+  { label: 'My RSVPs', value: 'rsvps' },
+  { label: 'Past', value: 'past' },
 ]
 
 export default function EventsScreen() {
+  const [activeTab, setActiveTab] = useState<Tab>('upcoming')
+  const [events, setEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadTab(activeTab)
+  }, [activeTab])
+
+  const loadTab = async (tab: Tab) => {
+    setLoading(true)
+    setError(null)
+    try {
+      if (tab === 'upcoming') {
+        const { data, error: err } = await getEvents({ upcoming: true })
+        if (err) throw err
+        setEvents(data ?? [])
+      } else if (tab === 'past') {
+        const { data, error: err } = await getEvents({ upcoming: false })
+        if (err) throw err
+        // Filter to past only (starts_at < now)
+        const now = new Date().toISOString()
+        setEvents((data ?? []).filter(e => e.starts_at < now))
+      } else {
+        // My RSVPs
+        const { data, error: err } = await getMyRsvps()
+        if (err) throw err
+        setEvents((data ?? []).map(r => ({
+          ...r.event,
+          user_rsvp_status: r.rsvp.status,
+        })))
+      }
+    } catch (err) {
+      setError((err as Error).message)
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true)
+    loadTab(activeTab)
+  }, [activeTab])
+
   return (
-    <SafeAreaView style={s.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={s.container} edges={['top']}>
+      {/* Header */}
+      <View style={s.header}>
+        <Text style={s.title}>Events</Text>
+        <TouchableOpacity
+          style={s.createBtn}
+          onPress={() => router.push('/create-event' as any)}>
+          <Ionicons name="add" size={18} color="#a78bfa" />
+        </TouchableOpacity>
+      </View>
 
-        <View style={s.header}>
-          <Text style={s.title}>Events</Text>
-          <TouchableOpacity style={s.filterBtn}>
-            <Text style={s.filterText}>Filter ▾</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 8, marginBottom: 16 }}>
-          {dates.map((d, i) => (
-            <TouchableOpacity
-              key={i}
-              style={[s.datePill, d.active && s.datePillActive]}>
-              <Text style={s.dateDay}>{d.day}</Text>
-              <Text style={[s.dateNum, d.active && s.dateNumActive]}>{d.num}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-
-        <View style={s.sectionHeader}>
-          <Text style={s.sectionTitle}>Today · Wednesday 16 Apr</Text>
-        </View>
-
-        {events.map((e, i) => (
-          <TouchableOpacity key={i} style={s.eventCard}>
-            <View style={s.eventDate}>
-              <Text style={s.eventMonth}>{e.month}</Text>
-              <Text style={s.eventDay}>{e.day}</Text>
-            </View>
-            <View style={s.eventInfo}>
-              <Text style={s.eventTitle}>{e.title}</Text>
-              <Text style={s.eventVenue}>📍 {e.venue} · {e.time}</Text>
-              <View style={s.eventFooter}>
-                <View style={[s.badge, { backgroundColor: e.bg }]}>
-                  <Text style={[s.badgeText, { color: e.color }]}>{e.category}</Text>
-                </View>
-                <Text style={s.attending}>+{e.attending} attending</Text>
-              </View>
-            </View>
-            <TouchableOpacity style={s.rsvpBtn}>
-              <Text style={s.rsvpText}>RSVP</Text>
-            </TouchableOpacity>
+      {/* Tabs */}
+      <View style={s.tabBar}>
+        {TABS.map(tab => (
+          <TouchableOpacity
+            key={tab.value}
+            style={[s.tab, activeTab === tab.value && s.tabActive]}
+            onPress={() => setActiveTab(tab.value)}>
+            <Text style={[s.tabText, activeTab === tab.value && s.tabTextActive]}>
+              {tab.label}
+            </Text>
           </TouchableOpacity>
         ))}
+      </View>
 
-        <View style={{ height: 20 }} />
-      </ScrollView>
+      {loading && !refreshing ? (
+        <View style={s.loadingWrap}>
+          <ActivityIndicator size="large" color="#a78bfa" />
+        </View>
+      ) : error ? (
+        <View style={s.loadingWrap}>
+          <Text style={s.errorText}>Failed to load events</Text>
+          <TouchableOpacity style={s.retryBtn} onPress={() => loadTab(activeTab)}>
+            <Text style={s.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <FlatList
+          data={events}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => <EventCard event={item} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#a78bfa"
+            />
+          }
+          ListEmptyComponent={
+            <View style={s.empty}>
+              <Ionicons name="calendar-outline" size={48} color="rgba(240,240,255,0.12)" />
+              <Text style={s.emptyTitle}>
+                {activeTab === 'rsvps' ? 'No RSVPs yet' : 'No events found'}
+              </Text>
+              <Text style={s.emptyText}>
+                {activeTab === 'rsvps'
+                  ? 'Browse upcoming events and RSVP!'
+                  : 'Check back soon or create one.'}
+              </Text>
+            </View>
+          }
+          contentContainerStyle={{ paddingTop: 8, paddingBottom: 80 }}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
+
+      {/* FAB */}
+      <TouchableOpacity
+        style={s.fab}
+        onPress={() => router.push('/create-event' as any)}>
+        <Ionicons name="add" size={26} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   )
 }
@@ -106,79 +149,46 @@ export default function EventsScreen() {
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0d0d14' },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 10,
   },
   title: { fontSize: 22, fontWeight: '700', color: '#f0f0ff' },
-  filterBtn: {
+  createBtn: {
+    width: 36, height: 36, borderRadius: 18,
     backgroundColor: '#1c1c2e',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 0.5, borderColor: 'rgba(167,139,250,0.3)',
   },
-  filterText: { fontSize: 12, color: 'rgba(240,240,255,0.5)' },
-  datePill: {
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-    backgroundColor: '#1c1c2e',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  datePillActive: {
-    backgroundColor: 'rgba(167,139,250,0.15)',
-    borderColor: 'rgba(167,139,250,0.35)',
-  },
-  dateDay: { fontSize: 10, color: 'rgba(240,240,255,0.35)', marginBottom: 2 },
-  dateNum: { fontSize: 16, fontWeight: '600', color: 'rgba(240,240,255,0.6)' },
-  dateNumActive: { color: '#a78bfa' },
-  sectionHeader: { paddingHorizontal: 16, marginBottom: 10 },
-  sectionTitle: { fontSize: 12, fontWeight: '500', color: 'rgba(240,240,255,0.4)' },
-  eventCard: {
-    marginHorizontal: 16,
-    marginBottom: 10,
-    backgroundColor: '#1c1c2e',
-    borderRadius: 16,
-    padding: 14,
+  tabBar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
+    marginHorizontal: 16, marginBottom: 8,
+    backgroundColor: '#1c1c2e',
+    borderRadius: 12, padding: 3,
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)',
   },
-  eventDate: {
-    alignItems: 'center',
-    width: 36,
-    flexShrink: 0,
+  tab: {
+    flex: 1, paddingVertical: 8,
+    alignItems: 'center', borderRadius: 10,
   },
-  eventMonth: {
-    fontSize: 9,
-    color: 'rgba(240,240,255,0.35)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  tabActive: { backgroundColor: 'rgba(167,139,250,0.2)' },
+  tabText: { fontSize: 12, color: 'rgba(240,240,255,0.4)', fontWeight: '500' },
+  tabTextActive: { color: '#a78bfa', fontWeight: '600' },
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  errorText: { fontSize: 14, color: 'rgba(240,240,255,0.4)' },
+  retryBtn: {
+    backgroundColor: '#a78bfa', borderRadius: 20,
+    paddingHorizontal: 20, paddingVertical: 8,
   },
-  eventDay: { fontSize: 22, fontWeight: '700', color: '#f0f0ff', lineHeight: 26 },
-  eventInfo: { flex: 1 },
-  eventTitle: { fontSize: 13, fontWeight: '600', color: '#f0f0ff', marginBottom: 3 },
-  eventVenue: { fontSize: 11, color: 'rgba(240,240,255,0.35)', marginBottom: 8 },
-  eventFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  badge: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 },
-  badgeText: { fontSize: 10, fontWeight: '500' },
-  attending: { fontSize: 10, color: 'rgba(240,240,255,0.3)' },
-  rsvpBtn: {
-    backgroundColor: 'rgba(167,139,250,0.15)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 0.5,
-    borderColor: 'rgba(167,139,250,0.3)',
+  retryText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  empty: { alignItems: 'center', paddingTop: 60, gap: 10, paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#f0f0ff' },
+  emptyText: { fontSize: 13, color: 'rgba(240,240,255,0.4)', textAlign: 'center' },
+  fab: {
+    position: 'absolute', bottom: 24, right: 20,
+    width: 54, height: 54, borderRadius: 27,
+    backgroundColor: '#a78bfa',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#a78bfa', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
   },
-  rsvpText: { fontSize: 11, color: '#a78bfa', fontWeight: '600' },
 })

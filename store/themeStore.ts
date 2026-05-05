@@ -1,7 +1,5 @@
 import { create } from 'zustand'
-import { MMKV } from 'react-native-mmkv'
-
-const storage = new MMKV()
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 interface ThemeState {
   isDark: boolean
@@ -9,12 +7,12 @@ interface ThemeState {
 }
 
 export const useThemeStore = create<ThemeState>((set) => ({
-  isDark: storage.getBoolean('isDark') ?? true,
+  isDark: true,
 
   toggleTheme: () =>
     set((state) => {
       const next = !state.isDark
-      storage.set('isDark', next)
+      AsyncStorage.setItem('isDark', String(next)).catch(() => {})
       return { isDark: next }
     }),
 }))
