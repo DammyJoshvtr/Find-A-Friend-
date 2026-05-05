@@ -25,6 +25,8 @@ import { getClubs } from '../lib/clubs'
 import { supabase } from '../lib/supabase'
 import type { Club } from '../lib/clubs'
 
+const SUPABASE_URL = 'https://vcbtvhociaioeyhhsczh.supabase.co'
+
 type PostType = 'feed' | 'club' | 'academic'
 
 const POST_TYPES: { label: string; value: PostType; icon: string }[] = [
@@ -60,25 +62,30 @@ export default function CreatePostScreen() {
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [16, 9],
+      mediaTypes: 'images',
+      allowsEditing: false,
       quality: 0.75,
+      copyToCacheDirectory: true,
     })
     if (!result.canceled) setImageUri(result.assets[0].uri)
   }
 
   const uploadImage = async (uri: string): Promise<string | null> => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return null
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return null
     const ext = uri.split('.').pop() ?? 'jpg'
-    const path = `${user.id}/${Date.now()}.${ext}`
-    const response = await fetch(uri)
-    const blob = await response.blob()
-    const { error } = await supabase.storage
-      .from('posts-media')
-      .upload(path, blob, { contentType: `image/${ext}` })
-    if (error) return null
+    const path = `${session.user.id}/${Date.now()}.${ext}`
+    const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
+
+    const formData = new FormData()
+    formData.append('file', { uri, name: `upload.${ext}`, type: mimeType } as any)
+
+    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/posts-media/${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${session.access_token}`, 'x-upsert': 'false' },
+      body: formData,
+    })
+    if (!res.ok) return null
     const { data } = supabase.storage.from('posts-media').getPublicUrl(path)
     return data.publicUrl
   }

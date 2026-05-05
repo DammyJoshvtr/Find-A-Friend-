@@ -8,6 +8,7 @@
  * 1-hour signed URLs. The download count is incremented atomically via RPC.
  */
 import { supabase } from './supabase'
+import { uploadFile } from './upload'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -364,17 +365,24 @@ export async function uploadResource(payload: UploadResourcePayload): Promise<{
     const ext = payload.fileName.split('.').pop() ?? 'pdf'
     const storagePath = `${user.id}/${Date.now()}_${payload.fileName}`
 
-    const response = await fetch(payload.fileUri)
-    const blob = await response.blob()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('Not authenticated')
 
-    const { error: uploadError } = await supabase.storage
-      .from('academic-resources')
-      .upload(storagePath, blob, {
-        contentType: payload.mimeType,
-        upsert: false,
-      })
+    const formData = new FormData()
+    formData.append('file', { uri: payload.fileUri, name: payload.fileName, type: payload.mimeType } as any)
 
-    if (uploadError) throw uploadError
+    const uploadRes = await fetch(
+      `https://vcbtvhociaioeyhhsczh.supabase.co/storage/v1/object/academic-resources/${storagePath}`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'x-upsert': 'false' },
+        body: formData,
+      }
+    )
+    if (!uploadRes.ok) {
+      const msg = await uploadRes.text().catch(() => uploadRes.status.toString())
+      throw new Error(`Upload failed: ${msg}`)
+    }
 
     // For private bucket, store the storage path (signed URLs generated on demand)
     const { data, error: insertError } = await supabase

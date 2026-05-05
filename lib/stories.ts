@@ -8,6 +8,7 @@
  * foreground to assist cleanup on the free Supabase tier (no pg_cron).
  */
 import { supabase } from './supabase'
+import { uploadFile } from './upload'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -192,20 +193,10 @@ export async function uploadStoryMedia(uri: string, mimeType: string): Promise<{
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
-    const ext = uri.split('.').pop() ?? 'jpg'
+    const ext = mimeType.split('/')[1]?.split(';')[0] ?? uri.split('.').pop() ?? 'jpg'
     const path = `${user.id}/${Date.now()}.${ext}`
-
-    const response = await fetch(uri)
-    const blob = await response.blob()
-
-    const { error: uploadError } = await supabase.storage
-      .from('stories')
-      .upload(path, blob, { contentType: mimeType, upsert: false })
-
-    if (uploadError) throw uploadError
-
-    const { data: urlData } = supabase.storage.from('stories').getPublicUrl(path)
-    return { data: urlData.publicUrl, error: null }
+    const publicUrl = await uploadFile('stories', path, uri, mimeType)
+    return { data: publicUrl, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }

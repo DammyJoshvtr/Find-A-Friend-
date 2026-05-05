@@ -7,6 +7,7 @@
  * Club announcements can only be posted by club admins/moderators.
  */
 import { supabase } from './supabase'
+import { uploadFile } from './upload'
 import type { FeedPost } from './feed'
 import type { Event } from './events'
 
@@ -226,7 +227,7 @@ export async function getClubPosts(
 ): Promise<{ data: FeedPost[] | null; error: Error | null }> {
   try {
     let query = supabase
-      .from('public_posts')
+      .from('posts')
       .select('*, profiles(id, full_name, department, level, avatar_url)')
       .eq('club_id', clubId)
       .order('created_at', { ascending: false })
@@ -382,18 +383,10 @@ export async function uploadClubCover(uri: string): Promise<{
   try {
     const ext = uri.split('.').pop() ?? 'jpg'
     const path = `${Date.now()}.${ext}`
+    const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
 
-    const response = await fetch(uri)
-    const blob = await response.blob()
-
-    const { error: uploadError } = await supabase.storage
-      .from('club-covers')
-      .upload(path, blob, { contentType: `image/${ext}`, upsert: false })
-
-    if (uploadError) throw uploadError
-
-    const { data: urlData } = supabase.storage.from('club-covers').getPublicUrl(path)
-    return { data: urlData.publicUrl, error: null }
+    const publicUrl = await uploadFile('club-covers', path, uri, mimeType)
+    return { data: publicUrl, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }

@@ -6,6 +6,7 @@
  * Events are visible only when `is_public = true` per RLS policy.
  */
 import { supabase } from './supabase'
+import { uploadFile } from './upload'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -352,18 +353,10 @@ export async function uploadEventCover(uri: string): Promise<{
 
     const ext = uri.split('.').pop() ?? 'jpg'
     const path = `${user.id}/${Date.now()}.${ext}`
+    const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
 
-    const response = await fetch(uri)
-    const blob = await response.blob()
-
-    const { error: uploadError } = await supabase.storage
-      .from('event-covers')
-      .upload(path, blob, { contentType: `image/${ext}`, upsert: false })
-
-    if (uploadError) throw uploadError
-
-    const { data: urlData } = supabase.storage.from('event-covers').getPublicUrl(path)
-    return { data: urlData.publicUrl, error: null }
+    const publicUrl = await uploadFile('event-covers', path, uri, mimeType)
+    return { data: publicUrl, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }

@@ -7,6 +7,7 @@
  * Deals are created by vendors and are only visible when their vendor is approved.
  */
 import { supabase } from './supabase'
+import { uploadFile } from './upload'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -369,18 +370,10 @@ export async function uploadVendorLogo(uri: string): Promise<{
 
     const ext = uri.split('.').pop() ?? 'jpg'
     const path = `${user.id}/${Date.now()}.${ext}`
+    const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
 
-    const response = await fetch(uri)
-    const blob = await response.blob()
-
-    const { error: uploadError } = await supabase.storage
-      .from('vendor-assets')
-      .upload(path, blob, { contentType: `image/${ext}`, upsert: false })
-
-    if (uploadError) throw uploadError
-
-    const { data: urlData } = supabase.storage.from('vendor-assets').getPublicUrl(path)
-    return { data: urlData.publicUrl, error: null }
+    const publicUrl = await uploadFile('vendor-assets', path, uri, mimeType)
+    return { data: publicUrl, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }

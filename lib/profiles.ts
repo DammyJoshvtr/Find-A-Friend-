@@ -7,6 +7,7 @@
  * getAllProfiles, getProfileStats, and setOnlineStatus continue to work.
  */
 import { supabase } from './supabase'
+import { uploadFile } from './upload'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -171,25 +172,17 @@ export async function uploadAvatar(uri: string): Promise<{
 
     const ext = uri.split('.').pop() ?? 'jpg'
     const path = `${user.id}.${ext}`
+    const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
 
-    const response = await fetch(uri)
-    const blob = await response.blob()
-
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(path, blob, { contentType: `image/${ext}`, upsert: true })
-
-    if (uploadError) throw uploadError
-
-    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path)
+    const publicUrl = await uploadFile('avatars', path, uri, mimeType, true)
 
     // Persist the URL to the profile
     await supabase
       .from('profiles')
-      .update({ avatar_url: urlData.publicUrl })
+      .update({ avatar_url: publicUrl })
       .eq('id', user.id)
 
-    return { data: urlData.publicUrl, error: null }
+    return { data: publicUrl, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -201,7 +194,7 @@ export async function uploadAvatar(uri: string): Promise<{
 
 export async function getUserPosts(userId: string, limit = 20) {
   const { data, error } = await supabase
-    .from('public_posts')
+    .from('posts')
     .select('id, body, tags, image_url, is_anonymous, likes_count, comments_count, created_at')
     .eq('author_id', userId)
     .eq('is_anonymous', false)
