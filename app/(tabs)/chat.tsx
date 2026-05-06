@@ -5,6 +5,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import * as Haptics from 'expo-haptics'
 import { supabase } from '../../lib/supabase'
@@ -148,39 +149,10 @@ export default function ChatScreen() {
     setSending(false)
   }
 
-  const startNewChat = async (otherUser: any) => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    const [{ data: myConvs }, { data: theirConvs }] = await Promise.all([
-      supabase.from('conversation_participants').select('conversation_id').eq('user_id', user.id),
-      supabase.from('conversation_participants').select('conversation_id').eq('user_id', otherUser.id),
-    ])
-
-    const myIds = new Set(myConvs?.map((c: any) => c.conversation_id) ?? [])
-    const existing = theirConvs?.find((c: any) => myIds.has(c.conversation_id))
-
-    if (existing) {
-      const existingConv = conversations.find(c => c.conversation_id === existing.conversation_id)
-      setShowNewChat(false)
-      setUserSearch('')
-      if (existingConv) setActiveConv(existingConv)
-      else { await loadConversations() }
-      return
-    }
-
-    const { data: conv } = await supabase
-      .from('conversations')
-      .insert({ name: otherUser.full_name || otherUser.email, is_group: false })
-      .select().single()
-    if (!conv) return
-    await supabase.from('conversation_participants').insert([
-      { conversation_id: conv.id, user_id: user.id },
-      { conversation_id: conv.id, user_id: otherUser.id },
-    ])
+  const startNewChat = (otherUser: any) => {
     setShowNewChat(false)
     setUserSearch('')
-    await loadConversations()
+    router.push(`/chat/${otherUser.id}` as any)
   }
 
   const openNewChat = async () => {
