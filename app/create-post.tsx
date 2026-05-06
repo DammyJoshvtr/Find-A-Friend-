@@ -65,14 +65,13 @@ export default function CreatePostScreen() {
       mediaTypes: 'images',
       allowsEditing: false,
       quality: 0.75,
-      copyToCacheDirectory: true,
     })
     if (!result.canceled) setImageUri(result.assets[0].uri)
   }
 
-  const uploadImage = async (uri: string): Promise<string | null> => {
+  const uploadImage = async (uri: string): Promise<string> => {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return null
+    if (!session) throw new Error('Not authenticated')
     const ext = uri.split('.').pop() ?? 'jpg'
     const path = `${session.user.id}/${Date.now()}.${ext}`
     const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
@@ -85,7 +84,10 @@ export default function CreatePostScreen() {
       headers: { Authorization: `Bearer ${session.access_token}`, 'x-upsert': 'false' },
       body: formData,
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      const msg = await res.text().catch(() => `HTTP ${res.status}`)
+      throw new Error(`Image upload failed: ${msg}`)
+    }
     const { data } = supabase.storage.from('posts-media').getPublicUrl(path)
     return data.publicUrl
   }
@@ -114,8 +116,8 @@ export default function CreatePostScreen() {
       })
       if (error) throw error
       router.back()
-    } catch (err) {
-      Alert.alert('Error', 'Could not post. Please try again.')
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? JSON.stringify(err) ?? 'Unknown error')
     } finally {
       setPosting(false)
     }

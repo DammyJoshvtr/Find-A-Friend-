@@ -1,15 +1,10 @@
-/**
- * components/discover/UserCard.tsx
- * User card with follow/unfollow toggle.
- */
 import React, { useState } from 'react'
-import {
-  View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator,
-} from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native'
 import { router } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { followUser, unfollowUser } from '../../lib/follows'
 import { getInitials } from '../../lib/matching'
+import { useTheme } from '../../lib/theme'
 import type { FollowProfile } from '../../lib/follows'
 
 interface UserCardProps {
@@ -21,6 +16,7 @@ interface UserCardProps {
 export default function UserCard({ user, isFollowing: initialFollowing = false, isCurrentUser }: UserCardProps) {
   const [following, setFollowing] = useState(initialFollowing)
   const [loading, setLoading] = useState(false)
+  const theme = useTheme()
 
   const handleFollow = async () => {
     if (isCurrentUser) return
@@ -38,13 +34,11 @@ export default function UserCard({ user, isFollowing: initialFollowing = false, 
     setLoading(false)
   }
 
-  const handlePress = () => {
-    router.push(`/profile/${user.id}` as any)
-  }
-
   return (
-    <TouchableOpacity style={s.card} onPress={handlePress} activeOpacity={0.85}>
-      <View style={s.avatar}>
+    <TouchableOpacity
+      style={[s.card, { backgroundColor: theme.card, borderColor: theme.border }]}
+      onPress={() => router.push(`/profile/${user.id}` as any)} activeOpacity={0.85}>
+      <View style={[s.avatar, { backgroundColor: theme.card2 }]}>
         {user.avatar_url ? (
           <Image source={{ uri: user.avatar_url }} style={s.avatarImg} />
         ) : (
@@ -53,24 +47,23 @@ export default function UserCard({ user, isFollowing: initialFollowing = false, 
       </View>
 
       <View style={s.info}>
-        <Text style={s.name} numberOfLines={1}>{user.full_name ?? 'Student'}</Text>
+        <Text style={[s.name, { color: theme.text }]} numberOfLines={1}>{user.full_name ?? 'Student'}</Text>
         {user.department ? (
-          <Text style={s.dept} numberOfLines={1}>
+          <Text style={[s.dept, { color: theme.textMuted }]} numberOfLines={1}>
             {user.department}{user.level ? ` · ${user.level}` : ''}
           </Text>
         ) : null}
-        <Text style={s.followers}>{user.follower_count ?? 0} followers</Text>
+        <Text style={[s.followers, { color: theme.textFaint }]}>{user.follower_count ?? 0} followers</Text>
       </View>
 
       {!isCurrentUser && (
         <TouchableOpacity
-          style={[s.followBtn, following && s.followingBtn]}
-          onPress={handleFollow}
-          disabled={loading}>
+          style={[s.followBtn, { backgroundColor: theme.accent }, following && { backgroundColor: theme.accentBg, borderWidth: 0.5, borderColor: theme.accentBorder }]}
+          onPress={handleFollow} disabled={loading}>
           {loading ? (
-            <ActivityIndicator size="small" color={following ? '#a78bfa' : '#fff'} />
+            <ActivityIndicator size="small" color={following ? theme.accent : '#fff'} />
           ) : (
-            <Text style={[s.followText, following && s.followingText]}>
+            <Text style={[s.followText, following && { color: theme.accent }]}>
               {following ? 'Following' : 'Follow'}
             </Text>
           )}
@@ -81,35 +74,14 @@ export default function UserCard({ user, isFollowing: initialFollowing = false, 
 }
 
 const s = StyleSheet.create({
-  card: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#1c1c2e',
-    borderRadius: 14, padding: 12,
-    marginHorizontal: 16, marginBottom: 8,
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
-  },
-  avatar: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#2a1e40',
-    alignItems: 'center', justifyContent: 'center',
-    overflow: 'hidden', flexShrink: 0,
-    borderWidth: 1.5, borderColor: '#a78bfa',
-  },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, padding: 12, marginHorizontal: 16, marginBottom: 8, borderWidth: 0.5 },
+  avatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0, borderWidth: 1.5, borderColor: '#a78bfa' },
   avatarImg: { width: 44, height: 44, borderRadius: 22 },
   initials: { fontSize: 14, fontWeight: '700', color: '#c4b5fd' },
   info: { flex: 1 },
-  name: { fontSize: 14, fontWeight: '600', color: '#f0f0ff', marginBottom: 2 },
-  dept: { fontSize: 11, color: 'rgba(240,240,255,0.4)', marginBottom: 2 },
-  followers: { fontSize: 10, color: 'rgba(240,240,255,0.3)' },
-  followBtn: {
-    backgroundColor: '#a78bfa', borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 7,
-    minWidth: 72, alignItems: 'center',
-  },
-  followingBtn: {
-    backgroundColor: 'rgba(167,139,250,0.12)',
-    borderWidth: 0.5, borderColor: 'rgba(167,139,250,0.4)',
-  },
+  name: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  dept: { fontSize: 11, marginBottom: 2 },
+  followers: { fontSize: 10 },
+  followBtn: { borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7, minWidth: 72, alignItems: 'center' },
   followText: { fontSize: 12, fontWeight: '600', color: '#fff' },
-  followingText: { color: '#a78bfa' },
 })

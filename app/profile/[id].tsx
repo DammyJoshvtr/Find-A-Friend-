@@ -120,12 +120,12 @@ export default function ProfileScreen() {
       const targetId = user?.id === id ? user.id : id
       const { data } = await supabase
         .from('post_likes')
-        .select('post_id, public_posts(id, body, tags, image_url, is_anonymous, likes_count, comments_count, created_at)')
+        .select('post_id, posts(id, body, tags, image_url, is_anonymous, likes_count, comments_count, created_at)')
         .eq('user_id', targetId)
         .order('created_at', { ascending: false })
         .limit(30)
       const likedData = (data ?? [])
-        .map((r: any) => r.public_posts)
+        .map((r: any) => r.posts)
         .filter(Boolean) as MiniPost[]
       setLikedPosts(likedData)
     }

@@ -26,9 +26,8 @@ export default function CreateStoryScreen() {
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsEditing: true,
-      aspect: [9, 16],
+      mediaTypes: 'images',
+      allowsEditing: false,
       quality: 0.8,
     })
     if (!result.canceled) {
@@ -57,8 +56,9 @@ export default function CreateStoryScreen() {
       })
       if (createError) throw createError
       router.back()
-    } catch (err) {
-      Alert.alert('Error', 'Could not post story. Please try again.')
+    } catch (err: any) {
+      const msg = err?.message ?? JSON.stringify(err) ?? 'Unknown error'
+      Alert.alert('Error', msg)
     } finally {
       setUploading(false)
     }

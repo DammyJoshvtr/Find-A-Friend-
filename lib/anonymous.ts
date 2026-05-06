@@ -100,7 +100,7 @@ export async function getAnonymousPosts(
 ): Promise<{ data: AnonymousPost[] | null; error: Error | null }> {
   try {
     let query = supabase
-      .from('public_posts')
+      .from('posts')
       .select('id, body, tags, image_url, is_anonymous, post_type, likes_count, comments_count, author_id, created_at')
       .eq('is_anonymous', true)
       .order('created_at', { ascending: false })

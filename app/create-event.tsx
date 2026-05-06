@@ -33,9 +33,8 @@ export default function CreateEventScreen() {
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [16, 9],
+      mediaTypes: 'images',
+      allowsEditing: false,
       quality: 0.75,
     })
     if (!result.canceled) setCoverUri(result.assets[0].uri)
@@ -72,8 +71,8 @@ export default function CreateEventScreen() {
       })
       if (error) throw error
       router.back()
-    } catch (err) {
-      Alert.alert('Error', 'Could not create event. Please try again.')
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? JSON.stringify(err) ?? 'Could not create event.')
     } finally {
       setSubmitting(false)
     }

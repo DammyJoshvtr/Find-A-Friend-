@@ -36,8 +36,9 @@ export interface FeedPost {
   author_id: string | null  // null when is_anonymous = true
   created_at: string
   profiles?: FeedAuthor | null
-  // Client-side derived field — populated after checking post_likes
+  // Client-side derived fields
   is_liked?: boolean
+  is_bookmarked?: boolean
   // Reposted original post (populated when repost_of != null)
   original_post?: FeedPost | null
 }
@@ -84,7 +85,7 @@ export async function getFeed(cursor?: string, limit = 20): Promise<{
 }> {
   try {
     let query = supabase
-      .from('public_posts')
+      .from('posts')
       .select('*, profiles(id, full_name, department, level, avatar_url)')
       .eq('is_anonymous', false)
       .order('created_at', { ascending: false })
@@ -295,7 +296,7 @@ export async function repostPost(
 
     // Fetch original post to copy its content into the repost row
     const { data: original, error: origError } = await supabase
-      .from('public_posts')
+      .from('posts')
       .select('body, tags, image_url')
       .eq('id', postId)
       .single()
@@ -366,7 +367,7 @@ export async function getHashtagPosts(
     if (!postIds.length) return { data: [], error: null }
 
     let query = supabase
-      .from('public_posts')
+      .from('posts')
       .select('*, profiles(id, full_name, department, level, avatar_url)')
       .in('id', postIds)
       .order('created_at', { ascending: false })
@@ -403,6 +404,115 @@ export async function getTrending(): Promise<{
 }
 
 // ---------------------------------------------------------------------------
+// Bookmarks
+// ---------------------------------------------------------------------------
+
+export async function bookmarkPost(postId: string): Promise<{
+  data: { bookmarked: boolean } | null
+  error: Error | null
+}> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data: existing } = await supabase
+      .from('post_bookmarks')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('post_id', postId)
+      .maybeSingle()
+
+    if (existing) {
+      await supabase.from('post_bookmarks').delete()
+        .eq('user_id', user.id).eq('post_id', postId)
+      return { data: { bookmarked: false }, error: null }
+    } else {
+      await supabase.from('post_bookmarks').insert({ user_id: user.id, post_id: postId })
+      return { data: { bookmarked: true }, error: null }
+    }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function getBookmarkedPosts(): Promise<{ data: FeedPost[] | null; error: Error | null }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data, error } = await supabase
+      .from('post_bookmarks')
+      .select('post_id, posts(*, profiles(id, full_name, department, level, avatar_url))')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+
+    const posts = (data ?? [])
+      .map((r: any) => r.posts)
+      .filter(Boolean)
+      .map((p: FeedPost) => ({ ...p, is_bookmarked: true }))
+
+    return { data: posts, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function getMyBookmarkedPostIds(postIds: string[]): Promise<string[]> {
+  if (!postIds.length) return []
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+  const { data } = await supabase
+    .from('post_bookmarks')
+    .select('post_id')
+    .eq('user_id', user.id)
+    .in('post_id', postIds)
+  return (data ?? []).map((r: { post_id: string }) => r.post_id)
+}
+
+// ---------------------------------------------------------------------------
+// Following feed
+// ---------------------------------------------------------------------------
+
+export async function getFollowingFeed(
+  cursor?: string,
+  limit = 20
+): Promise<{ data: FeedPost[] | null; error: Error | null }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data: followRows } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', user.id)
+
+    const followingIds: string[] = (followRows ?? []).map(
+      (r: { following_id: string }) => r.following_id
+    )
+
+    if (!followingIds.length) return { data: [], error: null }
+
+    let query = supabase
+      .from('posts')
+      .select('*, profiles(id, full_name, department, level, avatar_url)')
+      .in('author_id', followingIds)
+      .eq('is_anonymous', false)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (cursor) query = query.lt('created_at', cursor)
+
+    const { data, error } = await query
+    if (error) throw error
+    return { data: data as FeedPost[], error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Single post
 // ---------------------------------------------------------------------------
 
@@ -412,7 +522,7 @@ export async function getPost(postId: string): Promise<{
 }> {
   try {
     const { data, error } = await supabase
-      .from('public_posts')
+      .from('posts')
       .select('*, profiles(id, full_name, department, level, avatar_url)')
       .eq('id', postId)
       .single()

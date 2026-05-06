@@ -10,7 +10,11 @@
  *   in-place without re-fetching the whole feed
  */
 import { create } from 'zustand'
-import { getFeed, likePost, getMyLikedPostIds } from '../lib/feed'
+import {
+  getFeed, likePost, getMyLikedPostIds,
+  bookmarkPost, getMyBookmarkedPostIds,
+  getFollowingFeed,
+} from '../lib/feed'
 import type { FeedPost } from '../lib/feed'
 
 // ---------------------------------------------------------------------------
@@ -22,26 +26,19 @@ interface FeedState {
   loading: boolean
   refreshing: boolean
   hasMore: boolean
-  /** cursor = created_at of the oldest loaded post */
   cursor: string | null
-  /** Set of post IDs the current user has liked (hydrated on load) */
   likedPostIds: Set<string>
+  bookmarkedPostIds: Set<string>
+  activeTab: 'forYou' | 'following'
   error: string | null
 
-  // Actions
   loadFeed: () => Promise<void>
   refresh: () => Promise<void>
   loadMore: () => Promise<void>
   toggleLike: (postId: string) => Promise<void>
-  /**
-   * Called when a new post INSERT arrives via realtime subscription.
-   * Prepends the post to the top of the list.
-   */
+  toggleBookmark: (postId: string) => Promise<void>
+  setTab: (tab: 'forYou' | 'following') => Promise<void>
   prependPost: (post: FeedPost) => void
-  /**
-   * Increments comment count locally after the user posts a comment,
-   * so the counter updates without re-fetching.
-   */
   incrementCommentCount: (postId: string) => void
 }
 
@@ -56,6 +53,8 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   hasMore: true,
   cursor: null,
   likedPostIds: new Set(),
+  bookmarkedPostIds: new Set(),
+  activeTab: 'forYou',
   error: null,
 
   // -------------------------------------------------------------------------
@@ -66,23 +65,28 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     set({ loading: true, error: null })
 
     try {
-      const { data, error } = await getFeed(undefined, 20)
+      const { activeTab } = get()
+      const fetcher = activeTab === 'following' ? getFollowingFeed : getFeed
+      const { data, error } = await fetcher(undefined, 20)
       if (error) throw error
 
       const posts = data ?? []
       const postIds = posts.map(p => p.id)
-      const likedIds = await getMyLikedPostIds(postIds)
+      const [likedIds, bookmarkedIds] = await Promise.all([
+        getMyLikedPostIds(postIds),
+        getMyBookmarkedPostIds(postIds),
+      ])
       const likedSet = new Set(likedIds)
-
-      // Hydrate is_liked field
-      const hydratedPosts = posts.map(p => ({
-        ...p,
-        is_liked: likedSet.has(p.id),
-      }))
+      const bookmarkedSet = new Set(bookmarkedIds)
 
       set({
-        posts: hydratedPosts,
+        posts: posts.map(p => ({
+          ...p,
+          is_liked: likedSet.has(p.id),
+          is_bookmarked: bookmarkedSet.has(p.id),
+        })),
         likedPostIds: likedSet,
+        bookmarkedPostIds: bookmarkedSet,
         cursor: posts.length > 0 ? posts[posts.length - 1].created_at : null,
         hasMore: posts.length === 20,
         loading: false,
@@ -99,21 +103,28 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     set({ refreshing: true, error: null })
 
     try {
-      const { data, error } = await getFeed(undefined, 20)
+      const { activeTab } = get()
+      const fetcher = activeTab === 'following' ? getFollowingFeed : getFeed
+      const { data, error } = await fetcher(undefined, 20)
       if (error) throw error
 
       const posts = data ?? []
-      const likedIds = await getMyLikedPostIds(posts.map(p => p.id))
+      const postIds = posts.map(p => p.id)
+      const [likedIds, bookmarkedIds] = await Promise.all([
+        getMyLikedPostIds(postIds),
+        getMyBookmarkedPostIds(postIds),
+      ])
       const likedSet = new Set(likedIds)
-
-      const hydratedPosts = posts.map(p => ({
-        ...p,
-        is_liked: likedSet.has(p.id),
-      }))
+      const bookmarkedSet = new Set(bookmarkedIds)
 
       set({
-        posts: hydratedPosts,
+        posts: posts.map(p => ({
+          ...p,
+          is_liked: likedSet.has(p.id),
+          is_bookmarked: bookmarkedSet.has(p.id),
+        })),
         likedPostIds: likedSet,
+        bookmarkedPostIds: bookmarkedSet,
         cursor: posts.length > 0 ? posts[posts.length - 1].created_at : null,
         hasMore: posts.length === 20,
         refreshing: false,
@@ -137,17 +148,22 @@ export const useFeedStore = create<FeedState>((set, get) => ({
       if (error) throw error
 
       const newPosts = data ?? []
-      const likedIds = await getMyLikedPostIds(newPosts.map(p => p.id))
+      const newIds = newPosts.map(p => p.id)
+      const [likedIds, bookmarkedIds] = await Promise.all([
+        getMyLikedPostIds(newIds),
+        getMyBookmarkedPostIds(newIds),
+      ])
       const newLikedIds = new Set([...get().likedPostIds, ...likedIds])
-
-      const hydratedPosts = newPosts.map(p => ({
-        ...p,
-        is_liked: newLikedIds.has(p.id),
-      }))
+      const newBookmarkedIds = new Set([...get().bookmarkedPostIds, ...bookmarkedIds])
 
       set(state => ({
-        posts: [...state.posts, ...hydratedPosts],
+        posts: [...state.posts, ...newPosts.map(p => ({
+          ...p,
+          is_liked: newLikedIds.has(p.id),
+          is_bookmarked: newBookmarkedIds.has(p.id),
+        }))],
         likedPostIds: newLikedIds,
+        bookmarkedPostIds: newBookmarkedIds,
         cursor: newPosts.length > 0 ? newPosts[newPosts.length - 1].created_at : state.cursor,
         hasMore: newPosts.length === 20,
         loading: false,
@@ -226,16 +242,15 @@ export const useFeedStore = create<FeedState>((set, get) => ({
 
         const reconciled = state.posts.map(p => {
           if (p.id !== postId) return p
-          // Keep our optimistic count unless it diverged from server state
-          const wasWrong = serverLiked === isCurrentlyLiked
-          if (wasWrong) {
-            // The server result matched the original state — our optimistic update was wrong
+          // optimistic predicted !isCurrentlyLiked; if server disagrees, revert count
+          const optimisticWasWrong = serverLiked === isCurrentlyLiked
+          if (optimisticWasWrong) {
             return {
               ...p,
               is_liked: serverLiked,
-              likes_count: serverLiked
-                ? p.likes_count + 1
-                : Math.max(0, p.likes_count - 1),
+              likes_count: isCurrentlyLiked
+                ? p.likes_count + 1          // we wrongly decremented — add back
+                : Math.max(0, p.likes_count - 1), // we wrongly incremented — remove
             }
           }
           return { ...p, is_liked: serverLiked }
@@ -244,6 +259,48 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         return { posts: reconciled, likedPostIds: newLikedIds }
       })
     }
+  },
+
+  // -------------------------------------------------------------------------
+  // Optimistic bookmark toggle
+  // -------------------------------------------------------------------------
+  toggleBookmark: async (postId: string) => {
+    const isBookmarked = get().bookmarkedPostIds.has(postId)
+
+    set(state => {
+      const ids = new Set(state.bookmarkedPostIds)
+      isBookmarked ? ids.delete(postId) : ids.add(postId)
+      return {
+        bookmarkedPostIds: ids,
+        posts: state.posts.map(p =>
+          p.id === postId ? { ...p, is_bookmarked: !isBookmarked } : p
+        ),
+      }
+    })
+
+    const { error } = await bookmarkPost(postId)
+    if (error) {
+      // rollback
+      set(state => {
+        const ids = new Set(state.bookmarkedPostIds)
+        isBookmarked ? ids.add(postId) : ids.delete(postId)
+        return {
+          bookmarkedPostIds: ids,
+          posts: state.posts.map(p =>
+            p.id === postId ? { ...p, is_bookmarked: isBookmarked } : p
+          ),
+        }
+      })
+    }
+  },
+
+  // -------------------------------------------------------------------------
+  // Tab switch (reloads feed for selected tab)
+  // -------------------------------------------------------------------------
+  setTab: async (tab: 'forYou' | 'following') => {
+    if (get().activeTab === tab) return
+    set({ activeTab: tab, posts: [], cursor: null, hasMore: true })
+    await get().loadFeed()
   },
 
   // -------------------------------------------------------------------------

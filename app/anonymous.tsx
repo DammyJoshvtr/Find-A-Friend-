@@ -14,6 +14,7 @@ import { getAnonymousPosts } from '../lib/anonymous'
 import AnonPostCard from '../components/anonymous/AnonPostCard'
 import CommentSheet from '../components/feed/CommentSheet'
 import type { AnonymousPost } from '../lib/anonymous'
+import { useTheme } from '../lib/theme'
 
 export default function AnonymousScreen() {
   const [posts, setPosts] = useState<AnonymousPost[]>([])
@@ -23,6 +24,7 @@ export default function AnonymousScreen() {
   const [hasMore, setHasMore] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [commentPostId, setCommentPostId] = useState<string | null>(null)
+  const theme = useTheme()
 
   useEffect(() => {
     loadPosts()
@@ -60,15 +62,15 @@ export default function AnonymousScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={20} color="#f0f0ff" />
+      <View style={[s.header, { borderBottomColor: theme.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={[s.backBtn, { backgroundColor: theme.card }]}>
+          <Ionicons name="arrow-back" size={20} color={theme.text} />
         </TouchableOpacity>
         <View>
-          <Text style={s.title}>Anonymous</Text>
-          <Text style={s.subtitle}>Campus confessions board</Text>
+          <Text style={[s.title, { color: theme.text }]}>Anonymous</Text>
+          <Text style={[s.subtitle, { color: theme.textMuted }]}>Campus confessions board</Text>
         </View>
         <View style={{ width: 36 }} />
       </View>
@@ -83,7 +85,7 @@ export default function AnonymousScreen() {
 
       {loading ? (
         <View style={s.loadingWrap}>
-          <ActivityIndicator size="large" color="#a78bfa" />
+          <ActivityIndicator size="large" color={theme.accent} />
         </View>
       ) : (
         <FlatList
@@ -93,20 +95,20 @@ export default function AnonymousScreen() {
             <AnonPostCard post={item} onCommentPress={setCommentPostId} />
           )}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#a78bfa" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />
           }
           onEndReached={loadMore}
           onEndReachedThreshold={0.5}
           ListFooterComponent={
             loadingMore ? (
-              <ActivityIndicator color="#a78bfa" style={{ paddingVertical: 16 }} />
+              <ActivityIndicator color={theme.accent} style={{ paddingVertical: 16 }} />
             ) : null
           }
           ListEmptyComponent={
             <View style={s.empty}>
-              <Ionicons name="eye-off-outline" size={48} color="rgba(240,240,255,0.1)" />
-              <Text style={s.emptyTitle}>No anonymous posts yet</Text>
-              <Text style={s.emptyText}>Be the first to post anonymously</Text>
+              <Ionicons name="eye-off-outline" size={48} color={theme.textFaint} />
+              <Text style={[s.emptyTitle, { color: theme.text }]}>No anonymous posts yet</Text>
+              <Text style={[s.emptyText, { color: theme.textMuted }]}>Be the first to post anonymously</Text>
             </View>
           }
           contentContainerStyle={{ paddingTop: 8, paddingBottom: 80 }}
@@ -131,18 +133,18 @@ export default function AnonymousScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomWidth: 0.5,
   },
   backBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 18, fontWeight: '700', color: '#f0f0ff', textAlign: 'center' },
-  subtitle: { fontSize: 10, color: 'rgba(240,240,255,0.35)', textAlign: 'center' },
+  title: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  subtitle: { fontSize: 10, textAlign: 'center' },
   disclaimer: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     marginHorizontal: 16, marginVertical: 10,

@@ -171,7 +171,7 @@ export async function uploadAvatar(uri: string): Promise<{
     if (!user) throw new Error('Not authenticated')
 
     const ext = uri.split('.').pop() ?? 'jpg'
-    const path = `${user.id}.${ext}`
+    const path = `${user.id}/${user.id}.${ext}`
     const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
 
     const publicUrl = await uploadFile('avatars', path, uri, mimeType, true)

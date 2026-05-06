@@ -215,9 +215,11 @@ export async function registerForPushNotifications(): Promise<string | null> {
       })
     }
 
-    return null
-  } catch (error) {
-    console.log('Push notification setup skipped:', error)
+    const { data: tokenData } = await Notifications.getExpoPushTokenAsync({
+      projectId: 'c91925a9-42d3-43de-bc48-1bd279422541',
+    })
+    return tokenData ?? null
+  } catch {
     return null
   }
 }

@@ -21,7 +21,7 @@ import { supabase } from './supabase'
  */
 export async function getFeedPosts() {
   const { data, error } = await supabase
-    .from('public_posts')
+    .from('posts')
     .select('*, profiles(id, full_name, department, level, avatar_url)')
     .eq('is_anonymous', false)
     .order('created_at', { ascending: false })
@@ -87,7 +87,7 @@ export async function likePost(postId: string) {
  */
 export async function getConfessionPosts() {
   const { data, error } = await supabase
-    .from('public_posts')
+    .from('posts')
     .select('id, body, tags, image_url, is_anonymous, post_type, likes_count, comments_count, author_id, created_at')
     .eq('is_anonymous', true)
     .order('created_at', { ascending: false })

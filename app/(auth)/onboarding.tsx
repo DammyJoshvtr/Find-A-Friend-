@@ -58,7 +58,6 @@ export default function OnboardingScreen() {
     .from('profiles')
     .upsert({
       id: user.id,
-      email: user.email,
       full_name: fullName.trim(),
       department,
       level,
@@ -95,7 +94,7 @@ export default function OnboardingScreen() {
               <Text style={s.label}>Full name</Text>
               <TextInput
                 style={s.input}
-                placeholder="Ayomide Enoch"
+                placeholder="Your full name"
                 placeholderTextColor="rgba(240,240,255,0.25)"
                 value={fullName}
                 onChangeText={setFullName}
