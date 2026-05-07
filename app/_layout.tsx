@@ -83,7 +83,6 @@ function AppStack() {
 
 async function checkForUpdate() {
   try {
-    if (!Updates.isEmbeddedLaunch) return
     const result = await Updates.checkForUpdateAsync()
     if (result.isAvailable) {
       await Updates.fetchUpdateAsync()
