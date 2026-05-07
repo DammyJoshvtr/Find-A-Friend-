@@ -1,6 +1,6 @@
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  ScrollView, KeyboardAvoidingView, Platform, Image, ActivityIndicator,
+  ScrollView, KeyboardAvoidingView, Platform, Image, ActivityIndicator, Alert,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
@@ -49,16 +49,24 @@ export default function DirectMessageScreen() {
     if (existing) {
       cid = existing.conversation_id
     } else {
-      // Create new conversation
-      const { data: conv } = await supabase
+      const { data: conv, error: convError } = await supabase
         .from('conversations')
         .insert({ name: profile?.full_name ?? 'Chat', is_group: false })
         .select().single()
-      if (!conv) { setLoading(false); return }
-      await supabase.from('conversation_participants').insert([
+      if (convError || !conv) {
+        setLoading(false)
+        Alert.alert('Could not start chat', convError?.message ?? 'Please try again.')
+        return
+      }
+      const { error: partError } = await supabase.from('conversation_participants').insert([
         { conversation_id: conv.id, user_id: user.id },
         { conversation_id: conv.id, user_id: otherUserId },
       ])
+      if (partError) {
+        setLoading(false)
+        Alert.alert('Could not start chat', partError.message)
+        return
+      }
       cid = conv.id
     }
 
