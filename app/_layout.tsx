@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Stack, router, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import * as Updates from 'expo-updates'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 import { useThemeStore } from '../store/themeStore'
@@ -80,10 +81,24 @@ function AppStack() {
   )
 }
 
+async function checkForUpdate() {
+  try {
+    if (!Updates.isEmbeddedLaunch) return
+    const result = await Updates.checkForUpdateAsync()
+    if (result.isAvailable) {
+      await Updates.fetchUpdateAsync()
+      await Updates.reloadAsync()
+    }
+  } catch {}
+}
+
 export default function RootLayout() {
   const { hydrate } = useThemeStore()
 
-  useEffect(() => { hydrate() }, [])
+  useEffect(() => {
+    hydrate()
+    checkForUpdate()
+  }, [])
 
   return (
     <ErrorBoundary>
