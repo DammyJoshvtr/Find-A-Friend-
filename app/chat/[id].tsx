@@ -2,7 +2,7 @@ import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ScrollView, KeyboardAvoidingView, Platform, Image, ActivityIndicator,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Ionicons } from '@expo/vector-icons'
@@ -13,6 +13,7 @@ import { useTheme } from '../../lib/theme'
 
 export default function DirectMessageScreen() {
   const { id: otherUserId } = useLocalSearchParams<{ id: string }>()
+  const insets = useSafeAreaInsets()
   const [myId, setMyId] = useState('')
   const [convId, setConvId] = useState<string | null>(null)
   const [otherProfile, setOtherProfile] = useState<any>(null)
@@ -215,7 +216,7 @@ export default function DirectMessageScreen() {
         )}
 
         {/* Input */}
-        <View style={[s.inputRow, { borderTopColor: theme.border, backgroundColor: theme.bg }]}>
+        <View style={[s.inputRow, { borderTopColor: theme.border, backgroundColor: theme.bg, paddingBottom: insets.bottom + 8 }]}>
           <TextInput
             style={[s.input, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
             placeholder="Message..."
@@ -228,9 +229,9 @@ export default function DirectMessageScreen() {
             onSubmitEditing={sendMessage}
           />
           <TouchableOpacity
-            style={[s.sendBtn, { backgroundColor: input.trim() ? theme.accent : theme.card }, (!input.trim() || sending) && { opacity: 0.5 }]}
+            style={[s.sendBtn, { backgroundColor: input.trim() ? theme.accent : theme.card }, (!input.trim() || sending || !convId) && { opacity: 0.5 }]}
             onPress={sendMessage}
-            disabled={!input.trim() || sending}>
+            disabled={!input.trim() || sending || !convId}>
             {sending
               ? <ActivityIndicator size="small" color="#fff" />
               : <Ionicons name="send" size={16} color={input.trim() ? '#fff' : theme.textMuted} />}

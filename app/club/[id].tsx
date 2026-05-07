@@ -18,6 +18,7 @@ import PostCard from '../../components/feed/PostCard'
 import EventCard from '../../components/events/EventCard'
 import { getInitials, getTimeAgo } from '../../lib/matching'
 import type { Club, ClubMember, ClubAnnouncement } from '../../lib/clubs'
+import { useTheme } from '../../lib/theme'
 import type { FeedPost } from '../../lib/feed'
 import type { Event } from '../../lib/events'
 
@@ -31,6 +32,7 @@ const TABS: { label: string; value: Tab }[] = [
 ]
 
 export default function ClubDetailScreen() {
+  const theme = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
   const [club, setClub] = useState<Club | null>(null)
   const [role, setRole] = useState<'member' | 'moderator' | 'admin' | null>(null)
@@ -194,7 +196,7 @@ export default function ClubDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color="#a78bfa" />
         </View>
@@ -204,7 +206,7 @@ export default function ClubDetailScreen() {
 
   if (!club) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <View style={s.loadingWrap}>
           <Text style={s.errorText}>Club not found</Text>
           <TouchableOpacity onPress={() => router.back()} style={s.retryBtn}>
@@ -216,7 +218,7 @@ export default function ClubDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['bottom']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['bottom']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Cover image */}
         <View style={s.heroWrap}>
@@ -287,7 +289,7 @@ function EmptyTab({ message }: { message: string }) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   errorText: { fontSize: 14, color: 'rgba(240,240,255,0.4)' },
   retryBtn: { backgroundColor: '#a78bfa', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8 },

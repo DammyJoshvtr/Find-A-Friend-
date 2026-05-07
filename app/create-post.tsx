@@ -24,6 +24,7 @@ import { createPost } from '../lib/feed'
 import { getClubs } from '../lib/clubs'
 import { supabase } from '../lib/supabase'
 import type { Club } from '../lib/clubs'
+import { useTheme } from '../lib/theme'
 
 const SUPABASE_URL = 'https://vcbtvhociaioeyhhsczh.supabase.co'
 
@@ -36,6 +37,7 @@ const POST_TYPES: { label: string; value: PostType; icon: string }[] = [
 ]
 
 export default function CreatePostScreen() {
+  const theme = useTheme()
   const [body, setBody] = useState('')
   const [imageUri, setImageUri] = useState<string | null>(null)
   const [postType, setPostType] = useState<PostType>('feed')
@@ -141,7 +143,7 @@ export default function CreatePostScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -261,7 +263,7 @@ export default function CreatePostScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between',

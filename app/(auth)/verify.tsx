@@ -3,6 +3,7 @@ import {
   Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useTheme } from '../../lib/theme'
 import { useState } from 'react'
 import { router } from 'expo-router'
 import { supabase } from '../../lib/supabase'
@@ -20,6 +21,7 @@ function isUniversityEmail(email: string) {
 }
 
 export default function VerifyScreen() {
+  const theme = useTheme()
   const insets = useSafeAreaInsets()
   const [mode, setMode] = useState<Mode>('signup')
   const [email, setEmail] = useState('')
@@ -99,7 +101,7 @@ export default function VerifyScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -206,7 +208,7 @@ export default function VerifyScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   scroll: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 16 },
   backBtn: { marginBottom: 24 },
   backText: { fontSize: 15, color: '#a78bfa' },

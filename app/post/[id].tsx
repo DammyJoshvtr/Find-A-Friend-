@@ -23,8 +23,10 @@ import { useFeedStore } from '../../store/feedStore'
 import { getInitials, getTimeAgo } from '../../lib/matching'
 import PostCard from '../../components/feed/PostCard'
 import type { FeedPost, PostComment } from '../../lib/feed'
+import { useTheme } from '../../lib/theme'
 
 export default function PostDetailScreen() {
+  const theme = useTheme()
   const insets = useSafeAreaInsets()
   const { id } = useLocalSearchParams<{ id: string }>()
   const [post, setPost] = useState<FeedPost | null>(null)
@@ -85,7 +87,7 @@ export default function PostDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color="#a78bfa" />
         </View>
@@ -95,7 +97,7 @@ export default function PostDetailScreen() {
 
   if (!post) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <View style={s.loadingWrap}>
           <Text style={s.errorText}>Post not found.</Text>
           <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
@@ -107,7 +109,7 @@ export default function PostDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -171,7 +173,7 @@ export default function PostDetailScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -222,7 +224,6 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
     padding: 12,
     borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: '#0d0d14',
   },
   input: {
     flex: 1,

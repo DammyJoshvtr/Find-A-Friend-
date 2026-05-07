@@ -18,6 +18,7 @@ import {
 import StudyGroupCard from '../components/academic/StudyGroupCard'
 import type { Course, StudyGroup, AcademicResource } from '../lib/academic'
 import { getTimeAgo } from '../lib/matching'
+import { useTheme } from '../lib/theme'
 
 type Tab = 'courses' | 'groups' | 'resources'
 
@@ -153,6 +154,7 @@ function ResourceRow({ resource }: { resource: AcademicResource }) {
 // ---------------------------------------------------------------------------
 
 export default function AcademicScreen() {
+  const theme = useTheme()
   const [activeTab, setActiveTab] = useState<Tab>('courses')
 
   const [courses, setCourses] = useState<Course[]>([])
@@ -313,7 +315,7 @@ export default function AcademicScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
@@ -368,7 +370,7 @@ export default function AcademicScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,

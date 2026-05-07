@@ -11,12 +11,14 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { applyAsVendor } from '../lib/vendors'
+import { useTheme } from '../lib/theme'
 
 const CATEGORIES = ['Food', 'Fashion', 'Tech', 'Beauty', 'Books', 'Health', 'Services']
 
 const EMOJI_OPTIONS = ['🏪', '🍔', '👗', '💻', '💄', '📚', '💊', '🔧', '☕', '🎵', '🏋️', '✂️']
 
 export default function VendorApplyScreen() {
+  const theme = useTheme()
   const [name, setName] = useState('')
   const [category, setCategory] = useState('')
   const [description, setDescription] = useState('')
@@ -52,7 +54,7 @@ export default function VendorApplyScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -166,7 +168,7 @@ export default function VendorApplyScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,

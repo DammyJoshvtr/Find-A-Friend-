@@ -5,6 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { useTheme } from '../lib/theme'
 import { getTimeAgo } from '../lib/matching'
 
 const VENUES = [
@@ -17,6 +18,7 @@ const VENUES = [
 ]
 
 export default function MapScreen() {
+  const theme = useTheme()
   const [events, setEvents] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedVenue, setSelectedVenue] = useState<any>(null)
@@ -45,7 +47,7 @@ export default function MapScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
       <View style={s.header}>
         <Text style={s.title}>Campus map</Text>
         <View style={s.liveBadge}>
@@ -176,7 +178,7 @@ export default function MapScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingHorizontal: 16,

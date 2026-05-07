@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { getCurrentProfile, updateProfile, uploadAvatar } from '../lib/profiles'
+import { useTheme } from '../lib/theme'
 import { getInitials } from '../lib/matching'
 import type { Profile } from '../lib/profiles'
 
@@ -20,6 +21,7 @@ const DEPARTMENTS = [
 const LEVELS = ['100L', '200L', '300L', '400L', '500L', '600L', 'Postgrad']
 
 export default function EditProfileScreen() {
+  const theme = useTheme()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [fullName, setFullName] = useState('')
   const [bio, setBio] = useState('')
@@ -89,7 +91,7 @@ export default function EditProfileScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <ActivityIndicator color="#a78bfa" style={{ flex: 1 }} />
       </SafeAreaView>
     )
@@ -99,7 +101,7 @@ export default function EditProfileScreen() {
   const initials = getInitials(fullName || profile?.full_name || 'U')
 
   return (
-    <SafeAreaView style={s.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {/* Header */}
         <View style={s.header}>
@@ -215,7 +217,7 @@ function Field({ label, value, onChangeText, placeholder, multiline, maxLength }
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,

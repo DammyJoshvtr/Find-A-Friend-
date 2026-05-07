@@ -1,8 +1,9 @@
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, Alert, ActivityIndicator } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useState } from 'react'
 import { router } from 'expo-router'
 import { supabase } from '../../lib/supabase'
+import { useTheme } from '../../lib/theme'
 
 const allInterests = [
   'Music', 'Tech', 'Art', 'Sports', 'Gaming', 'Photography',
@@ -20,6 +21,7 @@ const departments = [
 const levels = ['100L', '200L', '300L', '400L', '500L', 'Postgraduate']
 
 export default function OnboardingScreen() {
+  const theme = useTheme()
   const [step, setStep] = useState(1)
   const [fullName, setFullName] = useState('')
   const [department, setDepartment] = useState('')
@@ -76,7 +78,8 @@ export default function OnboardingScreen() {
 }
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 
       <View style={s.progressBar}>
         {[1, 2, 3].map(i => (
@@ -221,12 +224,13 @@ export default function OnboardingScreen() {
         )}
 
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   )
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   progressBar: {
     flexDirection: 'row',
     paddingHorizontal: 24,

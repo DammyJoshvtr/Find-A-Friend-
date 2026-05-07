@@ -11,10 +11,12 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { getHashtagPosts } from '../../lib/feed'
+import { useTheme } from '../../lib/theme'
 import PostCard from '../../components/feed/PostCard'
 import type { FeedPost } from '../../lib/feed'
 
 export default function HashtagScreen() {
+  const theme = useTheme()
   const { tag } = useLocalSearchParams<{ tag: string }>()
   const [posts, setPosts] = useState<FeedPost[]>([])
   const [loading, setLoading] = useState(true)
@@ -63,7 +65,7 @@ export default function HashtagScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#f0f0ff" />
@@ -116,7 +118,7 @@ export default function HashtagScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between',

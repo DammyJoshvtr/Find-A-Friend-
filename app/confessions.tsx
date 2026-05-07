@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useState, useEffect } from 'react'
 import { router } from 'expo-router'
 import { supabase } from '../lib/supabase'
+import { useTheme } from '../lib/theme'
 import { getTimeAgo } from '../lib/matching'
 
 const POST_TYPES = [
@@ -16,6 +17,7 @@ const POST_TYPES = [
 ]
 
 export default function ConfessionsScreen() {
+  const theme = useTheme()
   const [posts, setPosts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
@@ -61,7 +63,7 @@ export default function ConfessionsScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={s.back}>← Back</Text>
@@ -204,7 +206,7 @@ export default function ConfessionsScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', paddingHorizontal: 16,

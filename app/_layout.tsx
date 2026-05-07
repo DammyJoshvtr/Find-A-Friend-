@@ -76,6 +76,8 @@ function AppStack() {
         <Stack.Screen name="privacy-settings" />
         <Stack.Screen name="help" />
         <Stack.Screen name="verification" />
+        <Stack.Screen name="followers/[id]" />
+        <Stack.Screen name="following/[id]" />
       </Stack>
     </>
   )

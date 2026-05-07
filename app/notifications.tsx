@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { useNotificationsStore } from '../store/notificationsStore'
+import { useTheme } from '../lib/theme'
 import { getInitials, getTimeAgo } from '../lib/matching'
 import type { AppNotification, NotificationType } from '../lib/notifications'
 
@@ -129,6 +130,7 @@ function NotifRow({ notif, onPress }: NotifRowProps) {
 // ---------------------------------------------------------------------------
 
 export default function NotificationsScreen() {
+  const theme = useTheme()
   const {
     notifications, loading, unreadCount,
     loadNotifications, markNotificationRead, markAllNotificationsRead,
@@ -152,7 +154,7 @@ export default function NotificationsScreen() {
   }, [markAllNotificationsRead])
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
@@ -197,7 +199,7 @@ export default function NotificationsScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,

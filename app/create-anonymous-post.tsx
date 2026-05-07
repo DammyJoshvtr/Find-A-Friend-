@@ -12,8 +12,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { createAnonymousPost } from '../lib/anonymous'
+import { useTheme } from '../lib/theme'
 
 export default function CreateAnonPostScreen() {
+  const theme = useTheme()
   const [body, setBody] = useState('')
   const [agreed, setAgreed] = useState(false)
   const [posting, setPosting] = useState(false)
@@ -35,7 +37,7 @@ export default function CreateAnonPostScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -113,7 +115,7 @@ export default function CreateAnonPostScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,

@@ -12,8 +12,10 @@ import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { createStory, uploadStoryMedia } from '../lib/stories'
+import { useTheme } from '../lib/theme'
 
 export default function CreateStoryScreen() {
+  const theme = useTheme()
   const [mediaUri, setMediaUri] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
   const [caption, setCaption] = useState('')
@@ -65,7 +67,7 @@ export default function CreateStoryScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.closeBtn}>
@@ -120,7 +122,7 @@ export default function CreateStoryScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between',

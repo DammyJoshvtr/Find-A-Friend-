@@ -11,12 +11,14 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { getVendorsWithDeals } from '../lib/vendors'
+import { useTheme } from '../lib/theme'
 import VendorCard from '../components/vendors/VendorCard'
 import type { VendorWithDeals } from '../lib/vendors'
 
 const CATEGORIES = ['All', 'Food', 'Fashion', 'Tech', 'Beauty', 'Books', 'Health', 'Services']
 
 export default function VendorsScreen() {
+  const theme = useTheme()
   const [vendors, setVendors] = useState<VendorWithDeals[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -55,7 +57,7 @@ export default function VendorsScreen() {
   )
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       {/* Header */}
       <View style={s.header}>
         <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
@@ -172,7 +174,7 @@ export default function VendorsScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,

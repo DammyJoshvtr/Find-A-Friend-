@@ -18,6 +18,7 @@ import {
 import { getInitials, getTimeAgo } from '../../lib/matching'
 import { supabase } from '../../lib/supabase'
 import type { StudyGroup, CourseDiscussion } from '../../lib/academic'
+import { useTheme } from '../../lib/theme'
 
 type Tab = 'discussion' | 'members' | 'info'
 
@@ -33,6 +34,7 @@ interface GroupMember {
 }
 
 export default function StudyGroupDetailScreen() {
+  const theme = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
   const [group, setGroup] = useState<StudyGroup | null>(null)
   const [loading, setLoading] = useState(true)
@@ -143,7 +145,7 @@ export default function StudyGroupDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <View style={s.centeredWrap}>
           <ActivityIndicator size="large" color="#a78bfa" />
         </View>
@@ -153,7 +155,7 @@ export default function StudyGroupDetailScreen() {
 
   if (!group) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <View style={s.centeredWrap}>
           <Text style={s.errorText}>Group not found</Text>
           <TouchableOpacity onPress={() => router.back()} style={s.retryBtn}>
@@ -296,7 +298,7 @@ export default function StudyGroupDetailScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['bottom']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -379,7 +381,7 @@ export default function StudyGroupDetailScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   centeredWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   errorText: { fontSize: 14, color: 'rgba(240,240,255,0.4)' },
   retryBtn: { backgroundColor: '#a78bfa', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8 },
@@ -475,7 +477,6 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
     paddingHorizontal: 16, paddingVertical: 10,
     borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: '#0d0d14',
   },
   inputField: {
     flex: 1, backgroundColor: '#1c1c2e', borderRadius: 20,

@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { searchUsers, searchPosts, searchHashtags, searchClubs } from '../lib/search'
+import { useTheme } from '../lib/theme'
 import UserCard from '../components/discover/UserCard'
 import PostCard from '../components/feed/PostCard'
 import type { FollowProfile } from '../lib/follows'
@@ -28,6 +29,7 @@ const TABS: { label: string; value: Tab }[] = [
 ]
 
 export default function SearchScreen() {
+  const theme = useTheme()
   const [query, setQuery] = useState('')
   const [activeTab, setActiveTab] = useState<Tab>('users')
   const [users, setUsers] = useState<FollowProfile[]>([])
@@ -143,7 +145,7 @@ export default function SearchScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       {/* Search input */}
       <View style={s.searchRow}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
@@ -203,7 +205,7 @@ function EmptyResult({ query, type }: { query: string; type: string }) {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   searchRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 16, paddingVertical: 10,

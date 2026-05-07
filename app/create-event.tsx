@@ -13,10 +13,12 @@ import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { createEvent, uploadEventCover } from '../lib/events'
+import { useTheme } from '../lib/theme'
 
 const CATEGORIES = ['Technology', 'Sports', 'Culture', 'Academic', 'Music', 'Art', 'Social', 'Other']
 
 export default function CreateEventScreen() {
+  const theme = useTheme()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [venue, setVenue] = useState('')
@@ -79,7 +81,7 @@ export default function CreateEventScreen() {
   }
 
   return (
-    <SafeAreaView style={s.container} edges={['top', 'bottom']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -175,7 +177,7 @@ function Field({ label, value, onChangeText, placeholder, multiline }: FieldProp
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,

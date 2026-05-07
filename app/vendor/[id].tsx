@@ -11,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { getVendorDetail, toggleSaveDeal, getMySavedDealIds } from '../../lib/vendors'
+import { useTheme } from '../../lib/theme'
 import type { VendorWithDeals, VendorDeal } from '../../lib/vendors'
 import { getTimeAgo } from '../../lib/matching'
 
@@ -91,6 +92,7 @@ function DealCard({ deal, saved, onToggleSave }: DealCardProps) {
 // ---------------------------------------------------------------------------
 
 export default function VendorDetailScreen() {
+  const theme = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
   const [vendor, setVendor] = useState<VendorWithDeals | null>(null)
   const [loading, setLoading] = useState(true)
@@ -122,7 +124,7 @@ export default function VendorDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <View style={s.centeredWrap}>
           <ActivityIndicator size="large" color="#fbbf24" />
         </View>
@@ -132,7 +134,7 @@ export default function VendorDetailScreen() {
 
   if (!vendor) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <View style={s.centeredWrap}>
           <Text style={s.errorText}>Vendor not found</Text>
           <TouchableOpacity style={s.retryBtn} onPress={() => router.back()}>
@@ -147,7 +149,7 @@ export default function VendorDetailScreen() {
   const activeDeals = vendor.vendor_deals?.filter(d => d.is_active) ?? []
 
   return (
-    <SafeAreaView style={s.container} edges={['bottom']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['bottom']}>
       <FlatList
         data={activeDeals}
         keyExtractor={item => item.id}
@@ -217,7 +219,7 @@ export default function VendorDetailScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   centeredWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   errorText: { fontSize: 14, color: 'rgba(240,240,255,0.4)' },
   retryBtn: { backgroundColor: '#fbbf24', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8 },

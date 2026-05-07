@@ -1,10 +1,12 @@
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
+import { useTheme } from '../../lib/theme'
 
 export default function WelcomeScreen() {
+  const theme = useTheme()
   return (
-    <SafeAreaView style={s.container}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
       <View style={s.content}>
 
         <View style={s.logoWrap}>
@@ -48,7 +50,7 @@ export default function WelcomeScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   content: { flex: 1, paddingHorizontal: 24, justifyContent: 'space-between', paddingVertical: 20 },
   logoWrap: { alignItems: 'center', paddingTop: 40 },
   logoCircle: {

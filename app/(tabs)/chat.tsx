@@ -3,7 +3,7 @@ import {
   StyleSheet, TextInput, ActivityIndicator,
   KeyboardAvoidingView, Platform, Image,
 } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -15,6 +15,7 @@ import { Skeleton } from '../../components/ui/Skeleton'
 import { useTheme } from '../../lib/theme'
 
 export default function ChatScreen() {
+  const insets = useSafeAreaInsets()
   const [conversations, setConversations] = useState<any[]>([])
   const [activeConv, setActiveConv] = useState<any>(null)
   const [messages, setMessages] = useState<any[]>([])
@@ -247,7 +248,7 @@ export default function ChatScreen() {
           </ScrollView>
 
           {/* Input */}
-          <View style={[s.inputRow, { borderTopColor: theme.border, backgroundColor: theme.bg }]}>
+          <View style={[s.inputRow, { borderTopColor: theme.border, backgroundColor: theme.bg, paddingBottom: insets.bottom + 8 }]}>
             <TextInput
               style={[s.input, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
               placeholder="Message..."

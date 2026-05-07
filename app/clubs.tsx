@@ -11,12 +11,14 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { getClubs, getMyClubMemberships } from '../lib/clubs'
+import { useTheme } from '../lib/theme'
 import ClubCard from '../components/clubs/ClubCard'
 import type { Club } from '../lib/clubs'
 
 const CATEGORIES = ['All', 'Tech', 'Arts', 'Sports', 'Academic', 'Social', 'Culture']
 
 export default function ClubsScreen() {
+  const theme = useTheme()
   const [clubs, setClubs] = useState<Club[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -52,7 +54,7 @@ export default function ClubsScreen() {
   const myClubs = clubs.filter(c => c.is_member)
 
   return (
-    <SafeAreaView style={s.container} edges={['top']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <View style={s.header}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <Ionicons name="arrow-back" size={20} color="#f0f0ff" />
@@ -127,7 +129,7 @@ export default function ClubsScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,

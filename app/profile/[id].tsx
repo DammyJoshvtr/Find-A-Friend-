@@ -16,6 +16,7 @@ import { likePost } from '../../lib/feed'
 import { getInitials, getTimeAgo } from '../../lib/matching'
 import { supabase } from '../../lib/supabase'
 import type { Profile } from '../../lib/profiles'
+import { useTheme } from '../../lib/theme'
 
 type Tab = 'posts' | 'liked'
 
@@ -70,6 +71,7 @@ function MiniPostCard({ post, onPress }: { post: MiniPost; onPress: () => void }
 // ---------------------------------------------------------------------------
 
 export default function ProfileScreen() {
+  const theme = useTheme()
   const { id } = useLocalSearchParams<{ id: string }>()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
@@ -164,7 +166,7 @@ export default function ProfileScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <View style={s.centeredWrap}>
           <ActivityIndicator size="large" color="#a78bfa" />
         </View>
@@ -174,7 +176,7 @@ export default function ProfileScreen() {
 
   if (!profile) {
     return (
-      <SafeAreaView style={s.container}>
+      <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <View style={s.centeredWrap}>
           <Text style={s.errorText}>Profile not found</Text>
           <TouchableOpacity style={s.retryBtn} onPress={() => router.back()}>
@@ -313,7 +315,7 @@ export default function ProfileScreen() {
   )
 
   return (
-    <SafeAreaView style={s.container} edges={['bottom']}>
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['bottom']}>
       <FlatList
         data={tabLoading ? [] : displayPosts}
         keyExtractor={item => item.id}
@@ -350,7 +352,7 @@ export default function ProfileScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
+  container: { flex: 1 },
   centeredWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   errorText: { fontSize: 14, color: 'rgba(240,240,255,0.4)' },
   retryBtn: { backgroundColor: '#a78bfa', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8 },
