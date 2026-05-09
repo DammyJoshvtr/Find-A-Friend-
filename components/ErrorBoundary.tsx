@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet, Appearance } from 'react-native'
 
 interface Props {
   children: React.ReactNode
@@ -22,13 +22,21 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (!this.state.hasError) return this.props.children
+    const isDark = Appearance.getColorScheme() !== 'light'
+    const bg = isDark ? '#0d0d14' : '#f2f2f7'
+    const textColor = isDark ? '#f0f0ff' : '#0d0d20'
+    const mutedColor = isDark ? 'rgba(240,240,255,0.4)' : 'rgba(13,13,32,0.45)'
+    const accentColor = '#a78bfa'
+
     return (
-      <View style={s.container}>
+      <View style={[s.container, { backgroundColor: bg }]}>
         <Text style={s.emoji}>⚠️</Text>
-        <Text style={s.title}>{this.props.fallbackLabel ?? 'Something went wrong'}</Text>
-        <Text style={s.message}>{this.state.message}</Text>
-        <TouchableOpacity style={s.btn} onPress={this.reset}>
-          <Text style={s.btnText}>Try again</Text>
+        <Text style={[s.title, { color: textColor }]}>{this.props.fallbackLabel ?? 'Something went wrong'}</Text>
+        <Text style={[s.message, { color: mutedColor }]}>{this.state.message}</Text>
+        <TouchableOpacity
+          style={[s.btn, { backgroundColor: 'rgba(167,139,250,0.15)', borderColor: 'rgba(167,139,250,0.3)' }]}
+          onPress={this.reset}>
+          <Text style={[s.btnText, { color: accentColor }]}>Try again</Text>
         </TouchableOpacity>
       </View>
     )
@@ -36,10 +44,11 @@ export class ErrorBoundary extends React.Component<Props, State> {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14', alignItems: 'center', justifyContent: 'center', padding: 32 },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
   emoji: { fontSize: 40, marginBottom: 16 },
-  title: { fontSize: 18, fontWeight: '700', color: '#f0f0ff', marginBottom: 8, textAlign: 'center' },
-  message: { fontSize: 13, color: 'rgba(240,240,255,0.4)', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
-  btn: { backgroundColor: 'rgba(167,139,250,0.15)', borderRadius: 20, paddingHorizontal: 24, paddingVertical: 10, borderWidth: 0.5, borderColor: 'rgba(167,139,250,0.3)' },
-  btnText: { fontSize: 14, color: '#a78bfa', fontWeight: '600' },
+  title: { fontSize: 18, fontWeight: '700', marginBottom: 8, textAlign: 'center' },
+  message: { fontSize: 13, textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  btn: { borderRadius: 20, paddingHorizontal: 24, paddingVertical: 10, borderWidth: 0.5 },
+  btnText: { fontSize: 14, fontWeight: '600' },
 })
+

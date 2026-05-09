@@ -138,13 +138,15 @@ export const useFeedStore = create<FeedState>((set, get) => ({
   // Infinite scroll
   // -------------------------------------------------------------------------
   loadMore: async () => {
-    const { loading, hasMore, cursor } = get()
-    if (loading || !hasMore || !cursor) return
+    const { loading, refreshing, hasMore, cursor } = get()
+    if (loading || refreshing || !hasMore || !cursor) return
 
     set({ loading: true })
 
     try {
-      const { data, error } = await getFeed(cursor, 20)
+      const { activeTab } = get()
+      const fetcher = activeTab === 'following' ? getFollowingFeed : getFeed
+      const { data, error } = await fetcher(cursor, 20)
       if (error) throw error
 
       const newPosts = data ?? []

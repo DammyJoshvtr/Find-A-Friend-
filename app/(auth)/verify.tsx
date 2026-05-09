@@ -57,8 +57,8 @@ export default function VerifyScreen() {
         password,
         options: { data: { email: trimmedEmail } },
       })
-      setLoading(false)
       if (error) {
+        setLoading(false)
         if (error.message.toLowerCase().includes('already registered')) {
           Alert.alert('Account exists', 'An account with this email already exists.', [
             { text: 'Sign in', onPress: () => setMode('signin') },
@@ -69,10 +69,12 @@ export default function VerifyScreen() {
         return
       }
       if (data.session) {
+        setLoading(false)
         router.replace('/(auth)/onboarding')
       } else {
         // Email confirmation is ON — try signing in anyway
         const { data: sd } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
+        setLoading(false)
         if (sd?.session) {
           router.replace('/(auth)/onboarding')
         } else {

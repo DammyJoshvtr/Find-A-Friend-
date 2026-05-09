@@ -8,7 +8,7 @@
  */
 import { supabase } from './supabase'
 
-const SUPABASE_URL = 'https://vcbtvhociaioeyhhsczh.supabase.co'
+const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL!
 
 /**
  * Upload a local file URI to a Supabase Storage bucket.

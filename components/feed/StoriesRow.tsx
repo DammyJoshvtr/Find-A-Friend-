@@ -28,7 +28,7 @@ export default function StoriesRow() {
   return (
     <View style={[s.wrapper, { borderBottomColor: theme.border }]}>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.content}>
-        <StoryCircle group={ownPlaceholder} isOwn onAddStory={() => router.push('/create-story' as `${string}`)} />
+        <StoryCircle group={ownPlaceholder} isOwn onAddStory={() => router.push('/create-story' as const)} />
         {loading && !groups.length ? (
           <ActivityIndicator color={theme.accent} style={{ marginLeft: 10, alignSelf: 'center' }} />
         ) : (

@@ -288,7 +288,7 @@ export async function deleteExpiredStories(): Promise<{
 // ---------------------------------------------------------------------------
 
 export async function getStoryViewers(storyId: string): Promise<{
-  data: Array<{ viewer_id: string; viewed_at: string; profiles?: { full_name: string | null; avatar_url: string | null } }> | null
+  data: Array<{ viewer_id: string; viewed_at: string; profiles?: Array<{ full_name: string | null; avatar_url: string | null }> }> | null
   error: Error | null
 }> {
   try {

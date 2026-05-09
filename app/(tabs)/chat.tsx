@@ -1,7 +1,7 @@
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, TextInput, ActivityIndicator,
-  KeyboardAvoidingView, Platform, Image,
+  KeyboardAvoidingView, Platform, Image, Alert,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useState, useEffect, useRef, useCallback } from 'react'
@@ -30,17 +30,14 @@ export default function ChatScreen() {
   const scrollRef = useRef<ScrollView>(null)
   const theme = useTheme()
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setMyId(user.id)
-    })
-    loadConversations()
-  }, [])
-
-  const loadConversations = async () => {
+  // Stable reference so it can be safely listed in useEffect deps
+  const loadConversations = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { setLoading(false); return }
+
+      // Set myId here — avoids a second duplicate getUser() call
+      setMyId(user.id)
 
       const { data } = await supabase
         .from('conversation_participants')
@@ -79,7 +76,24 @@ export default function ChatScreen() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
+
+  // Initial load + realtime channel to keep conversation-list previews up-to-date
+  useEffect(() => {
+    loadConversations()
+
+    const listChannel = supabase
+      .channel('chat-list-updates')
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'messages',
+      }, () => {
+        // Refresh the list so the last-message preview stays current
+        loadConversations()
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(listChannel) }
+  }, [loadConversations])
 
   const loadMessages = useCallback(async (convId: string) => {
     const { data } = await supabase
@@ -142,12 +156,18 @@ export default function ChatScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80)
 
     setSending(true)
-    await supabase.from('messages').insert({
+    const { error: sendError } = await supabase.from('messages').insert({
       conversation_id: activeConv.conversations.id,
       sender_id: myId,
       body: text,
     })
     setSending(false)
+
+    if (sendError) {
+      // Roll back optimistic message
+      setMessages(prev => prev.filter(m => !(m._optimistic && m.body === text)))
+      Alert.alert('Failed to send', 'Your message could not be sent. Please try again.')
+    }
   }
 
   const startNewChat = (otherUser: any) => {

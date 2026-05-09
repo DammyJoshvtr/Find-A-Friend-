@@ -38,7 +38,7 @@ export default function DiscoverScreen() {
     }
   }
 
-  const onRefresh = useCallback(() => { setRefreshing(true); loadData() }, [])
+  const onRefresh = useCallback(() => { setRefreshing(true); loadData() }, [loadData])
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>

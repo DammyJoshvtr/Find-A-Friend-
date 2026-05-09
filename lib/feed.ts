@@ -2,9 +2,9 @@
  * lib/feed.ts
  * Social feed helpers: posts, likes, comments, reposts, hashtags, trending.
  *
- * IMPORTANT: All feed queries use the `public_posts` VIEW, not the `posts`
- * table directly. This ensures anonymous post author_ids are never exposed
- * to clients at the database layer.
+ * NOTE: Feed queries filter out anonymous posts (is_anonymous = false) at the
+ * query level. Anonymous posts are only fetched through the anonymous board
+ * screens which use dedicated queries.
  */
 import { supabase } from './supabase'
 
@@ -373,6 +373,7 @@ export async function getHashtagPosts(
       .from('posts')
       .select('*, profiles(id, full_name, department, level, avatar_url)')
       .in('id', postIds)
+      .eq('is_anonymous', false)
       .order('created_at', { ascending: false })
       .limit(limit)
 

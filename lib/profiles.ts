@@ -15,7 +15,7 @@ import { uploadFile } from './upload'
 
 export interface Profile {
   id: string
-  email?: string
+  email: string | null
   full_name: string | null
   bio: string | null
   department: string | null

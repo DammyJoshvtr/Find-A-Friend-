@@ -35,7 +35,22 @@ export const LIGHT = {
   statusBar:  'dark' as const,
 }
 
-export type ThemeColors = typeof DARK
+export type ThemeColors = {
+  bg: string
+  card: string
+  card2: string
+  text: string
+  textMuted: string
+  textFaint: string
+  border: string
+  border2: string
+  accent: string
+  accentBg: string
+  accentBorder: string
+  danger: string
+  success: string
+  statusBar: 'light' | 'dark'
+}
 
 const ThemeContext = createContext<ThemeColors>(DARK)
 

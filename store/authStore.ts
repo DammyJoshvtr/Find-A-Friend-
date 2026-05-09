@@ -27,8 +27,3 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: null, session: null, loading: false })
   },
 }))
-
-// Listen for auth state changes globally
-supabase.auth.onAuthStateChange((_event, session) => {
-  useAuthStore.getState().setSession(session)
-})

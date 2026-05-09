@@ -135,8 +135,17 @@ export default function DirectMessageScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80)
 
     setSending(true)
-    await supabase.from('messages').insert({ conversation_id: convId, sender_id: myId, body: text })
+    const { error: sendError } = await supabase.from('messages').insert({
+      conversation_id: convId,
+      sender_id: myId,
+      body: text,
+    })
     setSending(false)
+
+    if (sendError) {
+      setMessages(prev => prev.filter(m => !(m._optimistic && m.body === text)))
+      Alert.alert('Failed to send', 'Your message could not be sent. Please try again.')
+    }
   }
 
   const otherName = otherProfile?.full_name ?? 'Chat'

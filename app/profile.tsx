@@ -1,11 +1,13 @@
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type ComponentProps } from 'react'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { getCurrentProfile, getProfileStats, updateProfile } from '../lib/profiles'
+import { getCurrentProfile, getProfileStats, updateProfile, Profile } from '../lib/profiles'
 import { getInitials } from '../lib/matching'
 import { useAuthStore } from '../store/authStore'
+
+type IoniconsName = ComponentProps<typeof Ionicons>['name']
 
 const allInterests = [
   'Music', 'Tech', 'Art', 'Sports', 'Gaming', 'Photography',
@@ -15,14 +17,14 @@ const allInterests = [
 ]
 
 export default function ProfileScreen() {
-  const [profile, setProfile] = useState(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [stats, setStats] = useState({ posts: 0, friends: 0 })
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [fullName, setFullName] = useState('')
   const [bio, setBio] = useState('')
-  const [interests, setInterests] = useState([])
+  const [interests, setInterests] = useState<string[]>([])
   const { signOut } = useAuthStore()
 
   useEffect(() => { loadProfile() }, [])
@@ -49,13 +51,20 @@ export default function ProfileScreen() {
     }
   }
 
-  const toggleInterest = (interest) => {
+  const toggleInterest = (interest: string) => {
     setInterests(prev =>
       prev.includes(interest)
         ? prev.filter(i => i !== interest)
         : prev.length < 8 ? [...prev, interest] : prev
     )
   }
+
+  const accountMenu: { icon: IoniconsName; label: string }[] = [
+    { icon: 'notifications-outline', label: 'Notifications' },
+    { icon: 'lock-closed-outline', label: 'Privacy settings' },
+    { icon: 'moon-outline', label: 'Appearance' },
+    { icon: 'help-circle-outline', label: 'Help & support' },
+  ]
 
   const handleSignOut = () => {
     Alert.alert('Sign out', 'Are you sure?', [
@@ -153,12 +162,7 @@ export default function ProfileScreen() {
         </View>
 
         <View style={s.menuList}>
-          {[
-            { icon: 'notifications-outline', label: 'Notifications' },
-            { icon: 'lock-closed-outline', label: 'Privacy settings' },
-            { icon: 'moon-outline', label: 'Appearance' },
-            { icon: 'help-circle-outline', label: 'Help & support' },
-          ].map((item, i) => (
+          {accountMenu.map((item, i) => (
             <TouchableOpacity
               key={i}
               style={s.menuItem}

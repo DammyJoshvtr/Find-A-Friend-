@@ -25,12 +25,12 @@ type Tab = 'discussion' | 'members' | 'info'
 interface GroupMember {
   user_id: string
   joined_at: string
-  profiles: {
+  profiles: Array<{
     id: string
     full_name: string | null
     avatar_url: string | null
     department: string | null
-  } | null
+  }> | null
 }
 
 export default function StudyGroupDetailScreen() {
@@ -217,28 +217,31 @@ export default function StudyGroupDetailScreen() {
         <FlatList
           data={members}
           keyExtractor={item => item.user_id}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={s.memberRow}
-              onPress={() => router.push(`/profile/${item.user_id}` as any)}>
-              <View style={s.memberAvatar}>
-                {item.profiles?.avatar_url ? (
-                  <Image source={{ uri: item.profiles.avatar_url }} style={s.memberAvatarImg} />
-                ) : (
-                  <Text style={s.memberInitials}>
-                    {getInitials(item.profiles?.full_name ?? '??')}
-                  </Text>
-                )}
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.memberName}>{item.profiles?.full_name ?? 'Member'}</Text>
-                {item.profiles?.department && (
-                  <Text style={s.memberDept}>{item.profiles.department}</Text>
-                )}
-              </View>
-              <Text style={s.joinedAt}>{getTimeAgo(item.joined_at)}</Text>
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => {
+            const profile = item.profiles?.[0] ?? null
+            return (
+              <TouchableOpacity
+                style={s.memberRow}
+                onPress={() => router.push(`/profile/${item.user_id}` as any)}>
+                <View style={s.memberAvatar}>
+                  {profile?.avatar_url ? (
+                    <Image source={{ uri: profile.avatar_url }} style={s.memberAvatarImg} />
+                  ) : (
+                    <Text style={s.memberInitials}>
+                      {getInitials(profile?.full_name ?? '??')}
+                    </Text>
+                  )}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={s.memberName}>{profile?.full_name ?? 'Member'}</Text>
+                  {profile?.department && (
+                    <Text style={s.memberDept}>{profile.department}</Text>
+                  )}
+                </View>
+                <Text style={s.joinedAt}>{getTimeAgo(item.joined_at)}</Text>
+              </TouchableOpacity>
+            )
+          }}
           ListEmptyComponent={
             <View style={s.empty}>
               <Ionicons name="people-outline" size={36} color="rgba(240,240,255,0.1)" />

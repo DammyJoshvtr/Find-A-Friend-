@@ -5,6 +5,7 @@ import * as Updates from 'expo-updates'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 import { useThemeStore } from '../store/themeStore'
+import { useNotificationsStore } from '../store/notificationsStore'
 import { ThemeProvider, useTheme } from '../lib/theme'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { registerForPushNotifications, savePushToken } from '../lib/notifications'
@@ -29,13 +30,35 @@ function AppStack() {
     return () => subscription.unsubscribe()
   }, [])
 
+  const { addNotification, loadUnreadCount } = useNotificationsStore()
+
   useEffect(() => {
     if (!session) return
     registerForPushNotifications().then(token => {
       if (token) savePushToken(token)
     })
     setOnlineStatus(true)
-    return () => { setOnlineStatus(false) }
+
+    // Load initial unread count
+    loadUnreadCount()
+
+    // Subscribe to realtime notifications for this user
+    const channel = supabase
+      .channel('user-notifications')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${session.user.id}`,
+      }, (payload: any) => {
+        addNotification(payload.new)
+      })
+      .subscribe()
+
+    return () => {
+      setOnlineStatus(false)
+      supabase.removeChannel(channel)
+    }
   }, [session?.user?.id])
 
   useEffect(() => {

@@ -158,14 +158,31 @@ export async function getListings(category?: string): Promise<{
   error: Error | null
 }> {
   try {
+    let vendorIds: string[] | null = null
+
+    if (category) {
+      // PostgREST cannot filter on embedded/joined columns via .eq() —
+      // resolve vendor IDs for the category first, then filter deals by those IDs.
+      const { data: vendorRows, error: vError } = await supabase
+        .from('vendors')
+        .select('id')
+        .eq('is_approved', true)
+        .eq('is_active', true)
+        .eq('category', category)
+
+      if (vError) throw vError
+      vendorIds = (vendorRows ?? []).map((v: { id: string }) => v.id)
+      if (!vendorIds.length) return { data: [], error: null }
+    }
+
     let query = supabase
       .from('vendor_deals')
       .select('*, vendors(id, name, icon, logo_url, location_text, category)')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
 
-    if (category) {
-      query = query.eq('vendors.category', category)
+    if (vendorIds) {
+      query = query.in('vendor_id', vendorIds)
     }
 
     const { data, error } = await query

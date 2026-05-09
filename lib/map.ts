@@ -38,7 +38,7 @@ export interface EventWithPin {
   map_location_id: string | null
   map_pin_x: number | null
   map_pin_y: number | null
-  map_locations?: MapLocation | null
+  map_locations?: MapLocation[] | null
 }
 
 export interface VendorWithPin {
@@ -49,7 +49,7 @@ export interface VendorWithPin {
   logo_url: string | null
   location_text: string
   map_location_id: string | null
-  map_locations?: MapLocation | null
+  map_locations?: MapLocation[] | null
 }
 
 export interface MapPin {

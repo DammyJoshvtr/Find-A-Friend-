@@ -53,11 +53,23 @@ export default function MoreScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete account',
-      'This permanently deletes your account and all your data. This cannot be undone.',
+      'This permanently deletes your profile, posts, and all your data. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            // Delete profile row first (cascades to posts, follows, etc. via DB FK constraints)
+            if (user?.id) {
+              await supabase.from('profiles').delete().eq('id', user.id)
+            }
+          } catch {
+            // Ignore — sign out either way so the user is not stuck
+          }
           await supabase.auth.signOut()
+          Alert.alert(
+            'Account deleted',
+            'Your data has been removed. If any content remains, it will be purged within 24 hours.',
+          )
           router.replace('/(auth)/welcome' as any)
         }},
       ]

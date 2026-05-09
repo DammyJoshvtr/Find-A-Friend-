@@ -17,6 +17,7 @@ import PostCard from '../../components/feed/PostCard'
 import StoriesRow from '../../components/feed/StoriesRow'
 import CommentSheet from '../../components/feed/CommentSheet'
 import StoryViewer from '../../components/stories/StoryViewer'
+import AdCarousel from '../../components/feed/AdCarousel'
 import { getCurrentProfile } from '../../lib/profiles'
 import { useTheme } from '../../lib/theme'
 import type { FeedPost } from '../../lib/feed'
@@ -104,6 +105,8 @@ export default function HomeScreen() {
     </View>
   )
 
+  const proofBanner = <AdCarousel />
+
   if (loading && !posts.length) {
     return (
       <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
@@ -133,8 +136,7 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       {header}
-
-      {/* For You / Following tabs */}
+      {proofBanner}
       <View style={[s.tabs, { borderBottomColor: theme.border }]}>
         <TouchableOpacity style={s.tab} onPress={() => setTab('forYou')}>
           <Text style={[s.tabText, { color: theme.textMuted }, activeTab === 'forYou' && { color: theme.text, fontWeight: '700' }]}>
