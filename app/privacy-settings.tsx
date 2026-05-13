@@ -1,9 +1,11 @@
 import { View, Text, StyleSheet, TouchableOpacity, Switch, Alert } from 'react-native'
+import Toast from 'react-native-toast-message'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { useState } from 'react'
 import { useTheme } from '../lib/theme'
+import { typography } from '../lib/typography'
 
 export default function PrivacySettingsScreen() {
   const theme = useTheme()
@@ -97,7 +99,7 @@ export default function PrivacySettingsScreen() {
 
         <TouchableOpacity
           style={[s.dangerRow, { backgroundColor: 'rgba(239,68,68,0.08)', borderColor: 'rgba(239,68,68,0.2)' }]}
-          onPress={() => Alert.alert('Block list', 'You have no blocked users.')}>
+          onPress={() => Toast.show({ type: 'info', text1: 'Block list', text2: 'You have no blocked users.' })}>
           <Text style={s.icon}>🚫</Text>
           <Text style={[s.label, { flex: 1, color: theme.danger }]}>Blocked users</Text>
           <Ionicons name="chevron-forward" size={16} color={theme.danger} />
@@ -113,9 +115,9 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5,
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 17, fontWeight: '600' },
-  sectionLabel: { fontSize: 11, fontWeight: '600', marginBottom: 8, letterSpacing: 0.5 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 17, fontFamily: typography.fontSemiBold },
+  sectionLabel: { fontSize: 11, fontFamily: typography.fontSemiBold, marginBottom: 8, letterSpacing: 0.5 },
   card: { borderRadius: 14, borderWidth: 0.5, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
   dangerRow: {
@@ -123,6 +125,6 @@ const s = StyleSheet.create({
     padding: 14, gap: 12, borderRadius: 14, borderWidth: 0.5,
   },
   icon: { fontSize: 18 },
-  label: { fontSize: 14, fontWeight: '500', marginBottom: 2 },
-  sub: { fontSize: 12 },
+  label: { fontSize: 14, fontFamily: typography.fontMedium, marginBottom: 2 },
+  sub: { fontSize: 12, fontFamily: typography.fontRegular },
 })

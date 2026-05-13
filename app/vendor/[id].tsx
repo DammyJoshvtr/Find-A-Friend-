@@ -7,11 +7,13 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   Image, ActivityIndicator, Alert,
 } from 'react-native'
+import Toast from 'react-native-toast-message'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { getVendorDetail, toggleSaveDeal, getMySavedDealIds } from '../../lib/vendors'
 import { useTheme } from '../../lib/theme'
+import { typography } from '../../lib/typography'
 import type { VendorWithDeals, VendorDeal } from '../../lib/vendors'
 import { getTimeAgo } from '../../lib/matching'
 
@@ -45,7 +47,7 @@ function DealCard({ deal, saved, onToggleSave }: DealCardProps) {
     setSaving(false)
     if (error) {
       onToggleSave(deal.id) // revert on error
-      Alert.alert('Error', 'Could not save deal.')
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Could not save deal.' })
     }
   }
 
@@ -223,10 +225,10 @@ const s = StyleSheet.create({
   centeredWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   errorText: { fontSize: 14, color: 'rgba(240,240,255,0.4)' },
   retryBtn: { backgroundColor: '#fbbf24', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8 },
-  retryText: { fontSize: 13, fontWeight: '600', color: '#000' },
+  retryText: { fontSize: 13, fontFamily: typography.fontSemiBold, color: '#000' },
   backBtn: {
     position: 'absolute', top: 48, left: 16, zIndex: 10,
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(0,0,0,0.4)',
     alignItems: 'center', justifyContent: 'center',
   },
@@ -235,21 +237,21 @@ const s = StyleSheet.create({
   heroEmoji: { fontSize: 64 },
   infoSection: { paddingHorizontal: 16, paddingVertical: 16 },
   infoHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 10 },
-  vendorName: { fontSize: 22, fontWeight: '700', color: '#f0f0ff', marginBottom: 6 },
+  vendorName: { fontSize: 22, fontFamily: typography.fontBold, color: '#f0f0ff', marginBottom: 6 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  categoryBadge: { fontSize: 12, fontWeight: '600' },
+  categoryBadge: { fontSize: 12, fontFamily: typography.fontSemiBold },
   sep: { fontSize: 12, color: 'rgba(240,240,255,0.2)' },
-  location: { fontSize: 12, color: 'rgba(240,240,255,0.4)' },
+  location: { fontSize: 12, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontRegular },
   dealCountBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5,
   },
-  dealCountText: { fontSize: 12, fontWeight: '600' },
+  dealCountText: { fontSize: 12, fontFamily: typography.fontSemiBold },
   description: {
-    fontSize: 13, color: 'rgba(240,240,255,0.6)', lineHeight: 20,
+    fontSize: 13, color: 'rgba(240,240,255,0.6)', lineHeight: 20, fontFamily: typography.fontRegular,
   },
   sectionTitle: {
-    fontSize: 13, fontWeight: '600', color: 'rgba(240,240,255,0.5)',
+    fontSize: 13, fontFamily: typography.fontSemiBold, color: 'rgba(240,240,255,0.5)',
     paddingHorizontal: 16, marginBottom: 10,
   },
   // Deal card
@@ -266,19 +268,19 @@ const s = StyleSheet.create({
     borderWidth: 0.5, borderColor: 'rgba(251,191,36,0.3)',
     alignSelf: 'flex-start',
   },
-  discountText: { fontSize: 13, fontWeight: '700', color: '#fbbf24' },
-  dealTitle: { fontSize: 14, fontWeight: '600', color: '#f0f0ff', marginBottom: 4 },
-  dealDesc: { fontSize: 12, color: 'rgba(240,240,255,0.5)', lineHeight: 17, marginBottom: 6 },
+  discountText: { fontSize: 13, fontFamily: typography.fontBold, color: '#fbbf24' },
+  dealTitle: { fontSize: 14, fontFamily: typography.fontSemiBold, color: '#f0f0ff', marginBottom: 4 },
+  dealDesc: { fontSize: 12, color: 'rgba(240,240,255,0.5)', lineHeight: 17, marginBottom: 6, fontFamily: typography.fontRegular },
   dealMeta: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 },
-  redeemText: { fontSize: 11, color: 'rgba(240,240,255,0.4)', flex: 1 },
-  validUntil: { fontSize: 10, color: 'rgba(240,240,255,0.35)' },
+  redeemText: { fontSize: 11, color: 'rgba(240,240,255,0.4)', flex: 1, fontFamily: typography.fontMedium },
+  validUntil: { fontSize: 10, color: 'rgba(240,240,255,0.35)', fontFamily: typography.fontRegular },
   expired: { color: 'rgba(239,68,68,0.6)' },
   saveBtn: {
-    width: 32, height: 32, borderRadius: 16,
+    width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
     alignSelf: 'flex-start',
   },
   empty: { alignItems: 'center', paddingVertical: 40, gap: 8 },
-  emptyText: { fontSize: 14, color: 'rgba(240,240,255,0.4)' },
-  emptySub: { fontSize: 12, color: 'rgba(240,240,255,0.25)' },
+  emptyText: { fontSize: 14, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontRegular },
+  emptySub: { fontSize: 12, color: 'rgba(240,240,255,0.25)', fontFamily: typography.fontRegular },
 })

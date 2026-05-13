@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FAF | Neural Campus Experience</title>
+    <meta name="description" content="The neural-linked campus ecosystem. Where reality meets dimension.">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Fonts -->
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Three.js -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <div id="app">
+        <!-- Canvas for 3D Background -->
+        <canvas id="bg-canvas"></canvas>
+
+        <!-- Custom Cursor -->
+        <div class="cursor-dot"></div>
+        <div class="cursor-outline"></div>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <div class="nav-container">
+                <div class="logo">
+                    <div class="logo-symbol">
+                        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                            <path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" stroke="url(#gradient)" stroke-width="1.5"
+                                fill="none" />
+                            <circle cx="16" cy="16" r="4" fill="url(#gradient)" />
+                            <defs>
+                                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#a78bfa" />
+                                    <stop offset="100%" stop-color="#3b82f6" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                    </div>
+                    <span class="logo-text">FA<span class="gradient-text">F</span></span>
+                    <div class="logo-badge">BETA</div>
+                </div>
+
+                <div class="nav-links">
+                    <a href="#experience" class="nav-link">Experience</a>
+                    <a href="#capabilities" class="nav-link">Capabilities</a>
+                    <a href="#neural" class="nav-link">Neural</a>
+                    <a href="#launch" class="nav-link">Launch</a>
+                </div>
+
+                <div class="nav-actions">
+                    <button class="nav-btn-icon">
+                        <i class="fas fa-globe"></i>
+                    </button>
+                    <button class="btn-premium" id="signupBtn">
+                        <span class="btn-text">Enter Vortex</span>
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+
+                <div class="mobile-menu">
+                    <i class="fas fa-bars"></i>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Hero Section -->
+        <section class="hero" id="hero">
+            <div class="hero-container">
+                <div class="hero-badge">
+                    <span class="pulse-dot"></span>
+                    <span>LIVE · 2,347 ACTIVE</span>
+                </div>
+
+                <h1 class="hero-title">
+                    <span class="title-line">REALITY</span>
+                    <span class="title-line gradient-text">REFRAMED</span>
+                </h1>
+
+                <p class="hero-subtitle">
+                    The first neural-integrated campus ecosystem. Where digital consciousness meets physical reality.
+                </p>
+
+                <div class="hero-stats">
+                    <div class="stat">
+                        <div class="stat-number">5K+</div>
+                        <div class="stat-label">Active Neurons</div>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat">
+                        <div class="stat-number">99.9%</div>
+                        <div class="stat-label">Uptime Sync</div>
+                    </div>
+                    <div class="stat-divider"></div>
+                    <div class="stat">
+                        <div class="stat-number">0.2s</div>
+                        <div class="stat-label">Neural Latency</div>
+                    </div>
+                </div>
+
+                <div class="hero-actions">
+                    <button class="btn-primary" id="exploreBtn">
+                        <span>Explore Neural Grid</span>
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button class="btn-secondary">
+                        <i class="fas fa-play"></i>
+                        <span>Immersion Trailer</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="hero-visual">
+                <div class="floating-elements">
+                    <div class="float-card card-1">
+                        <i class="fas fa-brain"></i>
+                        <span>Neural Link</span>
+                    </div>
+                    <div class="float-card card-2">
+                        <i class="fas fa-users"></i>
+                        <span>Sync Active</span>
+                    </div>
+                    <div class="float-card card-3">
+                        <i class="fas fa-chart-line"></i>
+                        <span>+284% Engage</span>
+                    </div>
+                </div>
+                <div class="hero-glow"></div>
+            </div>
+        </section>
+
+        <!-- Experience Section -->
+        <section class="experience" id="experience">
+            <div class="section-container">
+                <div class="section-header">
+                    <span class="section-tag">THE JOURNEY</span>
+                    <h2 class="section-title">Neural Integration<span class="gradient-text"> Protocol</span></h2>
+                    <p class="section-subtitle">Three dimensions of complete campus immersion</p>
+                </div>
+
+                <div class="experience-grid">
+                    <div class="exp-card">
+                        <div class="exp-number">01</div>
+                        <div class="exp-icon">
+                            <i class="fas fa-fingerprint"></i>
+                        </div>
+                        <h3>Identity Sync</h3>
+                        <p>Biometric authentication meets blockchain security. Your digital twin, uniquely yours.</p>
+                        <div class="exp-meta">
+                            <span>Quantum Encryption</span>
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+
+                    <div class="exp-card active">
+                        <div class="exp-number">02</div>
+                        <div class="exp-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <h3>Neural Discovery</h3>
+                        <p>AI-powered connections that understand your interests before you do.</p>
+                        <div class="exp-meta">
+                            <span>Real-time Sync</span>
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+
+                    <div class="exp-card">
+                        <div class="exp-number">03</div>
+                        <div class="exp-icon">
+                            <i class="fas fa-crown"></i>
+                        </div>
+                        <h3>Transcend</h3>
+                        <p>Unlock the complete campus metaverse with premium neural privileges.</p>
+                        <div class="exp-meta">
+                            <span>Exclusive Access</span>
+                            <i class="fas fa-arrow-right"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Capabilities Section -->
+        <section class="capabilities" id="capabilities">
+            <div class="section-container">
+                <div class="capabilities-header">
+                    <div>
+                        <span class="section-tag">CORE SYSTEMS</span>
+                        <h2 class="section-title">Neurologic<span class="gradient-text"> Capabilities</span></h2>
+                    </div>
+                    <div class="capabilities-stat">
+                        <div class="stat-circle">
+                            <span>99.9%</span>
+                            <small>Uptime</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="capabilities-grid">
+                    <div class="cap-card">
+                        <div class="cap-icon">
+                            <i class="fas fa-comment-dots"></i>
+                        </div>
+                        <div class="cap-content">
+                            <h4>Quantum Chat</h4>
+                            <p>Instantaneous messaging with end-to-end quantum encryption</p>
+                            <div class="cap-badge">Zero Latency</div>
+                        </div>
+                    </div>
+
+                    <div class="cap-card">
+                        <div class="cap-icon">
+                            <i class="fas fa-mask"></i>
+                        </div>
+                        <div class="cap-content">
+                            <h4>Anonymity Shield</h4>
+                            <p>Express freely with military-grade privacy protocols</p>
+                            <div class="cap-badge">Encrypted</div>
+                        </div>
+                    </div>
+
+                    <div class="cap-card">
+                        <div class="cap-icon">
+                            <i class="fas fa-map"></i>
+                        </div>
+                        <div class="cap-content">
+                            <h4>Holo-Mapping</h4>
+                            <p>3D neural navigation of your entire campus ecosystem</p>
+                            <div class="cap-badge">Live</div>
+                        </div>
+                    </div>
+
+                    <div class="cap-card">
+                        <div class="cap-icon">
+                            <i class="fas fa-chalkboard-user"></i>
+                        </div>
+                        <div class="cap-content">
+                            <h4>Academic Core</h4>
+                            <p>AI study groups and predictive learning algorithms</p>
+                            <div class="cap-badge">Smart</div>
+                        </div>
+                    </div>
+
+                    <div class="cap-card">
+                        <div class="cap-icon">
+                            <i class="fas fa-ticket-alt"></i>
+                        </div>
+                        <div class="cap-content">
+                            <h4>Event Horizon</h4>
+                            <p>Exclusive campus experiences and premium deals</p>
+                            <div class="cap-badge">Hot</div>
+                        </div>
+                    </div>
+
+                    <div class="cap-card">
+                        <div class="cap-icon">
+                            <i class="fas fa-chart-simple"></i>
+                        </div>
+                        <div class="cap-content">
+                            <h4>Neural Analytics</h4>
+                            <p>Track your campus impact and digital footprint</p>
+                            <div class="cap-badge">Real-time</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Neural Showcase -->
+        <section class="neural" id="neural">
+            <div class="neural-container">
+                <div class="neural-content">
+                    <span class="section-tag">VISUALIZE</span>
+                    <h2 class="section-title">The Neural<span class="gradient-text"> Network</span></h2>
+                    <p class="neural-desc">Watch as thousands of students connect in real-time across the neural grid.
+                        Every pulse represents a connection, every wave a shared moment.</p>
+
+                    <div class="neural-stats">
+                        <div class="neural-stat">
+                            <span class="stat-value" id="activeUsers">2,347</span>
+                            <span class="stat-label">Active Connections</span>
+                        </div>
+                        <div class="neural-stat">
+                            <span class="stat-value" id="messagesSent">1.2M</span>
+                            <span class="stat-label">Messages Sent</span>
+                        </div>
+                        <div class="neural-stat">
+                            <span class="stat-value" id="eventsCreated">847</span>
+                            <span class="stat-label">Events Created</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="neural-visual">
+                    <div class="neural-sphere"></div>
+                    <canvas id="neural-canvas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Launch Section -->
+        <section class="launch" id="launch">
+            <div class="launch-container">
+                <div class="launch-card">
+                    <div class="launch-glow"></div>
+                    <div class="launch-badge">LIMITED ACCESS</div>
+                    <h2 class="launch-title">Initialize Your<span class="gradient-text"> Neural Profile</span></h2>
+                    <p class="launch-desc">Join the cognitive elite. Early access grants exclusive neural badges and
+                        premium features.</p>
+
+                    <div class="launch-benefits">
+                        <div class="benefit">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Lifetime neural badge</span>
+                        </div>
+                        <div class="benefit">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Priority quantum support</span>
+                        </div>
+                        <div class="benefit">
+                            <i class="fas fa-check-circle"></i>
+                            <span>Early feature access</span>
+                        </div>
+                    </div>
+
+                    <div class="launch-form">
+                        <input type="email" placeholder="Enter neural email" id="emailInput">
+                        <button class="btn-launch" id="launchBtn">
+                            <span>Initialize</span>
+                            <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+
+                    <div class="launch-note">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Quantum encrypted · No spam · Unsubscribe anytime</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-container">
+                <div class="footer-brand">
+                    <div class="logo">
+                        <div class="logo-symbol">
+                            <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+                                <path d="M16 2 L28 9 L28 23 L16 30 L4 23 L4 9 Z" stroke="url(#gradient2)"
+                                    stroke-width="1.5" fill="none" />
+                                <circle cx="16" cy="16" r="4" fill="url(#gradient2)" />
+                            </svg>
+                        </div>
+                        <span>FAF NEURAL</span>
+                    </div>
+                    <p class="footer-desc">Redefining the campus experience through neural integration and quantum
+                        connectivity.</p>
+                    <div class="footer-social">
+                        <i class="fab fa-twitter"></i>
+                        <i class="fab fa-discord"></i>
+                        <i class="fab fa-github"></i>
+                        <i class="fab fa-instagram"></i>
+                    </div>
+                </div>
+
+                <div class="footer-links">
+                    <div class="link-group">
+                        <h4>System</h4>
+                        <a href="#">Neural Protocol</a>
+                        <a href="#">Quantum Security</a>
+                        <a href="#">Status</a>
+                    </div>
+                    <div class="link-group">
+                        <h4>Resources</h4>
+                        <a href="#">Documentation</a>
+                        <a href="#">API Access</a>
+                        <a href="#">Support</a>
+                    </div>
+                    <div class="link-group">
+                        <h4>Legal</h4>
+                        <a href="#">Neural Privacy</a>
+                        <a href="#">Terms of Sync</a>
+                        <a href="#">Cookie Protocol</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>&copy; 2026 FAF NEURAL SYSTEMS — ENTER THE VORTEX</p>
+            </div>
+        </footer>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+
+</html>

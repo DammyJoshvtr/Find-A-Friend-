@@ -97,6 +97,61 @@ export async function getClubs(filters?: ClubFilters): Promise<{
 }
 
 // ---------------------------------------------------------------------------
+// Create club (SQL needed: ALTER TABLE clubs ENABLE ROW LEVEL SECURITY;
+//              CREATE POLICY "Users can create clubs" ON clubs FOR INSERT
+//              TO authenticated WITH CHECK (auth.uid() = created_by);)
+// ---------------------------------------------------------------------------
+
+export interface CreateClubPayload {
+  name: string
+  description?: string
+  category: string
+  color?: string
+  icon?: string
+}
+
+export async function createClub(payload: CreateClubPayload): Promise<{
+  data: Club | null
+  error: Error | null
+}> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const slug = payload.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+
+    const { data, error } = await supabase
+      .from('clubs')
+      .insert({
+        name: payload.name,
+        slug: `${slug}-${Date.now().toString(36)}`,
+        description: payload.description ?? null,
+        category: payload.category,
+        color: payload.color ?? '#a78bfa',
+        icon: payload.icon ?? null,
+        is_active: true,
+        created_by: user.id,
+        member_count: 1,
+      })
+      .select('*')
+      .single()
+
+    if (error) throw error
+
+    // Auto-join as admin
+    await supabase.from('club_members').insert({
+      club_id: data.id,
+      user_id: user.id,
+      role: 'admin',
+    })
+
+    return { data: data as Club, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Club detail
 // ---------------------------------------------------------------------------
 

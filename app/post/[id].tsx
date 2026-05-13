@@ -1,55 +1,151 @@
-/**
- * app/post/[id].tsx
- * Single post detail screen — full post + comments.
- */
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useRef, useCallback } from 'react'
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TextInput,
-  TouchableOpacity,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Image,
+  View, Text, StyleSheet, FlatList, TextInput,
+  TouchableOpacity, ActivityIndicator, KeyboardAvoidingView,
+  Platform, Image, Alert, Share, Pressable,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { getPost, getComments, commentOnPost } from '../../lib/feed'
+import * as Haptics from 'expo-haptics'
+import Toast from 'react-native-toast-message'
+import { getPost, getComments, commentOnPost, reportPost } from '../../lib/feed'
 import { useFeedStore } from '../../store/feedStore'
 import { getInitials, getTimeAgo } from '../../lib/matching'
-import PostCard from '../../components/feed/PostCard'
-import type { FeedPost, PostComment } from '../../lib/feed'
 import { useTheme } from '../../lib/theme'
+import { typography } from '../../lib/typography'
+import type { FeedPost, PostComment } from '../../lib/feed'
+import { supabase } from '../../lib/supabase'
+
+function toHandle(name: string | null | undefined) {
+  if (!name) return '@user'
+  return '@' + name.toLowerCase().replace(/\s+/g, '')
+}
+
+function formatFullDate(dateStr: string) {
+  return new Date(dateStr).toLocaleString('en-US', {
+    month: 'short', day: 'numeric', year: 'numeric',
+    hour: 'numeric', minute: '2-digit',
+  })
+}
 
 export default function PostDetailScreen() {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
-  const params = useLocalSearchParams<{ id: string }>()
-  const id = Array.isArray(params.id) ? params.id[0] : params.id
+  const { id: rawId } = useLocalSearchParams<{ id: string }>()
+  const id = Array.isArray(rawId) ? rawId[0] : rawId
+
   const [post, setPost] = useState<FeedPost | null>(null)
   const [comments, setComments] = useState<PostComment[]>([])
   const [loading, setLoading] = useState(true)
   const [commentText, setCommentText] = useState('')
   const [sending, setSending] = useState(false)
-  const { incrementCommentCount } = useFeedStore()
+  const [myUserId, setMyUserId] = useState<string | null>(null)
+  const inputRef = useRef<TextInput>(null)
+
+  const {
+    toggleLike, toggleBookmark, repostPost,
+    incrementCommentCount, likedPostIds, bookmarkedPostIds,
+    deletePost,
+  } = useFeedStore()
+
+  const isLiked = post ? likedPostIds.has(post.id) : false
+  const isBookmarked = post ? bookmarkedPostIds.has(post.id) : false
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id ?? null))
     if (id) loadData()
   }, [id])
 
   const loadData = async () => {
     setLoading(true)
-    const [postRes, commentsRes] = await Promise.all([
-      getPost(id),
-      getComments(id),
-    ])
+    const [postRes, commentsRes] = await Promise.all([getPost(id), getComments(id)])
     setPost(postRes.data)
     setComments(commentsRes.data ?? [])
     setLoading(false)
+  }
+
+  const handleLike = () => {
+    if (!post) return
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    toggleLike(post.id)
+    setPost(p => p ? {
+      ...p,
+      likes_count: isLiked ? Math.max(0, p.likes_count - 1) : p.likes_count + 1,
+    } : p)
+  }
+
+  const handleBookmark = () => {
+    if (!post) return
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    toggleBookmark(post.id)
+  }
+
+  const handleRepost = () => {
+    if (!post) return
+    Alert.alert('Repost', 'Repost this to your feed?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Repost',
+        onPress: async () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+          const { error } = await repostPost(post.id)
+          if (error) Toast.show({ type: 'error', text1: 'Repost failed', text2: error.message })
+          else {
+            Toast.show({ type: 'success', text1: 'Reposted!', text2: 'Added to your feed' })
+            setPost(p => p ? { ...p, repost_count: (p.repost_count ?? 0) + 1 } : p)
+          }
+        },
+      },
+    ])
+  }
+
+  const handleShare = async () => {
+    if (!post) return
+    try { await Share.share({ message: `${post.body}\n\n— via FAF` }) } catch {}
+  }
+
+  const handleMore = () => {
+    if (!post) return
+    const isOwn = myUserId && post.author_id === myUserId
+    Alert.alert('Options', undefined, isOwn
+      ? [
+          {
+            text: 'Delete post', style: 'destructive',
+            onPress: () =>
+              Alert.alert('Delete post', 'This cannot be undone.', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Delete', style: 'destructive',
+                  onPress: async () => {
+                    const { error } = await deletePost(post.id)
+                    if (error) Toast.show({ type: 'error', text1: 'Delete failed', text2: error.message })
+                    else { Toast.show({ type: 'success', text1: 'Deleted' }); router.back() }
+                  },
+                },
+              ]),
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      : [
+          {
+            text: 'Report post', style: 'destructive',
+            onPress: () =>
+              Alert.alert('Report post', 'Report this as inappropriate?', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Report', style: 'destructive',
+                  onPress: async () => {
+                    const { error } = await reportPost(post.id)
+                    if (error) Toast.show({ type: 'error', text1: 'Report failed', text2: error.message })
+                    else Toast.show({ type: 'success', text1: 'Reported', text2: 'Thanks for keeping FAF safe' })
+                  },
+                },
+              ]),
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+    )
   }
 
   const handleSend = async () => {
@@ -60,37 +156,53 @@ export default function PostDetailScreen() {
     if (!error && data) {
       setComments(prev => [...prev, data])
       incrementCommentCount(id)
+      setPost(p => p ? { ...p, comments_count: p.comments_count + 1 } : p)
       setCommentText('')
     }
     setSending(false)
   }
 
-  const renderComment = ({ item }: { item: PostComment }) => (
-    <View style={s.commentRow}>
-      <View style={s.avatar}>
-        {item.profiles?.avatar_url ? (
-          <Image source={{ uri: item.profiles.avatar_url }} style={s.avatarImg} />
-        ) : (
-          <Text style={s.initials}>
-            {item.is_anonymous ? '?' : getInitials(item.profiles?.full_name ?? '??')}
-          </Text>
-        )}
+  const renderBody = (text: string) => {
+    const parts = text.split(/([@#]\w+)/g)
+    return (
+      <Text style={[s.postBody, { color: theme.text }]}>
+        {parts.map((part, i) => {
+          if (part.startsWith('#'))
+            return <Text key={i} style={{ color: theme.accent }} onPress={() => router.push(`/hashtag/${part.slice(1)}` as any)}>{part}</Text>
+          if (part.startsWith('@'))
+            return <Text key={i} style={{ color: theme.accent }}>{part}</Text>
+          return <Text key={i}>{part}</Text>
+        })}
+      </Text>
+    )
+  }
+
+  const renderComment = useCallback(({ item }: { item: PostComment }) => {
+    const name = item.is_anonymous ? 'Anonymous' : (item.profiles?.full_name ?? 'User')
+    const initials = item.is_anonymous ? '?' : getInitials(item.profiles?.full_name ?? '?')
+    return (
+      <View style={[s.commentRow, { borderBottomColor: theme.border }]}>
+        <View style={[s.commentAvatar, { backgroundColor: theme.cardSolid, borderColor: theme.border }]}>
+          {!item.is_anonymous && item.profiles?.avatar_url
+            ? <Image source={{ uri: item.profiles.avatar_url }} style={s.commentAvatarImg} />
+            : <Text style={[s.commentInitials, { color: theme.accent }]}>{initials}</Text>}
+        </View>
+        <View style={s.commentContent}>
+          <View style={s.commentMeta}>
+            <Text style={[s.commentName, { color: theme.text }]}>{name}</Text>
+            <Text style={[s.commentTime, { color: theme.textFaint }]}>{getTimeAgo(item.created_at)}</Text>
+          </View>
+          <Text style={[s.commentBody, { color: theme.textMuted }]}>{item.body}</Text>
+        </View>
       </View>
-      <View style={s.commentContent}>
-        <Text style={s.commentAuthor}>
-          {item.is_anonymous ? 'Anonymous' : (item.profiles?.full_name ?? 'User')}
-        </Text>
-        <Text style={s.commentBody}>{item.body}</Text>
-        <Text style={s.commentTime}>{getTimeAgo(item.created_at)}</Text>
-      </View>
-    </View>
-  )
+    )
+  }, [theme])
 
   if (loading) {
     return (
       <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <View style={s.loadingWrap}>
-          <ActivityIndicator size="large" color="#a78bfa" />
+          <ActivityIndicator size="large" color={theme.accent} />
         </View>
       </SafeAreaView>
     )
@@ -100,27 +212,125 @@ export default function PostDetailScreen() {
     return (
       <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
         <View style={s.loadingWrap}>
-          <Text style={s.errorText}>Post not found.</Text>
-          <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-            <Text style={s.backBtnText}>Go back</Text>
+          <Text style={[s.errorText, { color: theme.textMuted }]}>Post not found.</Text>
+          <TouchableOpacity style={[s.pill, { backgroundColor: theme.accent }]} onPress={() => router.back()}>
+            <Text style={s.pillText}>Go back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     )
   }
 
+  const isAnon = post.is_anonymous
+  const displayName = isAnon ? 'Anonymous' : (post.profiles?.full_name ?? 'User')
+  const handle = isAnon ? '@anonymous' : toHandle(post.profiles?.full_name)
+  const goToProfile = () => !isAnon && post.author_id && router.push(`/profile/${post.author_id}` as any)
+
+  const PostHeader = (
+    <View>
+      {/* ── Author row ── */}
+      <View style={[s.authorSection, { borderBottomColor: theme.border }]}>
+        <TouchableOpacity onPress={goToProfile} disabled={isAnon}
+          style={[s.avatarRing, { borderColor: isAnon ? theme.border : theme.accentBorder }]}>
+          {!isAnon && post.profiles?.avatar_url
+            ? <Image source={{ uri: post.profiles.avatar_url }} style={s.avatar} />
+            : <View style={[s.avatarFallback, { backgroundColor: theme.cardSolid }]}>
+                {isAnon
+                  ? <Ionicons name="eye-off-outline" size={18} color={theme.textMuted} />
+                  : <Text style={[s.avatarInitials, { color: theme.accent }]}>{getInitials(post.profiles?.full_name ?? 'U')}</Text>}
+              </View>}
+        </TouchableOpacity>
+
+        <TouchableOpacity style={{ flex: 1 }} onPress={goToProfile} disabled={isAnon}>
+          <Text style={[s.authorName, { color: theme.text }]}>{displayName}</Text>
+          <Text style={[s.authorHandle, { color: theme.textMuted }]}>{handle}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={handleMore} hitSlop={12}
+          style={[s.moreBtn, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Ionicons name="ellipsis-horizontal" size={16} color={theme.textFaint} />
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Body ── */}
+      <View style={s.bodySection}>
+        {renderBody(post.body)}
+        {post.image_url
+          ? <Image source={{ uri: post.image_url }} style={[s.postImage, { borderColor: theme.border }]} resizeMode="cover" />
+          : null}
+        <Text style={[s.timestamp, { color: theme.textFaint }]}>{formatFullDate(post.created_at)}</Text>
+      </View>
+
+      {/* ── Stats row ── */}
+      {(post.likes_count > 0 || (post.repost_count ?? 0) > 0 || post.comments_count > 0) && (
+        <View style={[s.statsRow, { borderColor: theme.border }]}>
+          {post.comments_count > 0 && (
+            <Text style={s.statItem}>
+              <Text style={[s.statNum, { color: theme.text }]}>{post.comments_count}</Text>
+              <Text style={[s.statLabel, { color: theme.textMuted }]}> {post.comments_count === 1 ? 'Reply' : 'Replies'}</Text>
+            </Text>
+          )}
+          {(post.repost_count ?? 0) > 0 && (
+            <Text style={s.statItem}>
+              <Text style={[s.statNum, { color: theme.text }]}>{post.repost_count}</Text>
+              <Text style={[s.statLabel, { color: theme.textMuted }]}> {post.repost_count === 1 ? 'Repost' : 'Reposts'}</Text>
+            </Text>
+          )}
+          {post.likes_count > 0 && (
+            <Text style={s.statItem}>
+              <Text style={[s.statNum, { color: theme.text }]}>{post.likes_count}</Text>
+              <Text style={[s.statLabel, { color: theme.textMuted }]}> {post.likes_count === 1 ? 'Like' : 'Likes'}</Text>
+            </Text>
+          )}
+        </View>
+      )}
+
+      {/* ── Action bar ── */}
+      <View style={[s.actionBar, { borderBottomColor: theme.border }]}>
+        <TouchableOpacity style={s.actionBtn} onPress={() => inputRef.current?.focus()} hitSlop={10}>
+          <Ionicons name="chatbubble-outline" size={22} color={theme.textMuted} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.actionBtn} onPress={handleRepost} hitSlop={10}>
+          <Ionicons name="repeat-outline" size={22} color={theme.textMuted} />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.actionBtn} onPress={handleLike} hitSlop={10}>
+          <Ionicons
+            name={isLiked ? 'heart' : 'heart-outline'}
+            size={22}
+            color={isLiked ? '#f472b6' : theme.textMuted}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.actionBtn} onPress={handleBookmark} hitSlop={10}>
+          <Ionicons
+            name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
+            size={22}
+            color={isBookmarked ? theme.accent : theme.textMuted}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity style={s.actionBtn} onPress={handleShare} hitSlop={10}>
+          <Ionicons name="share-outline" size={22} color={theme.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      {/* ── Replies label ── */}
+      <View style={[s.repliesLabel, { borderBottomColor: theme.border }]}>
+        <Text style={[s.repliesText, { color: theme.textMuted }]}>
+          {comments.length} {comments.length === 1 ? 'Reply' : 'Replies'}
+        </Text>
+      </View>
+    </View>
+  )
+
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}>
-        {/* Header */}
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()} style={s.backIcon}>
-            <Ionicons name="arrow-back" size={22} color={theme.text} />
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        {/* ── Header ── */}
+        <View style={[s.header, { borderBottomColor: theme.border }]}>
+          <TouchableOpacity onPress={() => router.back()}
+            style={[s.backBtn, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Ionicons name="arrow-back" size={18} color={theme.text} />
           </TouchableOpacity>
-          <Text style={s.headerTitle}>Post</Text>
+          <Text style={[s.headerTitle, { color: theme.text }]}>Post</Text>
           <View style={{ width: 36 }} />
         </View>
 
@@ -128,44 +338,38 @@ export default function PostDetailScreen() {
           data={comments}
           keyExtractor={item => item.id}
           renderItem={renderComment}
-          ListHeaderComponent={
-            <View style={{ paddingBottom: 8 }}>
-              <PostCard post={post} />
-              <View style={s.divider}>
-                <Text style={s.dividerText}>
-                  {comments.length} comment{comments.length !== 1 ? 's' : ''}
-                </Text>
-              </View>
-            </View>
-          }
+          ListHeaderComponent={PostHeader}
           ListEmptyComponent={
-            <View style={s.emptyComments}>
-              <Ionicons name="chatbubble-outline" size={28} color="rgba(240,240,255,0.15)" />
-              <Text style={s.emptyText}>No comments yet</Text>
+            <View style={s.emptyWrap}>
+              <Ionicons name="chatbubble-outline" size={36} color={theme.textFaint} />
+              <Text style={[s.emptyTitle, { color: theme.textMuted }]}>No replies yet</Text>
+              <Text style={[s.emptyHint, { color: theme.textFaint }]}>Be the first to reply</Text>
             </View>
           }
-          contentContainerStyle={{ paddingBottom: 16 }}
+          contentContainerStyle={{ paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         />
 
-        {/* Input */}
-        <View style={[s.inputRow, { paddingBottom: insets.bottom + 8 }]}>
+        {/* ── Reply input ── */}
+        <View style={[s.inputRow, { borderTopColor: theme.border, paddingBottom: insets.bottom + 4 }]}>
           <TextInput
-            style={s.input}
-            placeholder="Add a comment..."
-            placeholderTextColor="rgba(240,240,255,0.3)"
+            ref={inputRef}
+            style={[s.input, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
+            placeholder="Post your reply…"
+            placeholderTextColor={theme.textFaint}
             value={commentText}
             onChangeText={setCommentText}
             multiline
             maxLength={300}
           />
           <TouchableOpacity
-            style={[s.sendBtn, (!commentText.trim() || sending) && s.sendBtnDisabled]}
+            style={[s.sendBtn, { backgroundColor: theme.accent }, (!commentText.trim() || sending) && s.sendDisabled]}
             onPress={handleSend}
             disabled={!commentText.trim() || sending}>
             {sending
               ? <ActivityIndicator size="small" color="#fff" />
-              : <Ionicons name="send" size={18} color="#fff" />}
+              : <Ionicons name="send" size={16} color="#fff" />}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -175,70 +379,120 @@ export default function PostDetailScreen() {
 
 const s = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  backIcon: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#1c1c2e',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  headerTitle: { fontSize: 16, fontWeight: '600', color: '#f0f0ff' },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  errorText: { fontSize: 14, color: 'rgba(240,240,255,0.4)' },
-  backBtn: {
-    backgroundColor: '#a78bfa', borderRadius: 20,
-    paddingHorizontal: 20, paddingVertical: 8,
-  },
-  backBtnText: { fontSize: 13, fontWeight: '600', color: '#fff' },
-  divider: {
+  errorText: { fontSize: 14, fontFamily: typography.fontRegular },
+
+  /* Header */
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 10,
-    borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.06)',
+    borderBottomWidth: 0.5,
   },
-  dividerText: { fontSize: 12, color: 'rgba(240,240,255,0.35)', fontWeight: '500' },
-  commentRow: {
-    flexDirection: 'row', gap: 10,
-    paddingHorizontal: 16, paddingVertical: 8,
-    borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.04)',
-  },
-  avatar: {
-    width: 32, height: 32, borderRadius: 16,
-    backgroundColor: '#2a1e40',
+  backBtn: {
+    width: 34, height: 34, borderRadius: 17,
     alignItems: 'center', justifyContent: 'center',
-    flexShrink: 0, overflow: 'hidden',
+    borderWidth: 0.5,
   },
-  avatarImg: { width: 32, height: 32, borderRadius: 16 },
-  initials: { fontSize: 10, fontWeight: '700', color: '#c4b5fd' },
+  headerTitle: { fontSize: 15, fontFamily: typography.fontSemiBold },
+  pill: { borderRadius: 20, paddingHorizontal: 22, paddingVertical: 10 },
+  pillText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+
+  /* Author */
+  authorSection: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingTop: 16, paddingBottom: 14,
+    borderBottomWidth: 0.5,
+  },
+  avatarRing: {
+    width: 48, height: 48, borderRadius: 24,
+    borderWidth: 1.5, padding: 2,
+  },
+  avatar: { width: '100%', height: '100%', borderRadius: 22 },
+  avatarFallback: {
+    width: '100%', height: '100%', borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarInitials: { fontSize: 14, fontFamily: typography.fontBold },
+  authorName: { fontSize: 15, fontFamily: typography.fontBold },
+  authorHandle: { fontSize: 13, fontFamily: typography.fontRegular, marginTop: 1 },
+  moreBtn: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 0.5,
+  },
+
+  /* Body */
+  bodySection: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4 },
+  postBody: { fontSize: 18, lineHeight: 28, fontFamily: typography.fontRegular, marginBottom: 12 },
+  postImage: {
+    width: '100%', height: 240, borderRadius: 16,
+    borderWidth: 1, marginBottom: 12,
+  },
+  timestamp: { fontSize: 13, fontFamily: typography.fontRegular, paddingBottom: 14 },
+
+  /* Stats */
+  statsRow: {
+    flexDirection: 'row', gap: 20,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderTopWidth: 0.5, borderBottomWidth: 0.5,
+  },
+  statItem: {},
+  statNum: { fontSize: 15, fontFamily: typography.fontBold },
+  statLabel: { fontSize: 14, fontFamily: typography.fontRegular },
+
+  /* Action bar */
+  actionBar: {
+    flexDirection: 'row', justifyContent: 'space-around',
+    paddingVertical: 6, borderBottomWidth: 0.5,
+  },
+  actionBtn: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 10,
+  },
+
+  /* Replies label */
+  repliesLabel: { paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 0.5 },
+  repliesText: { fontSize: 12, fontFamily: typography.fontMedium, textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  /* Comment rows */
+  commentRow: {
+    flexDirection: 'row', gap: 12,
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 0.5,
+  },
+  commentAvatar: {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, flexShrink: 0, overflow: 'hidden',
+  },
+  commentAvatarImg: { width: 36, height: 36, borderRadius: 18 },
+  commentInitials: { fontSize: 11, fontFamily: typography.fontBold },
   commentContent: { flex: 1 },
-  commentAuthor: { fontSize: 12, fontWeight: '600', color: '#f0f0ff', marginBottom: 2 },
-  commentBody: { fontSize: 13, color: 'rgba(240,240,255,0.75)', lineHeight: 18, marginBottom: 2 },
-  commentTime: { fontSize: 10, color: 'rgba(240,240,255,0.3)' },
-  emptyComments: { alignItems: 'center', paddingVertical: 30, gap: 8 },
-  emptyText: { fontSize: 13, color: 'rgba(240,240,255,0.3)' },
+  commentMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 3 },
+  commentName: { fontSize: 13, fontFamily: typography.fontSemiBold },
+  commentTime: { fontSize: 11, fontFamily: typography.fontRegular },
+  commentBody: { fontSize: 14, lineHeight: 20, fontFamily: typography.fontRegular },
+
+  /* Empty */
+  emptyWrap: { alignItems: 'center', paddingTop: 48, gap: 8 },
+  emptyTitle: { fontSize: 15, fontFamily: typography.fontSemiBold },
+  emptyHint: { fontSize: 13, fontFamily: typography.fontRegular },
+
+  /* Input */
   inputRow: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
-    padding: 12,
-    borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 12, paddingTop: 8,
+    borderTopWidth: 0.5,
   },
   input: {
-    flex: 1,
-    backgroundColor: '#1c1c2e',
-    borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 10,
-    fontSize: 13, color: '#f0f0ff',
-    maxHeight: 100,
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+    flex: 1, borderRadius: 22,
+    paddingHorizontal: 16, paddingVertical: 10,
+    fontSize: 14, fontFamily: typography.fontRegular,
+    maxHeight: 100, borderWidth: 0.5,
   },
   sendBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#a78bfa',
+    width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center',
   },
-  sendBtnDisabled: { opacity: 0.4 },
+  sendDisabled: { opacity: 0.4 },
 })

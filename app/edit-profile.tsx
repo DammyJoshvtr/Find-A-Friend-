@@ -8,8 +8,10 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
+import Toast from 'react-native-toast-message'
 import { getCurrentProfile, updateProfile, uploadAvatar } from '../lib/profiles'
 import { useTheme } from '../lib/theme'
+import { typography } from '../lib/typography'
 import { getInitials } from '../lib/matching'
 import type { Profile } from '../lib/profiles'
 
@@ -47,7 +49,7 @@ export default function EditProfileScreen() {
   const pickAvatar = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (status !== 'granted') {
-      Alert.alert('Permission needed', 'Allow access to your photos.')
+      Toast.show({ type: 'error', text1: 'Permission needed', text2: 'Allow access to your photos.' })
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -60,7 +62,7 @@ export default function EditProfileScreen() {
 
   const handleSave = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Name required', 'Please enter your full name.')
+      Toast.show({ type: 'error', text1: 'Name required', text2: 'Please enter your full name.' })
       return
     }
     setSaving(true)
@@ -83,7 +85,7 @@ export default function EditProfileScreen() {
       if (error) throw new Error(String(error))
       router.back()
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Could not save profile.')
+      Toast.show({ type: 'error', text1: 'Error', text2: err instanceof Error ? err.message : 'Could not save profile.' })
     } finally {
       setSaving(false)
     }
@@ -102,7 +104,7 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {/* Header */}
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.back()} style={s.closeBtn}>
@@ -226,16 +228,16 @@ const s = StyleSheet.create({
     borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   closeBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 16, fontWeight: '600', color: '#f0f0ff' },
+  title: { fontSize: 16, fontFamily: typography.fontSemiBold, color: '#f0f0ff' },
   saveBtn: {
     backgroundColor: '#a78bfa', borderRadius: 20,
-    paddingHorizontal: 18, paddingVertical: 7, minWidth: 60, alignItems: 'center',
+    paddingHorizontal: 18, minHeight: 44, minWidth: 60, alignItems: 'center', justifyContent: 'center',
   },
   saveBtnDisabled: { opacity: 0.5 },
-  saveBtnText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  saveBtnText: { fontSize: 13, fontFamily: typography.fontBold, color: '#fff' },
   scroll: { paddingBottom: 40 },
   avatarSection: { alignItems: 'center', paddingTop: 28, paddingBottom: 20 },
   avatarWrap: { position: 'relative' },
@@ -245,23 +247,23 @@ const s = StyleSheet.create({
     backgroundColor: '#2a1e40', alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: '#a78bfa',
   },
-  avatarInitials: { fontSize: 28, fontWeight: '700', color: '#c4b5fd' },
+  avatarInitials: { fontSize: 28, fontFamily: typography.fontBold, color: '#c4b5fd' },
   avatarEdit: {
     position: 'absolute', bottom: 0, right: 0,
     width: 30, height: 30, borderRadius: 15,
     backgroundColor: '#a78bfa', alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: '#0d0d14',
   },
-  avatarHint: { fontSize: 12, color: 'rgba(240,240,255,0.35)', marginTop: 10 },
+  avatarHint: { fontSize: 12, color: 'rgba(240,240,255,0.35)', marginTop: 10, fontFamily: typography.fontRegular },
   fields: { paddingHorizontal: 16, gap: 4 },
   fieldWrap: { marginBottom: 16 },
-  fieldLabel: { fontSize: 11, color: 'rgba(240,240,255,0.4)', marginBottom: 8, fontWeight: '500' },
+  fieldLabel: { fontSize: 11, color: 'rgba(240,240,255,0.4)', marginBottom: 8, fontFamily: typography.fontMedium },
   input: {
     backgroundColor: '#1c1c2e', borderRadius: 12,
     padding: 13, fontSize: 14, color: '#f0f0ff',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)', fontFamily: typography.fontRegular,
   },
-  charCount: { fontSize: 10, color: 'rgba(240,240,255,0.25)', textAlign: 'right', marginTop: 4 },
+  charCount: { fontSize: 10, color: 'rgba(240,240,255,0.25)', textAlign: 'right', marginTop: 4, fontFamily: typography.fontRegular },
   pillRow: { gap: 8, paddingBottom: 4 },
   pill: {
     paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
@@ -269,8 +271,8 @@ const s = StyleSheet.create({
     borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
   },
   pillActive: { backgroundColor: 'rgba(167,139,250,0.15)', borderColor: 'rgba(167,139,250,0.4)' },
-  pillText: { fontSize: 12, color: 'rgba(240,240,255,0.45)' },
-  pillTextActive: { color: '#a78bfa', fontWeight: '600' },
+  pillText: { fontSize: 12, color: 'rgba(240,240,255,0.45)', fontFamily: typography.fontRegular },
+  pillTextActive: { color: '#a78bfa', fontFamily: typography.fontSemiBold },
   levelRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   levelBtn: {
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
@@ -278,6 +280,6 @@ const s = StyleSheet.create({
     borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
   },
   levelBtnActive: { backgroundColor: 'rgba(167,139,250,0.15)', borderColor: 'rgba(167,139,250,0.4)' },
-  levelText: { fontSize: 13, color: 'rgba(240,240,255,0.45)' },
-  levelTextActive: { color: '#a78bfa', fontWeight: '600' },
+  levelText: { fontSize: 13, color: 'rgba(240,240,255,0.45)', fontFamily: typography.fontRegular },
+  levelTextActive: { color: '#a78bfa', fontFamily: typography.fontSemiBold },
 })

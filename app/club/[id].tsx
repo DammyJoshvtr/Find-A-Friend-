@@ -19,6 +19,7 @@ import EventCard from '../../components/events/EventCard'
 import { getInitials, getTimeAgo } from '../../lib/matching'
 import type { Club, ClubMember, ClubAnnouncement } from '../../lib/clubs'
 import { useTheme } from '../../lib/theme'
+import { typography } from '../../lib/typography'
 import type { FeedPost } from '../../lib/feed'
 import type { Event } from '../../lib/events'
 
@@ -242,6 +243,14 @@ export default function ClubDetailScreen() {
               {club.category} · {club.member_count} members
             </Text>
           </View>
+          {role && (
+            <TouchableOpacity
+              style={[s.chatBtn, { borderColor: club.color ?? '#a78bfa' }]}
+              onPress={() => router.push(`/club-room/${id}` as any)}>
+              <Ionicons name="chatbubbles-outline" size={16} color={club.color ?? '#a78bfa'} />
+              <Text style={[s.chatBtnText, { color: club.color ?? '#a78bfa' }]}>Chat</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[s.joinBtn, role && s.leaveBtn]}
             onPress={handleJoinLeave}
@@ -298,7 +307,7 @@ const s = StyleSheet.create({
   hero: { width: '100%', height: 220 },
   backBtn: {
     position: 'absolute', top: 48, left: 16,
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center', justifyContent: 'center',
   },
@@ -306,12 +315,18 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 14,
   },
-  clubName: { fontSize: 20, fontWeight: '700', color: '#f0f0ff', marginBottom: 3 },
-  clubMeta: { fontSize: 12, color: 'rgba(240,240,255,0.4)' },
+  clubName: { fontSize: 20, fontFamily: typography.fontBold, color: '#f0f0ff', marginBottom: 3 },
+  clubMeta: { fontSize: 12, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontRegular },
   description: {
     fontSize: 13, color: 'rgba(240,240,255,0.6)', lineHeight: 20,
-    paddingHorizontal: 16, marginBottom: 14,
+    paddingHorizontal: 16, marginBottom: 14, fontFamily: typography.fontRegular,
   },
+  chatBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8,
+    borderWidth: 1, backgroundColor: 'transparent',
+  },
+  chatBtnText: { fontSize: 12, fontFamily: typography.fontSemiBold },
   joinBtn: {
     backgroundColor: '#a78bfa', borderRadius: 20,
     paddingHorizontal: 20, paddingVertical: 9,
@@ -321,7 +336,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(239,68,68,0.1)',
     borderWidth: 0.5, borderColor: 'rgba(239,68,68,0.3)',
   },
-  joinText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  joinText: { fontSize: 13, fontFamily: typography.fontSemiBold, color: '#fff' },
   leaveText: { color: '#ef4444' },
   tabBar: { paddingHorizontal: 16, gap: 8, marginBottom: 8 },
   tab: {
@@ -333,8 +348,8 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(167,139,250,0.15)',
     borderColor: 'rgba(167,139,250,0.4)',
   },
-  tabText: { fontSize: 12, color: 'rgba(240,240,255,0.4)' },
-  tabTextActive: { color: '#a78bfa', fontWeight: '600' },
+  tabText: { fontSize: 12, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontMedium },
+  tabTextActive: { color: '#a78bfa', fontFamily: typography.fontSemiBold },
   announcementCard: {
     marginHorizontal: 16, marginBottom: 10,
     backgroundColor: '#1c1c2e', borderRadius: 14, padding: 14,
@@ -345,10 +360,10 @@ const s = StyleSheet.create({
     width: 32, height: 32, borderRadius: 16,
     backgroundColor: '#2a1e40', alignItems: 'center', justifyContent: 'center',
   },
-  announcementInitials: { fontSize: 10, fontWeight: '700', color: '#c4b5fd' },
-  announcementAuthor: { fontSize: 12, fontWeight: '600', color: '#f0f0ff' },
-  announcementTime: { fontSize: 10, color: 'rgba(240,240,255,0.35)' },
-  announcementBody: { fontSize: 13, color: 'rgba(240,240,255,0.7)', lineHeight: 20 },
+  announcementInitials: { fontSize: 10, fontFamily: typography.fontBold, color: '#c4b5fd' },
+  announcementAuthor: { fontSize: 12, fontFamily: typography.fontSemiBold, color: '#f0f0ff' },
+  announcementTime: { fontSize: 10, color: 'rgba(240,240,255,0.35)', fontFamily: typography.fontRegular },
+  announcementBody: { fontSize: 13, color: 'rgba(240,240,255,0.7)', lineHeight: 20, fontFamily: typography.fontRegular },
   memberRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 10,
@@ -360,14 +375,14 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
   memberAvatarImg: { width: 38, height: 38, borderRadius: 19 },
-  memberInitials: { fontSize: 11, fontWeight: '700', color: '#c4b5fd' },
-  memberName: { fontSize: 13, fontWeight: '500', color: '#f0f0ff', marginBottom: 1 },
-  memberDept: { fontSize: 11, color: 'rgba(240,240,255,0.35)' },
+  memberInitials: { fontSize: 11, fontFamily: typography.fontBold, color: '#c4b5fd' },
+  memberName: { fontSize: 13, fontFamily: typography.fontMedium, color: '#f0f0ff', marginBottom: 1 },
+  memberDept: { fontSize: 11, color: 'rgba(240,240,255,0.35)', fontFamily: typography.fontRegular },
   roleBadge: {
     backgroundColor: 'rgba(167,139,250,0.12)', borderRadius: 10,
     paddingHorizontal: 8, paddingVertical: 3,
   },
-  roleText: { fontSize: 9, color: '#a78bfa', fontWeight: '600' },
+  roleText: { fontSize: 9, color: '#a78bfa', fontFamily: typography.fontSemiBold },
   emptyTab: { alignItems: 'center', paddingVertical: 40 },
-  emptyTabText: { fontSize: 13, color: 'rgba(240,240,255,0.3)' },
+  emptyTabText: { fontSize: 13, color: 'rgba(240,240,255,0.3)', fontFamily: typography.fontRegular },
 })

@@ -2,6 +2,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, Image,
 } from 'react-native'
+import Toast from 'react-native-toast-message'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useState, useEffect } from 'react'
@@ -11,6 +12,7 @@ import { getInitials } from '../../lib/matching'
 import { useAuthStore } from '../../store/authStore'
 import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../lib/theme'
+import { useTabBarScroll } from '../../lib/useTabBarScroll'
 import * as Updates from 'expo-updates'
 
 const features: Array<{
@@ -20,7 +22,9 @@ const features: Array<{
   { icon: '🗺️', title: 'Campus map',      subtitle: 'Events & friends nearby',        color: '#34d399', bg: 'rgba(52,211,153,0.12)',  border: 'rgba(52,211,153,0.25)',  route: '/map' },
   { icon: '📚', title: 'Academic hub',    subtitle: 'Courses, study groups & notes',  color: '#60a5fa', bg: 'rgba(96,165,250,0.12)',  border: 'rgba(96,165,250,0.25)',  route: '/academic' },
   { icon: '🏛️', title: 'Clubs',           subtitle: 'Join clubs & announcements',     color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)', route: '/clubs' },
-  { icon: '🎭', title: 'Confession board',subtitle: 'Anonymous campus posts',         color: '#f472b6', bg: 'rgba(244,114,182,0.12)', border: 'rgba(244,114,182,0.25)', route: '/anonymous' },
+  { icon: '🎮', title: 'Games',           subtitle: 'Pool · Trivia · Word Duel',      color: '#f472b6', bg: 'rgba(244,114,182,0.12)', border: 'rgba(244,114,182,0.25)', route: '/games' },
+  { icon: '🎭', title: 'Confession board',subtitle: 'Anonymous campus posts',         color: '#fb923c', bg: 'rgba(251,146,60,0.12)',  border: 'rgba(251,146,60,0.25)',  route: '/anonymous' },
+  { icon: '💬', title: 'Feedback',         subtitle: 'Report issues & suggestions',    color: '#34d399', bg: 'rgba(52,211,153,0.12)',  border: 'rgba(52,211,153,0.25)',  route: '/feedback' },
   { icon: '🏪', title: 'Campus deals',    subtitle: 'Student-only discounts',         color: '#fbbf24', bg: 'rgba(251,191,36,0.12)',  border: 'rgba(251,191,36,0.25)',  route: '/vendors' },
   { icon: '👤', title: 'Edit profile',    subtitle: 'Bio, photo & interests',         color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)', route: '/edit-profile' },
 ]
@@ -31,6 +35,7 @@ export default function MoreScreen() {
   const [loading, setLoading] = useState(true)
   const { signOut, user } = useAuthStore()
   const theme = useTheme()
+  const { onScroll, scrollEventThrottle } = useTabBarScroll()
 
   useEffect(() => {
     Promise.all([getCurrentProfile(), getProfileStats()]).then(([p, s]) => {
@@ -66,10 +71,7 @@ export default function MoreScreen() {
             // Ignore — sign out either way so the user is not stuck
           }
           await supabase.auth.signOut()
-          Alert.alert(
-            'Account deleted',
-            'Your data has been removed. If any content remains, it will be purged within 24 hours.',
-          )
+          Toast.show({ type: 'success', text1: 'Account deleted', text2: 'Your data has been removed.' })
           router.replace('/(auth)/welcome' as any)
         }},
       ]
@@ -117,7 +119,7 @@ export default function MoreScreen() {
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} onScroll={onScroll} scrollEventThrottle={scrollEventThrottle}>
 
         <View style={s.header}>
           <Text style={[s.title, { color: theme.text }]}>More</Text>
@@ -126,7 +128,7 @@ export default function MoreScreen() {
         {/* Profile card */}
         <TouchableOpacity
           style={[s.profileCard, { backgroundColor: theme.card, borderColor: theme.border }]}
-          onPress={() => user?.id && router.push(`/profile/${user.id}` as any)}>
+          onPress={() => router.push('/profile' as any)}>
           {loading ? (
             <View style={[s.avatarWrap, { backgroundColor: theme.card2 }]}>
               <ActivityIndicator size="small" color="#a78bfa" />

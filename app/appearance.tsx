@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { useThemeStore } from '../store/themeStore'
 import { useTheme } from '../lib/theme'
+import { typography } from '../lib/typography'
 
 export default function AppearanceScreen() {
   const { isDark, toggleTheme } = useThemeStore()
@@ -75,16 +76,16 @@ const s = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5,
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 17, fontWeight: '600' },
-  sectionLabel: { fontSize: 12, fontWeight: '500', marginBottom: -8 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 17, fontFamily: typography.fontSemiBold },
+  sectionLabel: { fontSize: 12, fontFamily: typography.fontMedium, marginBottom: -8 },
   themeRow: { flexDirection: 'row', gap: 12 },
   themeCard: {
     flex: 1, borderRadius: 16, padding: 20, alignItems: 'center',
     gap: 8, borderWidth: 1.5, position: 'relative',
   },
   themeIcon: { fontSize: 32 },
-  themeLabel: { fontSize: 14, fontWeight: '600' },
+  themeLabel: { fontSize: 14, fontFamily: typography.fontSemiBold },
   activeCheck: {
     position: 'absolute', top: 10, right: 10,
     width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
@@ -94,5 +95,5 @@ const s = StyleSheet.create({
     padding: 14, borderRadius: 14, borderWidth: 0.5,
   },
   rowIcon: { fontSize: 18 },
-  rowLabel: { flex: 1, fontSize: 15, fontWeight: '500' },
+  rowLabel: { flex: 1, fontSize: 15, fontFamily: typography.fontMedium },
 })

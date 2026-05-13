@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
+import { AppState } from 'react-native'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { Stack, router, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import * as Updates from 'expo-updates'
@@ -6,10 +8,23 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../store/authStore'
 import { useThemeStore } from '../store/themeStore'
 import { useNotificationsStore } from '../store/notificationsStore'
+import { usePresenceStore } from '../store/presenceStore'
 import { ThemeProvider, useTheme } from '../lib/theme'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { registerForPushNotifications, savePushToken } from '../lib/notifications'
-import { setOnlineStatus } from '../lib/profiles'
+import * as Notifications from 'expo-notifications'
+import {
+  useFonts,
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+} from '@expo-google-fonts/plus-jakarta-sans'
+import Toast from 'react-native-toast-message'
+import * as SplashScreen from 'expo-splash-screen'
+
+SplashScreen.preventAutoHideAsync().catch(() => {})
 
 function AppStack() {
   const { session, setSession } = useAuthStore()
@@ -31,19 +46,54 @@ function AppStack() {
   }, [])
 
   const { addNotification, loadUnreadCount } = useNotificationsStore()
+  const { setOnlineUsers } = usePresenceStore()
+  const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
   useEffect(() => {
     if (!session) return
+
+    // Push notification registration
     registerForPushNotifications().then(token => {
       if (token) savePushToken(token)
     })
-    setOnlineStatus(true)
 
     // Load initial unread count
     loadUnreadCount()
 
-    // Subscribe to realtime notifications for this user
-    const channel = supabase
+    // ── Presence channel ────────────────────────────────────────────────────
+    // Supabase Presence automatically removes users when they disconnect
+    // (app killed, network loss, crash) — far more reliable than writing to DB.
+    const presenceChannel = supabase.channel('online-users', {
+      config: { presence: { key: session.user.id } },
+    })
+
+    const syncOnlineUsers = () => {
+      const state = presenceChannel.presenceState()
+      setOnlineUsers(Object.keys(state))
+    }
+
+    presenceChannel
+      .on('presence', { event: 'sync' }, syncOnlineUsers)
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await presenceChannel.track({ user_id: session.user.id, online_at: Date.now() })
+        }
+      })
+
+    presenceChannelRef.current = presenceChannel
+
+    // ── AppState: re-track on foreground, untrack on background ────────────
+    const appStateSub = AppState.addEventListener('change', async (nextState) => {
+      if (!presenceChannelRef.current) return
+      if (nextState === 'active') {
+        await presenceChannelRef.current.track({ user_id: session.user.id, online_at: Date.now() })
+      } else {
+        await presenceChannelRef.current.untrack()
+      }
+    })
+
+    // ── In-app notification subscription ───────────────────────────────────
+    const notifChannel = supabase
       .channel('user-notifications')
       .on('postgres_changes', {
         event: 'INSERT',
@@ -56,8 +106,11 @@ function AppStack() {
       .subscribe()
 
     return () => {
-      setOnlineStatus(false)
-      supabase.removeChannel(channel)
+      presenceChannelRef.current?.untrack()
+      supabase.removeChannel(presenceChannel)
+      supabase.removeChannel(notifChannel)
+      appStateSub.remove()
+      presenceChannelRef.current = null
     }
   }, [session?.user?.id])
 
@@ -66,6 +119,16 @@ function AppStack() {
     const inAuth = segments[0] === '(auth)'
     if (!session && !inAuth) router.replace('/(auth)/welcome')
   }, [session, segments, mounted, initialized])
+
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data as Record<string, string> | undefined
+      if (data?.route) router.push(data.route as any)
+      else if (data?.actorId) router.push(`/profile/${data.actorId}` as any)
+      else router.push('/notifications' as any)
+    })
+    return () => sub.remove()
+  }, [])
 
   return (
     <>
@@ -101,6 +164,16 @@ function AppStack() {
         <Stack.Screen name="verification" />
         <Stack.Screen name="followers/[id]" />
         <Stack.Screen name="following/[id]" />
+        <Stack.Screen name="deals" />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="games" />
+        <Stack.Screen name="game-lobby/[gameType]" />
+        <Stack.Screen name="leaderboard/[gameType]" />
+        <Stack.Screen name="play/waiting" />
+        <Stack.Screen name="discover-likes" />
+        <Stack.Screen name="club-room/[id]" />
+        <Stack.Screen name="study-room/[id]" />
+        <Stack.Screen name="feedback" />
       </Stack>
     </>
   )
@@ -118,17 +191,35 @@ async function checkForUpdate() {
 
 export default function RootLayout() {
   const { hydrate } = useThemeStore()
+  const [fontsLoaded] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  })
 
   useEffect(() => {
     hydrate()
     checkForUpdate()
   }, [])
 
+  useEffect(() => {
+    if (fontsLoaded) {
+      SplashScreen.hideAsync().catch(() => {})
+    }
+  }, [fontsLoaded])
+
+  if (!fontsLoaded) return null
+
   return (
-    <ErrorBoundary>
-      <ThemeProvider>
-        <AppStack />
-      </ThemeProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <AppStack />
+          <Toast />
+        </ThemeProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   )
 }

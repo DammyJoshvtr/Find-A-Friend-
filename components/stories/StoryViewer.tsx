@@ -14,13 +14,15 @@ import {
   Dimensions,
   StatusBar,
   PanResponder,
+  Alert,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useStoriesStore, selectCurrentStory, selectCurrentGroup } from '../../store/storiesStore'
+import { useAuthStore } from '../../store/authStore'
+import { deleteStory } from '../../lib/stories'
 import { getInitials, getTimeAgo } from '../../lib/matching'
 
 const { width: SCREEN_W } = Dimensions.get('window')
-const STORY_DURATION = 5000
 
 export default function StoryViewer() {
   const {
@@ -29,9 +31,11 @@ export default function StoryViewer() {
     closeViewer,
     advanceViewer,
     markViewed,
+    loadStories,
     groups,
   } = useStoriesStore()
 
+  const { user } = useAuthStore()
   const story = useStoriesStore(selectCurrentStory)
   const group = useStoriesStore(selectCurrentGroup)
 
@@ -41,20 +45,25 @@ export default function StoryViewer() {
 
   const visible = !!viewerGroupId
 
-  const startProgress = useCallback(() => {
-    progressAnim.setValue(0)
+  // Stable next handler — must be defined before startProgress
+  const handleNext = useCallback(() => {
     progressRef.current?.stop()
+    advanceViewer()
+  }, [advanceViewer])
+
+  const startProgress = useCallback(() => {
+    progressRef.current?.stop()
+    progressAnim.setValue(0)
+    const duration = Math.max(1000, (story?.duration_secs ?? 5) * 1000)
     progressRef.current = Animated.timing(progressAnim, {
       toValue: 1,
-      duration: (story?.duration_secs ?? 5) * 1000,
+      duration,
       useNativeDriver: false,
     })
     progressRef.current.start(({ finished }) => {
-      if (finished) {
-        handleNext()
-      }
+      if (finished) handleNext()
     })
-  }, [story, progressAnim])
+  }, [story, progressAnim, handleNext])
 
   useEffect(() => {
     if (visible && story) {
@@ -64,7 +73,7 @@ export default function StoryViewer() {
     return () => {
       progressRef.current?.stop()
     }
-  }, [viewerGroupId, viewerIndex, visible])
+  }, [viewerGroupId, viewerIndex, visible, startProgress])
 
   useEffect(() => {
     if (paused) {
@@ -73,11 +82,6 @@ export default function StoryViewer() {
       startProgress()
     }
   }, [paused])
-
-  const handleNext = () => {
-    progressRef.current?.stop()
-    advanceViewer()
-  }
 
   const handlePrev = () => {
     progressRef.current?.stop()
@@ -94,6 +98,26 @@ export default function StoryViewer() {
     }
   }
 
+  const handleDelete = () => {
+    if (!story) return
+    Alert.alert('Delete story', 'Remove this story for everyone?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await deleteStory(story.id)
+          if (error) {
+            Alert.alert('Error', error.message)
+            return
+          }
+          closeViewer()
+          await loadStories()
+        },
+      },
+    ])
+  }
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -104,8 +128,8 @@ export default function StoryViewer() {
 
   if (!visible || !story || !group) return null
 
-  const groupIdx = groups.findIndex(g => g.author_id === viewerGroupId)
   const storiesInGroup = group.stories.length
+  const isOwnStory = story.author_id === user?.id
 
   return (
     <Modal visible={visible} animationType="fade" statusBarTranslucent>
@@ -121,6 +145,20 @@ export default function StoryViewer() {
         {/* Dark gradient overlay */}
         <View style={s.topGradient} />
         <View style={s.bottomGradient} />
+
+        {/* Tap zones — rendered before header so header sits on top and receives touches */}
+        <View style={s.tapZones} {...panResponder.panHandlers}>
+          <TouchableOpacity
+            style={s.tapLeft}
+            onPress={handlePrev}
+            activeOpacity={1}
+          />
+          <TouchableOpacity
+            style={s.tapRight}
+            onPress={handleNext}
+            activeOpacity={1}
+          />
+        </View>
 
         {/* Progress bars */}
         <View style={s.progressBars}>
@@ -146,7 +184,7 @@ export default function StoryViewer() {
           ))}
         </View>
 
-        {/* Header */}
+        {/* Header — rendered after tap zones so it receives touches first */}
         <View style={s.header}>
           <View style={s.authorRow}>
             <View style={s.authorAvatar}>
@@ -163,9 +201,17 @@ export default function StoryViewer() {
               <Text style={s.storyTime}>{getTimeAgo(story.created_at)}</Text>
             </View>
           </View>
-          <TouchableOpacity onPress={closeViewer} style={s.closeBtn}>
-            <Ionicons name="close" size={24} color="#fff" />
-          </TouchableOpacity>
+
+          <View style={s.headerActions}>
+            {isOwnStory && (
+              <TouchableOpacity onPress={handleDelete} style={s.actionBtn}>
+                <Ionicons name="trash-outline" size={20} color="rgba(255,80,80,0.9)" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={closeViewer} style={s.actionBtn}>
+              <Ionicons name="close" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Caption */}
@@ -174,20 +220,6 @@ export default function StoryViewer() {
             <Text style={s.caption}>{story.caption}</Text>
           </View>
         ) : null}
-
-        {/* Tap zones */}
-        <View style={s.tapZones} {...panResponder.panHandlers}>
-          <TouchableOpacity
-            style={s.tapLeft}
-            onPress={handlePrev}
-            activeOpacity={1}
-          />
-          <TouchableOpacity
-            style={s.tapRight}
-            onPress={handleNext}
-            activeOpacity={1}
-          />
-        </View>
       </View>
     </Modal>
   )
@@ -209,7 +241,6 @@ const s = StyleSheet.create({
     right: 0,
     height: 160,
     backgroundColor: 'transparent',
-    // simulated gradient via opacity layers
   },
   bottomGradient: {
     position: 'absolute',
@@ -282,7 +313,12 @@ const s = StyleSheet.create({
     fontSize: 10,
     color: 'rgba(255,255,255,0.7)',
   },
-  closeBtn: {
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,

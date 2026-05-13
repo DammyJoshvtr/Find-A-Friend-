@@ -28,5 +28,5 @@ export function Skeleton({ width = '100%', height = 16, borderRadius = 8, style 
 }
 
 const s = StyleSheet.create({
-  base: { backgroundColor: '#2a2a3e' },
+  base: { backgroundColor: 'rgba(167,139,250,0.08)' },
 })

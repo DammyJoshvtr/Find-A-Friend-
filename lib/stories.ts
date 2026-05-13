@@ -79,7 +79,7 @@ export async function getStories(): Promise<{
     // Fetch non-expired stories for those authors (RLS also filters)
     const { data: storyRows, error: storiesError } = await supabase
       .from('stories')
-      .select('*, profiles(id, full_name, avatar_url)')
+      .select('*, profiles!stories_author_id_fkey(id, full_name, avatar_url)')
       .in('author_id', authorIds)
       .order('created_at', { ascending: false })
 
@@ -167,7 +167,7 @@ export async function createStory(payload: CreateStoryPayload): Promise<{
         duration_secs: payload.durationSecs ?? 5,
         // expires_at defaults to now() + 24h in the DB
       })
-      .select('*, profiles(id, full_name, avatar_url)')
+      .select('*, profiles!stories_author_id_fkey(id, full_name, avatar_url)')
       .single()
 
     if (error) throw error

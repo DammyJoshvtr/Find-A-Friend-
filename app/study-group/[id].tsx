@@ -304,7 +304,7 @@ export default function StudyGroupDetailScreen() {
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}>
 
         {/* Header */}
@@ -318,6 +318,13 @@ export default function StudyGroupDetailScreen() {
               <Text style={s.groupCourse}>{group.courses.code}</Text>
             )}
           </View>
+          {isMember && (
+            <TouchableOpacity
+              style={s.chatBtn}
+              onPress={() => router.push(`/study-room/${id}` as any)}>
+              <Ionicons name="chatbubbles-outline" size={16} color="#60a5fa" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[s.joinBtn, isMember && s.leaveBtn, (isFull && !isMember) && s.fullBtn]}
             onPress={handleJoinLeave}
@@ -400,6 +407,13 @@ const s = StyleSheet.create({
   },
   groupName: { fontSize: 15, fontWeight: '700', color: '#f0f0ff' },
   groupCourse: { fontSize: 11, color: '#60a5fa', marginTop: 1 },
+  chatBtn: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(96,165,250,0.12)',
+    borderWidth: 0.5, borderColor: 'rgba(96,165,250,0.3)',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: 4,
+  },
   joinBtn: {
     backgroundColor: '#60a5fa', borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 7, minWidth: 52, alignItems: 'center',

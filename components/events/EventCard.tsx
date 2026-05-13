@@ -1,11 +1,26 @@
 import React, { useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
+import Animated, {
+  useSharedValue, useAnimatedStyle, withSpring, withSequence,
+} from 'react-native-reanimated'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { rsvpEvent, cancelRsvp } from '../../lib/events'
 import { useTheme } from '../../lib/theme'
+import { typography } from '../../lib/typography'
 import type { Event } from '../../lib/events'
+
+const CATEGORY_COLORS: Record<string, string> = {
+  Technology: '#22d3ee',
+  Sports:     '#34d399',
+  Culture:    '#f59e0b',
+  Academic:   '#818cf8',
+  Music:      '#ec4899',
+  Art:        '#a78bfa',
+  Social:     '#fb923c',
+  Other:      '#64748b',
+}
 
 interface EventCardProps {
   event: Event
@@ -18,10 +33,27 @@ export default function EventCard({ event, onRsvpChange }: EventCardProps) {
   const [loading, setLoading] = useState(false)
   const theme = useTheme()
 
+  const catColor = CATEGORY_COLORS[event.category ?? ''] ?? theme.accent
   const isGoing = rsvpStatus === 'going'
 
+  const cardScale = useSharedValue(1)
+  const btnScale = useSharedValue(1)
+
+  const handlePress = () => {
+    cardScale.value = withSequence(
+      withSpring(0.975, { damping: 12, stiffness: 300 }),
+      withSpring(1, { damping: 14, stiffness: 200 })
+    )
+    router.push(`/event/${event.id}` as any)
+  }
+
   const handleRsvp = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
+    btnScale.value = withSequence(
+      withSpring(0.75, { damping: 8, stiffness: 500 }),
+      withSpring(1.15, { damping: 10, stiffness: 300 }),
+      withSpring(1, { damping: 14, stiffness: 200 })
+    )
     setLoading(true)
     if (isGoing) {
       setRsvpStatus(null)
@@ -40,78 +72,99 @@ export default function EventCard({ event, onRsvpChange }: EventCardProps) {
   }
 
   const startDate = new Date(event.starts_at)
-  const monthStr = startDate.toLocaleDateString('en', { month: 'short' }).toUpperCase()
   const dayStr = startDate.getDate().toString()
+  const monthStr = startDate.toLocaleDateString('en', { month: 'short' }).toUpperCase()
   const timeStr = startDate.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' })
 
+  const cardAnim = useAnimatedStyle(() => ({ transform: [{ scale: cardScale.value }] }))
+  const btnAnim = useAnimatedStyle(() => ({ transform: [{ scale: btnScale.value }] }))
+
   return (
-    <TouchableOpacity style={[s.card, { backgroundColor: theme.card, borderColor: theme.border }]}
-      onPress={() => router.push(`/event/${event.id}` as any)} activeOpacity={0.85}>
-      {event.cover_image_url ? (
-        <Image source={{ uri: event.cover_image_url }} style={s.cover} resizeMode="cover" />
-      ) : (
-        <View style={[s.cover, s.coverPlaceholder, { backgroundColor: theme.card2 }]}>
-          <Ionicons name="calendar-outline" size={32} color={theme.textFaint} />
-        </View>
-      )}
+    <Animated.View style={[cardAnim, s.wrapper]}>
+      <TouchableOpacity
+        style={[s.card, { backgroundColor: 'rgba(12,12,32,0.85)', borderColor: `${catColor}22` }]}
+        onPress={handlePress}
+        activeOpacity={0.9}>
 
-      <View style={s.body}>
-        <View style={s.dateCol}>
-          <Text style={[s.month, { color: theme.textMuted }]}>{monthStr}</Text>
-          <Text style={[s.day, { color: theme.text }]}>{dayStr}</Text>
-        </View>
+        <View style={[s.accentLine, { backgroundColor: catColor }]} />
 
-        <View style={s.info}>
-          <Text style={[s.title, { color: theme.text }]} numberOfLines={2}>{event.title}</Text>
-          {event.venue ? (
-            <View style={s.row}>
-              <Ionicons name="location-outline" size={11} color={theme.textMuted} />
-              <Text style={[s.meta, { color: theme.textMuted }]} numberOfLines={1}>{event.venue}</Text>
-            </View>
-          ) : null}
-          <View style={s.row}>
-            <Ionicons name="time-outline" size={11} color={theme.textMuted} />
-            <Text style={[s.meta, { color: theme.textMuted }]}>{timeStr}</Text>
+        <View style={s.body}>
+          <View style={[s.dateBlock, { backgroundColor: `${catColor}12` }]}>
+            <Text style={[s.dateDay, { color: catColor }]}>{dayStr}</Text>
+            <Text style={[s.dateMon, { color: `${catColor}aa` }]}>{monthStr}</Text>
           </View>
-          <View style={s.footer}>
-            {event.category ? (
-              <View style={[s.badge, { backgroundColor: theme.accentBg }]}>
-                <Text style={[s.badgeText, { color: theme.accent }]}>{event.category}</Text>
+
+          <View style={s.info}>
+            <Text style={[s.title, { color: theme.text }]} numberOfLines={1}>{event.title}</Text>
+            {event.venue ? (
+              <View style={s.metaRow}>
+                <Ionicons name="location-outline" size={10} color={theme.textFaint} />
+                <Text style={[s.metaText, { color: theme.textFaint }]} numberOfLines={1}>{event.venue}</Text>
               </View>
             ) : null}
-            <Text style={[s.attendees, { color: theme.textFaint }]}>{rsvpCount} going</Text>
+            <View style={s.metaRow}>
+              <Ionicons name="time-outline" size={10} color={theme.textFaint} />
+              <Text style={[s.metaText, { color: theme.textFaint }]}>{timeStr}</Text>
+              {event.category ? (
+                <View style={[s.catBadge, { backgroundColor: `${catColor}14`, borderColor: `${catColor}30` }]}>
+                  <Text style={[s.catText, { color: catColor }]}>{event.category}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+
+          <View style={s.side}>
+            <Text style={[s.rsvpCount, { color: catColor }]}>{rsvpCount}</Text>
+            <Text style={[s.rsvpLabel, { color: theme.textFaint }]}>going</Text>
+            <Animated.View style={btnAnim}>
+              <TouchableOpacity
+                style={[
+                  s.rsvpBtn,
+                  isGoing
+                    ? { backgroundColor: catColor, borderColor: catColor, shadowColor: catColor, shadowOffset: { width: 0, height: 0 }, shadowRadius: 8, shadowOpacity: 0.6, elevation: 6 }
+                    : { backgroundColor: `${catColor}14`, borderColor: `${catColor}35` },
+                ]}
+                onPress={handleRsvp}
+                disabled={loading}>
+                {loading
+                  ? <ActivityIndicator size="small" color={isGoing ? '#fff' : catColor} />
+                  : <Ionicons name={isGoing ? 'checkmark' : 'add'} size={17} color={isGoing ? '#fff' : catColor} />
+                }
+              </TouchableOpacity>
+            </Animated.View>
           </View>
         </View>
-
-        <TouchableOpacity
-          style={[s.rsvpBtn, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }, isGoing && { backgroundColor: theme.accent, borderColor: theme.accent }]}
-          onPress={handleRsvp} disabled={loading}>
-          {loading
-            ? <ActivityIndicator size="small" color={isGoing ? '#fff' : theme.accent} />
-            : <Text style={[s.rsvpText, { color: isGoing ? '#fff' : theme.accent }]}>{isGoing ? 'Going' : 'RSVP'}</Text>
-          }
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+    </Animated.View>
   )
 }
 
 const s = StyleSheet.create({
-  card: { borderRadius: 16, marginHorizontal: 16, marginBottom: 12, overflow: 'hidden', borderWidth: 0.5 },
-  cover: { width: '100%', height: 140 },
-  coverPlaceholder: { alignItems: 'center', justifyContent: 'center' },
-  body: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 },
-  dateCol: { alignItems: 'center', width: 36, flexShrink: 0 },
-  month: { fontSize: 9, textTransform: 'uppercase', letterSpacing: 0.5 },
-  day: { fontSize: 22, fontWeight: '700', lineHeight: 26 },
-  info: { flex: 1 },
-  title: { fontSize: 13, fontWeight: '600', marginBottom: 4 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 2 },
-  meta: { fontSize: 11 },
-  footer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  badge: { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2 },
-  badgeText: { fontSize: 9, fontWeight: '500' },
-  attendees: { fontSize: 10 },
-  rsvpBtn: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 0.5, minWidth: 56, alignItems: 'center' },
-  rsvpText: { fontSize: 11, fontWeight: '600' },
+  wrapper: { marginHorizontal: 16, marginBottom: 8 },
+  card: {
+    borderRadius: 16, borderWidth: 1,
+    flexDirection: 'row', overflow: 'hidden',
+  },
+  accentLine: { width: 3 },
+  body: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 },
+  dateBlock: {
+    width: 42, height: 48, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  dateDay: { fontSize: 20, fontFamily: typography.fontBold, lineHeight: 24 },
+  dateMon: { fontSize: 9, fontFamily: typography.fontSemiBold, letterSpacing: 1 },
+  info: { flex: 1, gap: 3 },
+  title: { fontSize: 13, fontFamily: typography.fontSemiBold },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  metaText: { fontSize: 10, fontFamily: typography.fontRegular, flex: 1 },
+  catBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1, borderWidth: 0.5 },
+  catText: { fontSize: 8, fontFamily: typography.fontSemiBold, letterSpacing: 0.5 },
+  side: { alignItems: 'center', gap: 2, flexShrink: 0 },
+  rsvpCount: { fontSize: 15, fontFamily: typography.fontBold, lineHeight: 19 },
+  rsvpLabel: { fontSize: 8, fontFamily: typography.fontMedium },
+  rsvpBtn: {
+    width: 34, height: 34, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, marginTop: 4,
+  },
 })

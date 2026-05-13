@@ -1,225 +1,458 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator, Alert } from 'react-native'
+import React, { useState, useEffect, useRef, useCallback, type ComponentProps } from 'react'
+import {
+  View, Text, FlatList, TouchableOpacity, StyleSheet,
+  TextInput, ActivityIndicator, Alert, Image,
+} from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useState, useEffect, type ComponentProps } from 'react'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { getCurrentProfile, getProfileStats, updateProfile, Profile } from '../lib/profiles'
+import { getCurrentProfile, getProfileStats, updateProfile } from '../lib/profiles'
+import type { Profile, ProfileStats } from '../lib/profiles'
+import { getUserFeedPosts, getBookmarkedPosts } from '../lib/feed'
+import type { FeedPost } from '../lib/feed'
 import { getInitials } from '../lib/matching'
 import { useAuthStore } from '../store/authStore'
+import { useTheme } from '../lib/theme'
+import { typography } from '../lib/typography'
+import { supabase } from '../lib/supabase'
+import NeuralBackground from '../components/NeuralBackground'
+import ScreenLoader from '../components/ScreenLoader'
+import PostCard from '../components/feed/PostCard'
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name']
+type ProfileTab = 'posts' | 'bookmarks'
 
-const allInterests = [
+const ALL_INTERESTS = [
   'Music', 'Tech', 'Art', 'Sports', 'Gaming', 'Photography',
   'Dance', 'Debate', 'Fitness', 'Poetry', 'Hiking', 'Chess',
   'Fashion', 'Film', 'Reading', 'Cooking', 'Travel', 'Design',
   'Robotics', 'Open Source', 'Drama', 'Journalism', 'Business',
 ]
 
+const ACCOUNT_MENU: { icon: IoniconsName; label: string; route: string }[] = [
+  { icon: 'notifications-outline',  label: 'Notifications',    route: '/notifications' },
+  { icon: 'lock-closed-outline',    label: 'Privacy settings', route: '/privacy-settings' },
+  { icon: 'moon-outline',           label: 'Appearance',       route: '/appearance' },
+  { icon: 'help-circle-outline',    label: 'Help & support',   route: '/help' },
+]
+
 export default function ProfileScreen() {
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [stats, setStats] = useState({ posts: 0, friends: 0 })
-  const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [fullName, setFullName] = useState('')
-  const [bio, setBio] = useState('')
-  const [interests, setInterests] = useState<string[]>([])
+  const theme = useTheme()
   const { signOut } = useAuthStore()
 
-  useEffect(() => { loadProfile() }, [])
+  const [profile,  setProfile]  = useState<Profile | null>(null)
+  const [stats,    setStats]    = useState<ProfileStats>({ posts: 0, friends: 0, followers: 0, following: 0, clubs: 0 })
+  const [loading,  setLoading]  = useState(true)
+  const [editing,  setEditing]  = useState(false)
+  const [saving,   setSaving]   = useState(false)
+  const [fullName, setFullName] = useState('')
+  const [bio,      setBio]      = useState('')
+  const [interests, setInterests] = useState<string[]>([])
 
-  const loadProfile = async () => {
+  const [activeTab,  setActiveTab]  = useState<ProfileTab>('posts')
+  const [userPosts,  setUserPosts]  = useState<FeedPost[]>([])
+  const [bookmarks,  setBookmarks]  = useState<FeedPost[]>([])
+
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+
+  const loadAll = useCallback(async () => {
+    setLoading(true)
     const [p, s] = await Promise.all([getCurrentProfile(), getProfileStats()])
     setProfile(p)
     setStats(s)
     setFullName(p?.full_name ?? '')
     setBio(p?.bio ?? '')
     setInterests(p?.interests ?? [])
+
+    if (p?.id) {
+      const [postsRes, bmRes] = await Promise.all([
+        getUserFeedPosts(p.id),
+        getBookmarkedPosts(),
+      ])
+      setUserPosts(postsRes.data ?? [])
+      setBookmarks(bmRes.data ?? [])
+    }
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    loadAll()
+
+    // Subscribe to follower_count / following_count changes on our own profile row
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      channelRef.current = supabase
+        .channel(`profile-counts-${user.id}`)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        }, (payload: any) => {
+          setProfile(prev => prev
+            ? { ...prev, follower_count: payload.new.follower_count, following_count: payload.new.following_count }
+            : prev
+          )
+        })
+        .subscribe()
+    })
+
+    return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current)
+    }
+  }, [])
 
   const saveChanges = async () => {
     setSaving(true)
     const { error } = await updateProfile({ full_name: fullName, bio, interests })
     setSaving(false)
-    if (error) {
-      Alert.alert('Error', String(error))
-    } else {
-      setEditing(false)
-      loadProfile()
-    }
+    if (error) Alert.alert('Error', String(error))
+    else { setEditing(false); loadAll() }
   }
 
-  const toggleInterest = (interest: string) => {
+  const toggleInterest = (item: string) =>
     setInterests(prev =>
-      prev.includes(interest)
-        ? prev.filter(i => i !== interest)
-        : prev.length < 8 ? [...prev, interest] : prev
+      prev.includes(item)
+        ? prev.filter(i => i !== item)
+        : prev.length < 8 ? [...prev, item] : prev
     )
-  }
 
-  const accountMenu: { icon: IoniconsName; label: string }[] = [
-    { icon: 'notifications-outline', label: 'Notifications' },
-    { icon: 'lock-closed-outline', label: 'Privacy settings' },
-    { icon: 'moon-outline', label: 'Appearance' },
-    { icon: 'help-circle-outline', label: 'Help & support' },
-  ]
-
-  const handleSignOut = () => {
+  const handleSignOut = () =>
     Alert.alert('Sign out', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Sign out', style: 'destructive', onPress: async () => {
-        await signOut()
-        router.replace('/(auth)/welcome')
+        await signOut(); router.replace('/(auth)/welcome')
       }},
     ])
-  }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   if (loading) {
-    return (
-      <SafeAreaView style={s.container}>
-        <ActivityIndicator color="#a78bfa" style={{ marginTop: 60 }} />
-      </SafeAreaView>
-    )
+    return <ScreenLoader message="Loading profile..." />
   }
 
-  return (
-    <SafeAreaView style={s.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={s.back}>← Back</Text>
-          </TouchableOpacity>
-          <Text style={s.title}>My profile</Text>
-          <TouchableOpacity style={s.editBtn} onPress={() => editing ? saveChanges() : setEditing(true)}>
-            {saving ? <ActivityIndicator size="small" color="#a78bfa" /> : <Text style={s.editText}>{editing ? 'Save' : 'Edit'}</Text>}
-          </TouchableOpacity>
-        </View>
+  const tabData = activeTab === 'posts' ? userPosts : bookmarks
 
-        <View style={s.profileCard}>
-          <View style={s.avatar}>
-            <Text style={s.avatarText}>{getInitials(profile?.full_name ?? profile?.email ?? '??')}</Text>
-          </View>
-          <View style={s.verifiedBadge}>
-            <Text style={s.verifiedText}>✓ Verified student</Text>
-          </View>
-
-          {editing ? (
-            <View style={s.editFields}>
-              <Text style={s.fieldLabel}>Full name</Text>
-              <TextInput style={s.fieldInput} value={fullName} onChangeText={setFullName} placeholderTextColor="rgba(240,240,255,0.25)" />
-              <Text style={s.fieldLabel}>Bio</Text>
-              <TextInput style={[s.fieldInput, s.bioInput]} value={bio} onChangeText={setBio} multiline maxLength={160} placeholderTextColor="rgba(240,240,255,0.25)" placeholder="Tell other students about yourself..." />
-            </View>
-          ) : (
-            <View style={s.profileInfo}>
-              <Text style={s.profileName}>{profile?.full_name ?? 'Your name'}</Text>
-              <Text style={s.profileDept}>{profile?.department ?? 'Department'}{profile?.level ? ' · ' + profile.level : ''}</Text>
-              <Text style={s.profileEmail}>{profile?.email}</Text>
-              {profile?.bio && <Text style={s.profileBio}>{profile.bio}</Text>}
-            </View>
-          )}
-        </View>
-
-        <View style={s.statsRow}>
-          {[
-            { label: 'Posts', value: String(stats.posts) },
-            { label: 'Friends', value: String(stats.friends) },
-            { label: 'Clubs', value: '0' },
-            { label: 'Events', value: '0' },
-          ].map((stat, i) => (
-            <View key={i} style={s.statCard}>
-              <Text style={s.statValue}>{stat.value}</Text>
-              <Text style={s.statLabel}>{stat.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>{editing ? 'Edit interests (max 8)' : 'Interests'}</Text>
-        </View>
-
-        <View style={s.interestsWrap}>
-          {(editing ? allInterests : profile?.interests ?? []).map((interest, i) => {
-            const active = interests.includes(interest)
-            return (
-              <TouchableOpacity key={i}
-                style={[s.interestChip, active && s.interestChipActive]}
-                onPress={() => editing && toggleInterest(interest)}
-                disabled={!editing}>
-                <Text style={[s.interestText, active && s.interestTextActive]}>{interest}</Text>
-              </TouchableOpacity>
-            )
-          })}
-          {!editing && (!profile?.interests || profile.interests.length === 0) && (
-            <Text style={s.noInterests}>No interests added yet. Tap Edit to add some!</Text>
-          )}
-        </View>
-
-        <View style={s.section}>
-          <Text style={s.sectionTitle}>Account</Text>
-        </View>
-
-        <View style={s.menuList}>
-          {accountMenu.map((item, i) => (
-            <TouchableOpacity
-              key={i}
-              style={s.menuItem}
-              onPress={() => Alert.alert('Coming soon', `${item.label} will be available in the next update.`)}>
-              <Ionicons name={item.icon} size={20} color="rgba(240,240,255,0.6)" />
-              <Text style={s.menuLabel}>{item.label}</Text>
-              <Ionicons name="chevron-forward" size={16} color="rgba(240,240,255,0.2)" />
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <TouchableOpacity style={s.signOutBtn} onPress={handleSignOut}>
-          <Text style={s.signOutText}>Sign out</Text>
+  // ── Header ──────────────────────────────────────────────────────────────────
+  const ListHeader = (
+    <View>
+      {/* Top bar */}
+      <View style={[s.topBar, { borderBottomColor: theme.border }]}>
+        <TouchableOpacity onPress={() => router.back()}
+          style={[s.backBtn, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Ionicons name="arrow-back" size={18} color={theme.text} />
         </TouchableOpacity>
+        <Text style={[s.pageTitle, { color: theme.text }]}>My Profile</Text>
+        <TouchableOpacity
+          style={[s.editPill, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}
+          onPress={() => editing ? saveChanges() : setEditing(true)}>
+          {saving
+            ? <ActivityIndicator size="small" color={theme.accent} />
+            : <Text style={[s.editPillText, { color: theme.accent }]}>{editing ? 'Save' : 'Edit'}</Text>}
+        </TouchableOpacity>
+      </View>
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
+      {/* Profile card */}
+      <View style={[s.profileCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        {/* Avatar */}
+        <View style={[s.avatarRing, { borderColor: theme.accentBorder }]}>
+          {profile?.avatar_url
+            ? <Image source={{ uri: profile.avatar_url }} style={s.avatarImg} />
+            : <View style={[s.avatarInner, { backgroundColor: theme.cardSolid }]}>
+                <Text style={[s.avatarInitials, { color: theme.accent }]}>
+                  {getInitials(profile?.full_name ?? profile?.email ?? '??')}
+                </Text>
+              </View>}
+        </View>
+
+        {/* Verified badge */}
+        <View style={s.verifiedRow}>
+          <Ionicons name="checkmark-circle" size={13} color="#34d399" />
+          <Text style={s.verifiedText}>Verified student</Text>
+        </View>
+
+        {editing ? (
+          <View style={s.editFields}>
+            <Text style={[s.fieldLabel, { color: theme.textFaint }]}>Full name</Text>
+            <TextInput
+              style={[s.fieldInput, { backgroundColor: theme.bg, borderColor: theme.border, color: theme.text }]}
+              value={fullName} onChangeText={setFullName}
+              placeholderTextColor={theme.textFaint}
+            />
+            <Text style={[s.fieldLabel, { color: theme.textFaint }]}>Bio</Text>
+            <TextInput
+              style={[s.fieldInput, s.bioInput, { backgroundColor: theme.bg, borderColor: theme.border, color: theme.text }]}
+              value={bio} onChangeText={setBio}
+              multiline maxLength={160}
+              placeholderTextColor={theme.textFaint}
+              placeholder="Tell other students about yourself…"
+            />
+
+            {/* Interest picker */}
+            <Text style={[s.fieldLabel, { color: theme.textFaint, marginTop: 8 }]}>
+              Interests (max 8, {interests.length}/8 selected)
+            </Text>
+            <View style={s.interestGrid}>
+              {ALL_INTERESTS.map(item => {
+                const active = interests.includes(item)
+                return (
+                  <TouchableOpacity key={item}
+                    style={[s.chip, { backgroundColor: theme.card, borderColor: theme.border },
+                      active && { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}
+                    onPress={() => toggleInterest(item)}>
+                    <Text style={[s.chipText, { color: theme.textMuted }, active && { color: theme.accent }]}>
+                      {item}
+                    </Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          </View>
+        ) : (
+          <View style={s.profileInfo}>
+            <Text style={[s.profileName, { color: theme.text }]}>{profile?.full_name ?? 'Your name'}</Text>
+            <Text style={[s.profileDept, { color: theme.textMuted }]}>
+              {profile?.department ?? 'Department'}{profile?.level ? ' · ' + profile.level : ''}
+            </Text>
+            <Text style={[s.profileEmail, { color: theme.textFaint }]}>{profile?.email}</Text>
+            {profile?.bio ? (
+              <Text style={[s.profileBio, { color: theme.textMuted }]}>{profile.bio}</Text>
+            ) : null}
+          </View>
+        )}
+      </View>
+
+      {/* Stats row */}
+      <View style={s.statsRow}>
+        {[
+          { label: 'Posts',      value: stats.posts },
+          { label: 'Followers',  value: profile?.follower_count  ?? 0 },
+          { label: 'Following',  value: profile?.following_count ?? 0 },
+        ].map(stat => (
+          <View key={stat.label} style={[s.statCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[s.statValue, { color: theme.accent }]}>{stat.value}</Text>
+            <Text style={[s.statLabel, { color: theme.textFaint }]}>{stat.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Interests (view mode) */}
+      {!editing && profile?.interests && profile.interests.length > 0 && (
+        <View style={s.interestsSection}>
+          <Text style={[s.sectionLabel, { color: theme.textMuted }]}>Interests</Text>
+          <View style={s.interestGrid}>
+            {profile.interests.map(item => (
+              <View key={item} style={[s.chip, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}>
+                <Text style={[s.chipText, { color: theme.accent }]}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {/* Tab bar */}
+      <View style={[s.tabBar, { borderBottomColor: theme.border }]}>
+        {(['posts', 'bookmarks'] as ProfileTab[]).map(tab => (
+          <TouchableOpacity key={tab} style={s.tabItem} onPress={() => setActiveTab(tab)}>
+            {activeTab === tab
+              ? <View style={[s.tabPill, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}>
+                  <Ionicons
+                    name={tab === 'posts' ? 'grid-outline' : 'bookmark-outline'}
+                    size={13} color={theme.accent}
+                    style={{ marginRight: 5 }}
+                  />
+                  <Text style={[s.tabText, { color: theme.accent, fontWeight: '700' }]}>
+                    {tab === 'posts' ? 'Posts' : 'Bookmarks'}
+                  </Text>
+                </View>
+              : <View style={s.tabInactive}>
+                  <Ionicons
+                    name={tab === 'posts' ? 'grid-outline' : 'bookmark-outline'}
+                    size={13} color={theme.textMuted}
+                    style={{ marginRight: 5 }}
+                  />
+                  <Text style={[s.tabText, { color: theme.textMuted }]}>
+                    {tab === 'posts' ? 'Posts' : 'Bookmarks'}
+                  </Text>
+                </View>}
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  )
+
+  // ── Footer ──────────────────────────────────────────────────────────────────
+  const ListFooter = (
+    <View style={{ paddingTop: 8 }}>
+      <Text style={[s.sectionLabel, { color: theme.textMuted, paddingHorizontal: 16, paddingTop: 20, paddingBottom: 10 }]}>
+        Account
+      </Text>
+      <View style={[s.menuList, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        {ACCOUNT_MENU.map((item, i) => (
+          <TouchableOpacity key={i} style={[s.menuItem, { borderBottomColor: theme.border }]}
+            onPress={() => router.push(item.route as any)}>
+            <Ionicons name={item.icon} size={19} color={theme.textMuted} />
+            <Text style={[s.menuLabel, { color: theme.text }]}>{item.label}</Text>
+            <Ionicons name="chevron-forward" size={15} color={theme.textFaint} />
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <TouchableOpacity style={[s.signOutBtn, { borderColor: 'rgba(239,68,68,0.25)' }]} onPress={handleSignOut}>
+        <Ionicons name="log-out-outline" size={17} color="#ef4444" />
+        <Text style={s.signOutText}>Sign out</Text>
+      </TouchableOpacity>
+
+      <View style={{ height: 48 }} />
+    </View>
+  )
+
+  // ── Empty state ─────────────────────────────────────────────────────────────
+  const EmptyState = (
+    <View style={s.emptyWrap}>
+      <Ionicons
+        name={activeTab === 'posts' ? 'create-outline' : 'bookmark-outline'}
+        size={40} color={theme.textFaint}
+      />
+      <Text style={[s.emptyTitle, { color: theme.textMuted }]}>
+        {activeTab === 'posts' ? 'No posts yet' : 'No bookmarks yet'}
+      </Text>
+      <Text style={[s.emptyHint, { color: theme.textFaint }]}>
+        {activeTab === 'posts'
+          ? 'Your posts will appear here'
+          : 'Save posts to read them later'}
+      </Text>
+      {activeTab === 'posts' && (
+        <TouchableOpacity
+          style={[s.emptyBtn, { backgroundColor: theme.accent }]}
+          onPress={() => router.push('/create-post' as any)}>
+          <Text style={s.emptyBtnText}>Create your first post</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  )
+
+  return (
+    <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
+      <NeuralBackground intensity="light" />
+      <FlatList
+        data={tabData}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => <PostCard post={item} />}
+        ListHeaderComponent={ListHeader}
+        ListFooterComponent={ListFooter}
+        ListEmptyComponent={EmptyState}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 8 }}
+      />
     </SafeAreaView>
   )
 }
 
+// ── Styles ───────────────────────────────────────────────────────────────────
+
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0d0d14' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12 },
-  back: { fontSize: 14, color: '#a78bfa' },
-  title: { fontSize: 18, fontWeight: '700', color: '#f0f0ff' },
-  editBtn: { backgroundColor: 'rgba(167,139,250,0.15)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 0.5, borderColor: 'rgba(167,139,250,0.3)' },
-  editText: { fontSize: 13, color: '#a78bfa', fontWeight: '500' },
-  profileCard: { marginHorizontal: 16, marginBottom: 14, backgroundColor: '#1c1c2e', borderRadius: 20, padding: 20, alignItems: 'center', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)' },
-  avatar: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#2a1e40', alignItems: 'center', justifyContent: 'center', marginBottom: 10, borderWidth: 2, borderColor: '#a78bfa' },
-  avatarText: { fontSize: 28, fontWeight: '700', color: '#c4b5fd' },
-  verifiedBadge: { backgroundColor: 'rgba(52,211,153,0.12)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4, borderWidth: 0.5, borderColor: 'rgba(52,211,153,0.3)', marginBottom: 12 },
-  verifiedText: { fontSize: 11, color: '#34d399', fontWeight: '500' },
-  profileInfo: { alignItems: 'center', gap: 4 },
-  profileName: { fontSize: 20, fontWeight: '700', color: '#f0f0ff' },
-  profileDept: { fontSize: 13, color: 'rgba(240,240,255,0.5)' },
-  profileEmail: { fontSize: 12, color: 'rgba(240,240,255,0.3)' },
-  profileBio: { fontSize: 13, color: 'rgba(240,240,255,0.6)', textAlign: 'center', lineHeight: 20, marginTop: 6 },
-  editFields: { width: '100%', gap: 10 },
-  fieldLabel: { fontSize: 11, color: 'rgba(240,240,255,0.4)', fontWeight: '500', marginBottom: 4 },
-  fieldInput: { backgroundColor: '#0d0d14', borderRadius: 10, padding: 12, fontSize: 14, color: '#f0f0ff', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.1)' },
-  bioInput: { height: 80, textAlignVertical: 'top' },
-  statsRow: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 20, gap: 8 },
-  statCard: { flex: 1, backgroundColor: '#1c1c2e', borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)' },
-  statValue: { fontSize: 18, fontWeight: '700', color: '#a78bfa', marginBottom: 2 },
-  statLabel: { fontSize: 10, color: 'rgba(240,240,255,0.35)' },
-  section: { paddingHorizontal: 16, marginBottom: 10 },
-  sectionTitle: { fontSize: 13, fontWeight: '500', color: 'rgba(240,240,255,0.5)' },
-  interestsWrap: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 8, marginBottom: 20 },
-  interestChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#1c1c2e', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)' },
-  interestChipActive: { backgroundColor: 'rgba(167,139,250,0.2)', borderColor: '#a78bfa' },
-  interestText: { fontSize: 13, color: 'rgba(240,240,255,0.4)' },
-  interestTextActive: { color: '#a78bfa', fontWeight: '600' },
-  noInterests: { fontSize: 13, color: 'rgba(240,240,255,0.25)', fontStyle: 'italic' },
-  menuList: { marginHorizontal: 16, backgroundColor: '#1c1c2e', borderRadius: 16, marginBottom: 16, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
-  menuItem: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  menuLabel: { flex: 1, fontSize: 14, color: '#f0f0ff' },
-  signOutBtn: { marginHorizontal: 16, backgroundColor: 'rgba(239,68,68,0.1)', borderRadius: 16, padding: 16, alignItems: 'center', borderWidth: 0.5, borderColor: 'rgba(239,68,68,0.2)' },
-  signOutText: { fontSize: 14, fontWeight: '600', color: '#ef4444' },
+  container:  { flex: 1 },
+  centered:   { flex: 1, alignItems: 'center', justifyContent: 'center' },
+
+  /* Top bar */
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 0.5,
+  },
+  backBtn: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 0.5,
+  },
+  pageTitle: { fontSize: 16, fontFamily: typography.fontSemiBold },
+  editPill: {
+    borderRadius: 20, paddingHorizontal: 16, paddingVertical: 6,
+    borderWidth: 0.5,
+  },
+  editPillText: { fontSize: 13, fontFamily: typography.fontMedium },
+
+  /* Profile card */
+  profileCard: {
+    marginHorizontal: 16, marginTop: 20, marginBottom: 16,
+    borderRadius: 24, padding: 24,
+    alignItems: 'center', borderWidth: 0.5,
+  },
+  avatarRing: {
+    width: 88, height: 88, borderRadius: 44,
+    borderWidth: 2, padding: 3, marginBottom: 12,
+  },
+  avatarImg:      { width: '100%', height: '100%', borderRadius: 40 },
+  avatarInner:    { width: '100%', height: '100%', borderRadius: 40, alignItems: 'center', justifyContent: 'center' },
+  avatarInitials: { fontSize: 30, fontFamily: typography.fontBold },
+  verifiedRow:    { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 14 },
+  verifiedText:   { fontSize: 11, color: '#34d399', fontFamily: typography.fontMedium },
+  profileInfo:    { alignItems: 'center', gap: 5 },
+  profileName:    { fontSize: 21, fontFamily: typography.fontBold },
+  profileDept:    { fontSize: 13, fontFamily: typography.fontRegular },
+  profileEmail:   { fontSize: 12, fontFamily: typography.fontRegular },
+  profileBio:     { fontSize: 14, fontFamily: typography.fontRegular, textAlign: 'center', lineHeight: 21, marginTop: 8 },
+
+  /* Edit form */
+  editFields:  { width: '100%', gap: 8 },
+  fieldLabel:  { fontSize: 11, fontFamily: typography.fontMedium, textTransform: 'uppercase', letterSpacing: 0.4 },
+  fieldInput:  { borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 14, fontFamily: typography.fontRegular, borderWidth: 0.5 },
+  bioInput:    { height: 88, textAlignVertical: 'top' },
+
+  /* Stats */
+  statsRow: {
+    flexDirection: 'row', marginHorizontal: 16, marginBottom: 20, gap: 10,
+  },
+  statCard: {
+    flex: 1, borderRadius: 16, paddingVertical: 14,
+    alignItems: 'center', borderWidth: 0.5,
+  },
+  statValue: { fontSize: 20, fontFamily: typography.fontBold, marginBottom: 2 },
+  statLabel: { fontSize: 11, fontFamily: typography.fontRegular },
+
+  /* Interests */
+  interestsSection: { paddingHorizontal: 16, marginBottom: 20 },
+  sectionLabel:     { fontSize: 12, fontFamily: typography.fontSemiBold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
+  interestGrid:     { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip:             { paddingHorizontal: 13, paddingVertical: 7, borderRadius: 20, borderWidth: 0.5 },
+  chipText:         { fontSize: 13, fontFamily: typography.fontMedium },
+
+  /* Tab bar */
+  tabBar: {
+    flexDirection: 'row', borderBottomWidth: 0.5,
+    marginBottom: 8, paddingHorizontal: 8,
+  },
+  tabItem:    { flex: 1, alignItems: 'center', paddingVertical: 10 },
+  tabPill: {
+    flexDirection: 'row', alignItems: 'center',
+    borderRadius: 20, borderWidth: 1,
+    paddingHorizontal: 18, paddingVertical: 6,
+  },
+  tabInactive: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 6 },
+  tabText:     { fontSize: 13, fontFamily: typography.fontMedium },
+
+  /* Empty */
+  emptyWrap:   { alignItems: 'center', paddingVertical: 52, gap: 10 },
+  emptyTitle:  { fontSize: 16, fontFamily: typography.fontSemiBold },
+  emptyHint:   { fontSize: 13, fontFamily: typography.fontRegular },
+  emptyBtn:    { marginTop: 8, borderRadius: 20, paddingHorizontal: 24, paddingVertical: 10 },
+  emptyBtnText:{ fontSize: 13, fontFamily: typography.fontSemiBold, color: '#fff' },
+
+  /* Account menu */
+  menuList: {
+    marginHorizontal: 16, borderRadius: 18, borderWidth: 0.5, overflow: 'hidden',
+  },
+  menuItem: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 15,
+    gap: 14, borderBottomWidth: 0.5,
+  },
+  menuLabel: { flex: 1, fontSize: 14, fontFamily: typography.fontRegular },
+
+  /* Sign out */
+  signOutBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    marginHorizontal: 16, marginTop: 16, borderRadius: 18,
+    paddingVertical: 15, borderWidth: 0.5,
+    backgroundColor: 'rgba(239,68,68,0.07)',
+  },
+  signOutText: { fontSize: 14, fontFamily: typography.fontSemiBold, color: '#ef4444' },
 })

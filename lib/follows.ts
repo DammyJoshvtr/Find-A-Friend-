@@ -197,20 +197,28 @@ export async function getSuggestedUsers(): Promise<{
     )
     // Fetch candidates — always exclude at least the current user
     const excludeIds = [user.id, ...alreadyFollowingIds]
+
     let candidateQuery = supabase
       .from('profiles')
       .select('id, full_name, department, level, avatar_url, follower_count, following_count, interests')
       .limit(50)
+      .neq('id', user.id)  // always exclude self
 
-    // .not() with an empty list would produce invalid SQL, so only apply when needed
-    if (excludeIds.length > 0) {
-      candidateQuery = candidateQuery.not('id', 'in', `(${excludeIds.join(',')})`)
+    // Exclude already-followed users one-by-one (safer than .not+in for small lists)
+    for (const id of alreadyFollowingIds) {
+      candidateQuery = candidateQuery.neq('id', id)
     }
 
     const { data, error } = await candidateQuery
-    if (error) throw error
+    if (error) {
+      console.warn('[getSuggestedUsers] query error:', error.message, error.code, error.details)
+      throw error
+    }
 
-    // Sort by follower count as a simple ranking signal
+    console.log('[getSuggestedUsers] raw results:', data?.length, 'users found')
+    console.log('[getSuggestedUsers] current user:', user.id)
+    console.log('[getSuggestedUsers] already following:', alreadyFollowingIds.length)
+
     const sorted = (data ?? []).sort(
       (a: any, b: any) => (b.follower_count ?? 0) - (a.follower_count ?? 0)
     )

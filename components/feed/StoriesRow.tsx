@@ -27,6 +27,7 @@ export default function StoriesRow() {
 
   return (
     <View style={[s.wrapper, { borderBottomColor: theme.border }]}>
+      <View style={[StyleSheet.absoluteFill, s.tint]} pointerEvents="none" />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.content}>
         <StoryCircle group={ownPlaceholder} isOwn onAddStory={() => router.push('/create-story' as const)} />
         {loading && !groups.length ? (
@@ -40,6 +41,7 @@ export default function StoriesRow() {
 }
 
 const s = StyleSheet.create({
-  wrapper: { paddingVertical: 10, borderBottomWidth: 0.5, marginBottom: 8 },
+  wrapper: { paddingVertical: 10, borderBottomWidth: 0.5, marginBottom: 6, overflow: 'hidden' },
   content: { paddingHorizontal: 16, gap: 2 },
+  tint: { backgroundColor: 'rgba(167,139,250,0.04)' },
 })

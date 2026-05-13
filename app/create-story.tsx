@@ -12,10 +12,12 @@ import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { createStory, uploadStoryMedia } from '../lib/stories'
+import { useStoriesStore } from '../store/storiesStore'
 import { useTheme } from '../lib/theme'
 
 export default function CreateStoryScreen() {
   const theme = useTheme()
+  const { loadStories } = useStoriesStore()
   const [mediaUri, setMediaUri] = useState<string | null>(null)
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
   const [caption, setCaption] = useState('')
@@ -28,7 +30,7 @@ export default function CreateStoryScreen() {
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
+      mediaTypes: ['images', 'videos'] as ImagePicker.MediaType[],
       allowsEditing: false,
       quality: 0.8,
     })
@@ -46,7 +48,10 @@ export default function CreateStoryScreen() {
     }
     setUploading(true)
     try {
-      const mimeType = mediaType === 'video' ? 'video/mp4' : 'image/jpeg'
+      const ext = mediaUri.split('.').pop()?.toLowerCase() ?? ''
+      const mimeType = mediaType === 'video'
+        ? (ext === 'mov' ? 'video/quicktime' : 'video/mp4')
+        : (ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg')
       const { data: url, error: uploadError } = await uploadStoryMedia(mediaUri, mimeType)
       if (uploadError || !url) throw uploadError ?? new Error('Upload failed')
 
@@ -57,6 +62,7 @@ export default function CreateStoryScreen() {
         durationSecs: mediaType === 'video' ? 10 : 5,
       })
       if (createError) throw createError
+      await loadStories()
       router.back()
     } catch (err: any) {
       const msg = err?.message ?? JSON.stringify(err) ?? 'Unknown error'
@@ -87,7 +93,15 @@ export default function CreateStoryScreen() {
       {/* Preview */}
       {mediaUri ? (
         <View style={s.previewWrap}>
-          <Image source={{ uri: mediaUri }} style={s.preview} resizeMode="cover" />
+          {mediaType === 'video' ? (
+            <View style={[s.preview, s.videoPlaceholder]}>
+              <Ionicons name="videocam" size={64} color="rgba(255,255,255,0.4)" />
+              <Text style={s.videoPlaceholderText}>Video selected</Text>
+              <Text style={s.videoPlaceholderSub}>Preview not available — tap Share to post</Text>
+            </View>
+          ) : (
+            <Image source={{ uri: mediaUri }} style={s.preview} resizeMode="cover" />
+          )}
           <TouchableOpacity
             style={s.changeBtn}
             onPress={pickMedia}>
@@ -157,6 +171,12 @@ const s = StyleSheet.create({
   pickBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
   previewWrap: { flex: 1, position: 'relative' },
   preview: { flex: 1, width: '100%' },
+  videoPlaceholder: {
+    backgroundColor: '#111', alignItems: 'center',
+    justifyContent: 'center', gap: 12,
+  },
+  videoPlaceholderText: { fontSize: 16, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  videoPlaceholderSub: { fontSize: 12, color: 'rgba(255,255,255,0.4)', textAlign: 'center', paddingHorizontal: 32 },
   changeBtn: {
     position: 'absolute', top: 16, right: 16,
     flexDirection: 'row', alignItems: 'center', gap: 5,

@@ -79,7 +79,7 @@ export default function OnboardingScreen() {
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
       <View style={s.progressBar}>
         {[1, 2, 3].map(i => (

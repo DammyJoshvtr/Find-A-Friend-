@@ -1,14 +1,6 @@
-/**
- * components/stories/StoryCircle.tsx
- * Circular avatar with gradient ring — opens story viewer on press.
- */
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
+  View, Text, StyleSheet, TouchableOpacity, Image, Animated,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { getInitials } from '../../lib/matching'
@@ -23,6 +15,21 @@ interface StoryCircleProps {
 
 export default function StoryCircle({ group, isOwn, onAddStory }: StoryCircleProps) {
   const { openViewer } = useStoriesStore()
+  const glowAnim = useRef(new Animated.Value(0.3)).current
+
+  const hasUnviewed = !group.all_viewed
+
+  useEffect(() => {
+    if (!hasUnviewed) return
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowAnim, { toValue: 0.8, duration: 900, useNativeDriver: true }),
+        Animated.timing(glowAnim, { toValue: 0.3, duration: 900, useNativeDriver: true }),
+      ])
+    )
+    pulse.start()
+    return () => pulse.stop()
+  }, [hasUnviewed])
 
   const handlePress = () => {
     if (isOwn && group.stories.length === 0) {
@@ -32,12 +39,15 @@ export default function StoryCircle({ group, isOwn, onAddStory }: StoryCirclePro
     openViewer(group.author_id, 0)
   }
 
-  const ringColor = group.all_viewed
-    ? 'rgba(255,255,255,0.15)'
-    : '#a78bfa'
+  const ringColor = hasUnviewed ? '#a78bfa' : 'rgba(255,255,255,0.12)'
 
   return (
     <TouchableOpacity style={s.container} onPress={handlePress}>
+      {/* Animated glow halo behind ring for unviewed stories */}
+      {hasUnviewed && (
+        <Animated.View style={[s.glowHalo, { opacity: glowAnim }]} />
+      )}
+
       <View style={[s.ring, { borderColor: ringColor }]}>
         {group.author_avatar ? (
           <Image source={{ uri: group.author_avatar }} style={s.avatar} />
@@ -50,9 +60,13 @@ export default function StoryCircle({ group, isOwn, onAddStory }: StoryCirclePro
         )}
 
         {isOwn && (
-          <View style={s.addBadge}>
+          <TouchableOpacity
+            style={s.addBadge}
+            onPress={() => onAddStory?.()}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+          >
             <Ionicons name="add" size={10} color="#fff" />
-          </View>
+          </TouchableOpacity>
         )}
       </View>
 
@@ -66,27 +80,40 @@ export default function StoryCircle({ group, isOwn, onAddStory }: StoryCirclePro
 const s = StyleSheet.create({
   container: {
     alignItems: 'center',
-    width: 68,
+    width: 72,
     marginRight: 4,
   },
+  glowHalo: {
+    position: 'absolute',
+    top: -4,
+    width: 66,
+    height: 66,
+    borderRadius: 33,
+    backgroundColor: 'transparent',
+    shadowColor: '#a78bfa',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 10,
+  },
   ring: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    borderWidth: 2.5,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
     padding: 2,
     marginBottom: 5,
   },
   avatar: {
     width: '100%',
     height: '100%',
-    borderRadius: 25,
+    borderRadius: 27,
   },
   avatarFallback: {
     width: '100%',
     height: '100%',
-    borderRadius: 25,
-    backgroundColor: '#2a1e40',
+    borderRadius: 27,
+    backgroundColor: '#1a1a2e',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -106,12 +133,17 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#0d0d14',
+    borderColor: '#0a0a1a',
+    shadowColor: '#a78bfa',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 6,
+    elevation: 6,
   },
   label: {
     fontSize: 10,
-    color: 'rgba(240,240,255,0.6)',
+    color: 'rgba(240,240,255,0.55)',
     textAlign: 'center',
-    maxWidth: 64,
+    maxWidth: 68,
   },
 })

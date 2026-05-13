@@ -8,6 +8,7 @@ import {
   TextInput, ActivityIndicator, KeyboardAvoidingView,
   Platform, Image, Alert,
 } from 'react-native'
+import Toast from 'react-native-toast-message'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -20,6 +21,7 @@ import StudyGroupCard from '../../components/academic/StudyGroupCard'
 import { getInitials, getTimeAgo } from '../../lib/matching'
 import type { Course, StudyGroup, AcademicResource, CourseDiscussion } from '../../lib/academic'
 import { useTheme } from '../../lib/theme'
+import { typography } from '../../lib/typography'
 import { supabase } from '../../lib/supabase'
 
 type Tab = 'groups' | 'discussions' | 'resources'
@@ -110,7 +112,7 @@ export default function CourseDetailScreen() {
           onPress: async () => {
             const { error } = await unenrollFromCourse(id)
             if (!error) setIsEnrolled(false)
-            else Alert.alert('Error', 'Could not unenroll.')
+            else Toast.show({ type: 'error', text1: 'Error', text2: 'Could not unenroll.' })
             setEnrollLoading(false)
           },
         },
@@ -118,7 +120,7 @@ export default function CourseDetailScreen() {
     } else {
       const { error } = await enrollInCourse(id)
       if (!error) setIsEnrolled(true)
-      else Alert.alert('Error', 'Could not enroll.')
+      else Toast.show({ type: 'error', text1: 'Error', text2: 'Could not enroll.' })
       setEnrollLoading(false)
     }
   }
@@ -129,7 +131,7 @@ export default function CourseDetailScreen() {
     const { data, error } = await createAcademicPost(id, commentText.trim())
     setPosting(false)
     if (error) {
-      Alert.alert('Error', 'Could not post.')
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Could not post.' })
     } else if (data) {
       setDiscussions(prev => [data, ...prev])
       setCommentText('')
@@ -272,7 +274,7 @@ export default function CourseDetailScreen() {
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
         {/* Header */}
         <View style={s.header}>
@@ -381,11 +383,11 @@ const s = StyleSheet.create({
     borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   backBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
   },
-  courseCode: { fontSize: 11, color: '#a78bfa', marginBottom: 1 },
-  courseName: { fontSize: 15, fontWeight: '700', color: '#f0f0ff' },
+  courseCode: { fontSize: 11, color: '#a78bfa', marginBottom: 1, fontFamily: typography.fontRegular },
+  courseName: { fontSize: 15, fontFamily: typography.fontBold, color: '#f0f0ff' },
   enrollBtn: {
     backgroundColor: '#a78bfa', borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 7, minWidth: 66, alignItems: 'center',
@@ -394,7 +396,7 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(52,211,153,0.1)',
     borderWidth: 0.5, borderColor: 'rgba(52,211,153,0.3)',
   },
-  enrollText: { fontSize: 12, fontWeight: '600', color: '#fff' },
+  enrollText: { fontSize: 12, fontFamily: typography.fontSemiBold, color: '#fff' },
   enrolledText: { color: '#34d399' },
   metaRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 6,
@@ -420,8 +422,8 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(167,139,250,0.15)',
     borderColor: 'rgba(167,139,250,0.4)',
   },
-  tabText: { fontSize: 11, color: 'rgba(240,240,255,0.4)', fontWeight: '500' },
-  tabTextActive: { color: '#a78bfa', fontWeight: '700' },
+  tabText: { fontSize: 11, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontMedium },
+  tabTextActive: { color: '#a78bfa', fontFamily: typography.fontBold },
   discussionCard: {
     flexDirection: 'row', gap: 10,
     paddingHorizontal: 16, paddingVertical: 12,
@@ -433,11 +435,11 @@ const s = StyleSheet.create({
     overflow: 'hidden', flexShrink: 0,
   },
   discussionAvatarImg: { width: 34, height: 34, borderRadius: 17 },
-  discussionInitials: { fontSize: 10, fontWeight: '700', color: '#c4b5fd' },
+  discussionInitials: { fontSize: 10, fontFamily: typography.fontBold, color: '#c4b5fd' },
   discussionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  discussionAuthor: { fontSize: 12, fontWeight: '600', color: '#f0f0ff' },
-  discussionTime: { fontSize: 10, color: 'rgba(240,240,255,0.35)' },
-  discussionBody: { fontSize: 13, color: 'rgba(240,240,255,0.7)', lineHeight: 18 },
+  discussionAuthor: { fontSize: 12, fontFamily: typography.fontSemiBold, color: '#f0f0ff' },
+  discussionTime: { fontSize: 10, color: 'rgba(240,240,255,0.35)', fontFamily: typography.fontRegular },
+  discussionBody: { fontSize: 13, color: 'rgba(240,240,255,0.7)', lineHeight: 18, fontFamily: typography.fontRegular },
   resourceCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     marginHorizontal: 16, marginBottom: 8,
@@ -447,15 +449,15 @@ const s = StyleSheet.create({
   resourceIconWrap: {
     width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
   },
-  resourceTitle: { fontSize: 13, fontWeight: '500', color: '#f0f0ff', marginBottom: 4 },
+  resourceTitle: { fontSize: 13, fontFamily: typography.fontMedium, color: '#f0f0ff', marginBottom: 4 },
   resourceMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  resourceType: { fontSize: 10, fontWeight: '500', textTransform: 'capitalize' },
-  resourceTime: { fontSize: 10, color: 'rgba(240,240,255,0.35)' },
-  resourceSize: { fontSize: 10, color: 'rgba(240,240,255,0.25)' },
+  resourceType: { fontSize: 10, fontFamily: typography.fontMedium, textTransform: 'capitalize' },
+  resourceTime: { fontSize: 10, color: 'rgba(240,240,255,0.35)', fontFamily: typography.fontRegular },
+  resourceSize: { fontSize: 10, color: 'rgba(240,240,255,0.25)', fontFamily: typography.fontRegular },
   downloadBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  downloadCount: { fontSize: 10, color: 'rgba(240,240,255,0.35)' },
+  downloadCount: { fontSize: 10, color: 'rgba(240,240,255,0.35)', fontFamily: typography.fontRegular },
   empty: { alignItems: 'center', paddingVertical: 40, gap: 8 },
-  emptyText: { fontSize: 13, color: 'rgba(240,240,255,0.3)', textAlign: 'center' },
+  emptyText: { fontSize: 13, color: 'rgba(240,240,255,0.3)', textAlign: 'center', fontFamily: typography.fontRegular },
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 10,
     paddingHorizontal: 16, paddingVertical: 10,
@@ -465,10 +467,10 @@ const s = StyleSheet.create({
     flex: 1, backgroundColor: '#1c1c2e', borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 10,
     fontSize: 13, color: '#f0f0ff', maxHeight: 80,
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)', fontFamily: typography.fontRegular,
   },
   sendBtn: {
-    width: 38, height: 38, borderRadius: 19,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#a78bfa', alignItems: 'center', justifyContent: 'center',
   },
   sendBtnDisabled: { opacity: 0.4 },

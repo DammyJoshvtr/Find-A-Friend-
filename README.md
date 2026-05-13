@@ -31,9 +31,9 @@ Additional cross-cutting features: push notifications, follow/follower graph, re
 - **TypeScript** ~5.9
 - **Supabase** (`@supabase/supabase-js` v2) — Postgres, Auth, Storage, Realtime, RLS
 - **Zustand** v5 — client state (feed, stories, notifications, auth)
-- **TanStack Query** v5 — server-state caching in detail screens
-- **NativeWind** v4 — Tailwind CSS utility classes in React Native
-- **MMKV** — fast local storage for story viewed-IDs cache
+- **React Native StyleSheet** — styling via `StyleSheet.create` (no CSS-in-JS dependency)
+- **AsyncStorage** (`@react-native-async-storage/async-storage`) — local storage for story viewed-IDs cache and persisted state
+- Zustand stores handle all data fetching with manual loading state (no separate server-state library)
 - **React Native Reanimated** v4 + **Gesture Handler** — animations and swipe interactions
 - **expo-notifications** — push notification registration and foreground handling
 
@@ -173,7 +173,7 @@ faf/
 ├── store/                  # Zustand global stores
 │   ├── authStore.ts        # Session + user, subscribes to auth state changes
 │   ├── feedStore.ts        # Paginated feed, optimistic likes
-│   ├── storiesStore.ts     # Story groups, viewer state, MMKV viewed-IDs cache
+│   ├── storiesStore.ts     # Story groups, viewer state, AsyncStorage viewed-IDs cache
 │   ├── notificationsStore.ts # Notification list + unread badge count
 │   └── themeStore.ts       # Color scheme preference
 │
@@ -213,8 +213,7 @@ Every table has RLS enabled. The general pattern:
 
 ### State management split
 
-- **Zustand** owns UI-critical state that must survive screen transitions: the feed list (with optimistic like state), story viewer position, notification badge count, and auth session.
-- **TanStack Query** is used in detail screens (event, post, club) where cache-then-revalidate semantics are cleaner than manual loading flags.
+- **Zustand** owns UI-critical state that must survive screen transitions: the feed list (with optimistic like state), story viewer position, notification badge count, and auth session. Zustand stores also handle all data fetching directly, using manual `loading` / `error` flags instead of a separate server-state library.
 
 ### Cursor-based pagination
 

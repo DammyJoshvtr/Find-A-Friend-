@@ -8,6 +8,7 @@ import {
   TouchableOpacity, TextInput, ActivityIndicator,
   RefreshControl, Alert,
 } from 'react-native'
+import Toast from 'react-native-toast-message'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
@@ -19,6 +20,7 @@ import StudyGroupCard from '../components/academic/StudyGroupCard'
 import type { Course, StudyGroup, AcademicResource } from '../lib/academic'
 import { getTimeAgo } from '../lib/matching'
 import { useTheme } from '../lib/theme'
+import { typography } from '../lib/typography'
 
 type Tab = 'courses' | 'groups' | 'resources'
 
@@ -63,7 +65,7 @@ function CourseRow({ course, onUnenroll }: CourseRowProps) {
             const { error } = await unenrollFromCourse(course.id)
             setLoading(false)
             if (error) {
-              Alert.alert('Error', 'Could not unenroll. Please try again.')
+              Toast.show({ type: 'error', text1: 'Error', text2: 'Could not unenroll. Please try again.' })
             } else {
               onUnenroll(course.id)
             }
@@ -99,7 +101,8 @@ function CourseRow({ course, onUnenroll }: CourseRowProps) {
           <TouchableOpacity
             style={s.unenrollBtn}
             onPress={handleUnenroll}
-            disabled={loading}>
+            disabled={loading}
+            hitSlop={12}>
             {loading
               ? <ActivityIndicator size="small" color="rgba(239,68,68,0.7)" />
               : <Ionicons name="close-outline" size={16} color="rgba(239,68,68,0.7)" />}
@@ -377,12 +380,12 @@ const s = StyleSheet.create({
     borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   backBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 18, fontWeight: '700', color: '#f0f0ff' },
+  title: { fontSize: 18, fontFamily: typography.fontBold, color: '#f0f0ff' },
   createBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
   },
   tabBar: {
@@ -398,8 +401,8 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(167,139,250,0.15)',
     borderColor: 'rgba(167,139,250,0.4)',
   },
-  tabText: { fontSize: 11, color: 'rgba(240,240,255,0.4)', fontWeight: '500' },
-  tabTextActive: { color: '#a78bfa', fontWeight: '700' },
+  tabText: { fontSize: 11, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontMedium },
+  tabTextActive: { color: '#a78bfa', fontFamily: typography.fontBold },
   centeredWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 },
   // Course card
   courseCard: {
@@ -413,7 +416,7 @@ const s = StyleSheet.create({
     alignItems: 'center', gap: 10,
   },
   courseCode: { fontSize: 10, color: '#a78bfa', marginBottom: 2 },
-  courseName: { fontSize: 13, fontWeight: '600', color: '#f0f0ff', marginBottom: 3 },
+  courseName: { fontSize: 13, fontFamily: typography.fontSemiBold, color: '#f0f0ff', marginBottom: 3 },
   courseMeta: { fontSize: 10, color: 'rgba(240,240,255,0.35)' },
   courseActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   studyGroupBtn: {
@@ -422,9 +425,9 @@ const s = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 5,
     borderWidth: 0.5, borderColor: 'rgba(167,139,250,0.3)',
   },
-  studyGroupBtnText: { fontSize: 10, color: '#a78bfa', fontWeight: '500' },
+  studyGroupBtnText: { fontSize: 10, color: '#a78bfa', fontFamily: typography.fontMedium },
   unenrollBtn: {
-    width: 30, height: 30, borderRadius: 15,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: 'rgba(239,68,68,0.08)', alignItems: 'center', justifyContent: 'center',
   },
   // Resource card
@@ -438,10 +441,10 @@ const s = StyleSheet.create({
     width: 38, height: 38, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
   },
-  resourceTitle: { fontSize: 13, fontWeight: '500', color: '#f0f0ff', marginBottom: 4 },
+  resourceTitle: { fontSize: 13, fontFamily: typography.fontMedium, color: '#f0f0ff', marginBottom: 4 },
   resourceMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   resourceCourse: {
-    fontSize: 9, color: '#a78bfa', fontWeight: '600',
+    fontSize: 9, color: '#a78bfa', fontFamily: typography.fontSemiBold,
     backgroundColor: 'rgba(167,139,250,0.1)', borderRadius: 6,
     paddingHorizontal: 5, paddingVertical: 1,
   },
@@ -462,13 +465,13 @@ const s = StyleSheet.create({
   empty: {
     alignItems: 'center', paddingTop: 60, paddingBottom: 40, gap: 8,
   },
-  emptyTitle: { fontSize: 15, fontWeight: '600', color: 'rgba(240,240,255,0.4)' },
-  emptySub: { fontSize: 12, color: 'rgba(240,240,255,0.25)', textAlign: 'center', paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 15, fontFamily: typography.fontSemiBold, color: 'rgba(240,240,255,0.4)' },
+  emptySub: { fontSize: 12, color: 'rgba(240,240,255,0.25)', textAlign: 'center', paddingHorizontal: 32, fontFamily: typography.fontRegular },
   browseBtn: {
     marginTop: 8, backgroundColor: '#a78bfa', borderRadius: 20,
     paddingHorizontal: 20, paddingVertical: 9,
   },
-  browseBtnText: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  browseBtnText: { fontSize: 13, fontFamily: typography.fontSemiBold, color: '#fff' },
   // FAB
   fab: {
     position: 'absolute', bottom: 24, right: 20,

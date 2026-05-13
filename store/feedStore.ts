@@ -14,6 +14,8 @@ import {
   getFeed, likePost, getMyLikedPostIds,
   bookmarkPost, getMyBookmarkedPostIds,
   getFollowingFeed,
+  repostPost as repostPostApi,
+  deletePost as deletePostApi,
 } from '../lib/feed'
 import type { FeedPost } from '../lib/feed'
 
@@ -40,6 +42,8 @@ interface FeedState {
   setTab: (tab: 'forYou' | 'following') => Promise<void>
   prependPost: (post: FeedPost) => void
   incrementCommentCount: (postId: string) => void
+  repostPost: (postId: string) => Promise<{ error: Error | null }>
+  deletePost: (postId: string) => Promise<{ error: Error | null }>
 }
 
 // ---------------------------------------------------------------------------
@@ -325,5 +329,44 @@ export const useFeedStore = create<FeedState>((set, get) => ({
           : p
       ),
     }))
+  },
+
+  // -------------------------------------------------------------------------
+  // Repost (optimistic repost_count increment; prepend repost to feed)
+  // -------------------------------------------------------------------------
+  repostPost: async (postId: string) => {
+    set(state => ({
+      posts: state.posts.map(p =>
+        p.id === postId ? { ...p, repost_count: (p.repost_count ?? 0) + 1 } : p
+      ),
+    }))
+
+    const { data: newPost, error } = await repostPostApi(postId)
+
+    if (error || !newPost) {
+      set(state => ({
+        posts: state.posts.map(p =>
+          p.id === postId ? { ...p, repost_count: Math.max(0, (p.repost_count ?? 1) - 1) } : p
+        ),
+      }))
+      return { error: error ?? new Error('Repost failed') }
+    }
+
+    get().prependPost({ ...newPost, is_liked: false, is_bookmarked: false })
+    return { error: null }
+  },
+
+  // -------------------------------------------------------------------------
+  // Delete own post (optimistic remove; refresh on failure)
+  // -------------------------------------------------------------------------
+  deletePost: async (postId: string) => {
+    set(state => ({ posts: state.posts.filter(p => p.id !== postId) }))
+
+    const { error } = await deletePostApi(postId)
+    if (error) {
+      await get().refresh()
+      return { error }
+    }
+    return { error: null }
   },
 }))

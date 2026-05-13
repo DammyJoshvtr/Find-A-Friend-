@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { getVendorsWithDeals } from '../lib/vendors'
 import { useTheme } from '../lib/theme'
+import { typography } from '../lib/typography'
 import VendorCard from '../components/vendors/VendorCard'
 import type { VendorWithDeals } from '../lib/vendors'
 
@@ -181,15 +182,15 @@ const s = StyleSheet.create({
     borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)',
   },
   backBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 18, fontWeight: '700', color: '#f0f0ff' },
+  title: { fontSize: 18, fontFamily: typography.fontBold, color: '#f0f0ff' },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   errorWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32 },
-  errorText: { fontSize: 14, color: 'rgba(240,240,255,0.4)', textAlign: 'center' },
+  errorText: { fontSize: 14, color: 'rgba(240,240,255,0.4)', textAlign: 'center', fontFamily: typography.fontRegular },
   retryBtn: { backgroundColor: '#fbbf24', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8 },
-  retryText: { fontSize: 13, fontWeight: '600', color: '#000' },
+  retryText: { fontSize: 13, fontFamily: typography.fontSemiBold, color: '#000' },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginHorizontal: 16, marginTop: 12, marginBottom: 10,
@@ -197,7 +198,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 10,
     borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
   },
-  searchInput: { flex: 1, fontSize: 13, color: '#f0f0ff' },
+  searchInput: { flex: 1, fontSize: 13, color: '#f0f0ff', fontFamily: typography.fontRegular },
   catRow: { paddingHorizontal: 16, gap: 8, marginBottom: 12 },
   catPill: {
     paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
@@ -207,8 +208,8 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(251,191,36,0.15)',
     borderColor: 'rgba(251,191,36,0.4)',
   },
-  catText: { fontSize: 12, color: 'rgba(240,240,255,0.4)' },
-  catTextActive: { color: '#fbbf24', fontWeight: '600' },
+  catText: { fontSize: 12, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontMedium },
+  catTextActive: { color: '#fbbf24', fontFamily: typography.fontBold },
   statsStrip: {
     flexDirection: 'row', alignItems: 'center',
     marginHorizontal: 16, marginBottom: 16,
@@ -217,19 +218,19 @@ const s = StyleSheet.create({
   },
   statItem: { flex: 1, alignItems: 'center', gap: 2 },
   statDivider: { width: 0.5, height: 32, backgroundColor: 'rgba(255,255,255,0.08)' },
-  statValue: { fontSize: 20, fontWeight: '700', color: '#fbbf24' },
-  statLabel: { fontSize: 10, color: 'rgba(240,240,255,0.35)' },
+  statValue: { fontSize: 20, fontFamily: typography.fontBold, color: '#fbbf24' },
+  statLabel: { fontSize: 10, color: 'rgba(240,240,255,0.35)', fontFamily: typography.fontMedium },
   sectionTitle: {
-    fontSize: 13, fontWeight: '600', color: 'rgba(240,240,255,0.5)',
+    fontSize: 13, fontFamily: typography.fontSemiBold, color: 'rgba(240,240,255,0.5)',
     paddingHorizontal: 16, marginBottom: 8,
   },
   cardWrap: { paddingHorizontal: 16, marginBottom: 8 },
   empty: { alignItems: 'center', paddingTop: 40, paddingBottom: 40, gap: 8 },
-  emptyTitle: { fontSize: 15, fontWeight: '600', color: 'rgba(240,240,255,0.4)' },
-  emptySub: { fontSize: 12, color: 'rgba(240,240,255,0.25)', textAlign: 'center' },
+  emptyTitle: { fontSize: 15, fontFamily: typography.fontSemiBold, color: 'rgba(240,240,255,0.4)' },
+  emptySub: { fontSize: 12, color: 'rgba(240,240,255,0.25)', textAlign: 'center', fontFamily: typography.fontRegular },
   applyBtn: {
     marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: '#fbbf24', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 9,
   },
-  applyBtnText: { fontSize: 13, fontWeight: '600', color: '#000' },
+  applyBtnText: { fontSize: 13, fontFamily: typography.fontSemiBold, color: '#000' },
 })

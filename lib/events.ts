@@ -102,8 +102,7 @@ export async function getEvents(
       .select(`
         *,
         profiles(id, full_name, avatar_url),
-        clubs(id, name, color),
-        map_locations(id, name, pin_x, pin_y)
+        clubs(id, name, color)
       `)
       .eq('is_public', true)
       .order('starts_at', { ascending: true })
@@ -155,8 +154,7 @@ export async function getEventDetail(eventId: string): Promise<{
       .select(`
         *,
         profiles(id, full_name, avatar_url),
-        clubs(id, name, color),
-        map_locations(id, name, pin_x, pin_y)
+        clubs(id, name, color)
       `)
       .eq('id', eventId)
       .single()

@@ -71,6 +71,23 @@ export interface CreatePostPayload {
 }
 
 // ---------------------------------------------------------------------------
+// Shared select string + count normaliser
+// ---------------------------------------------------------------------------
+
+const POST_SELECT =
+  '*, profiles(id, full_name, department, level, avatar_url), post_likes(count), post_comments(count), reposts(count)'
+
+function toFeedPost(raw: any): FeedPost {
+  const { post_likes, post_comments, reposts, ...rest } = raw
+  return {
+    ...rest,
+    likes_count:     post_likes?.[0]?.count    ?? rest.likes_count    ?? 0,
+    comments_count:  post_comments?.[0]?.count ?? rest.comments_count ?? 0,
+    repost_count:    reposts?.[0]?.count        ?? rest.repost_count   ?? 0,
+  } as FeedPost
+}
+
+// ---------------------------------------------------------------------------
 // Feed
 // ---------------------------------------------------------------------------
 
@@ -86,7 +103,7 @@ export async function getFeed(cursor?: string, limit = 20): Promise<{
   try {
     let query = supabase
       .from('posts')
-      .select('*, profiles(id, full_name, department, level, avatar_url)')
+      .select(POST_SELECT)
       .eq('is_anonymous', false)
       .order('created_at', { ascending: false })
       .limit(limit)
@@ -97,7 +114,7 @@ export async function getFeed(cursor?: string, limit = 20): Promise<{
 
     const { data, error } = await query
     if (error) throw error
-    return { data: data as FeedPost[], error: null }
+    return { data: (data as any[]).map(toFeedPost), error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -371,7 +388,7 @@ export async function getHashtagPosts(
 
     let query = supabase
       .from('posts')
-      .select('*, profiles(id, full_name, department, level, avatar_url)')
+      .select(POST_SELECT)
       .in('id', postIds)
       .eq('is_anonymous', false)
       .order('created_at', { ascending: false })
@@ -383,7 +400,7 @@ export async function getHashtagPosts(
 
     const { data, error } = await query
     if (error) throw error
-    return { data: data as FeedPost[], error: null }
+    return { data: (data as any[]).map(toFeedPost), error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -444,9 +461,11 @@ export async function getBookmarkedPosts(): Promise<{ data: FeedPost[] | null; e
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
+    const bookmarkSelect = `post_id, posts(${POST_SELECT})`
+
     const { data, error } = await supabase
       .from('post_bookmarks')
-      .select('post_id, posts(*, profiles(id, full_name, department, level, avatar_url))')
+      .select(bookmarkSelect)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
@@ -455,7 +474,7 @@ export async function getBookmarkedPosts(): Promise<{ data: FeedPost[] | null; e
     const posts = (data ?? [])
       .map((r: any) => r.posts)
       .filter(Boolean)
-      .map((p: FeedPost) => ({ ...p, is_bookmarked: true }))
+      .map((raw: any) => ({ ...toFeedPost(raw), is_bookmarked: true }))
 
     return { data: posts, error: null }
   } catch (err) {
@@ -500,7 +519,7 @@ export async function getFollowingFeed(
 
     let query = supabase
       .from('posts')
-      .select('*, profiles(id, full_name, department, level, avatar_url)')
+      .select(POST_SELECT)
       .in('author_id', followingIds)
       .eq('is_anonymous', false)
       .order('created_at', { ascending: false })
@@ -510,7 +529,7 @@ export async function getFollowingFeed(
 
     const { data, error } = await query
     if (error) throw error
-    return { data: data as FeedPost[], error: null }
+    return { data: (data as any[]).map(toFeedPost), error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -527,12 +546,32 @@ export async function getPost(postId: string): Promise<{
   try {
     const { data, error } = await supabase
       .from('posts')
-      .select('*, profiles(id, full_name, department, level, avatar_url)')
+      .select(POST_SELECT)
       .eq('id', postId)
       .single()
 
     if (error) throw error
-    return { data: data as FeedPost, error: null }
+    return { data: toFeedPost(data), error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function getUserFeedPosts(userId: string): Promise<{
+  data: FeedPost[] | null
+  error: Error | null
+}> {
+  try {
+    const { data, error } = await supabase
+      .from('posts')
+      .select(POST_SELECT)
+      .eq('author_id', userId)
+      .eq('is_anonymous', false)
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (error) throw error
+    return { data: (data as any[]).map(toFeedPost), error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -547,6 +586,25 @@ export async function deletePost(postId: string): Promise<{
       .from('posts')
       .delete()
       .eq('id', postId)
+
+    if (error) throw error
+    return { data: null, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function reportPost(postId: string, reason?: string): Promise<{
+  data: null
+  error: Error | null
+}> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { error } = await supabase
+      .from('reports')
+      .insert({ reporter_id: user.id, post_id: postId, reason: reason ?? null })
 
     if (error) throw error
     return { data: null, error: null }

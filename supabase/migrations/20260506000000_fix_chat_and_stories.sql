@@ -1,17 +1,27 @@
 -- Fix: RLS policies for chat tables + stories storage bucket
 -- Run in Supabase Dashboard → SQL Editor
 
+-- ─── 0. HELPERS ─────────────────────────────────────────────────────────────
+
+-- Helper to check participation without recursion (SECURITY DEFINER bypasses RLS)
+CREATE OR REPLACE FUNCTION public.is_chat_participant(p_conv_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.conversation_participants
+    WHERE conversation_id = p_conv_id
+      AND user_id = auth.uid()
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- ─── 1. CONVERSATIONS ───────────────────────────────────────────────────────
 
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "conversations: participant read" ON conversations;
 CREATE POLICY "conversations: participant read" ON conversations
-  FOR SELECT USING (
-    id IN (
-      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
-    )
-  );
+  FOR SELECT USING (is_chat_participant(id));
 
 DROP POLICY IF EXISTS "conversations: authenticated insert" ON conversations;
 CREATE POLICY "conversations: authenticated insert" ON conversations
@@ -19,11 +29,7 @@ CREATE POLICY "conversations: authenticated insert" ON conversations
 
 DROP POLICY IF EXISTS "conversations: participant update" ON conversations;
 CREATE POLICY "conversations: participant update" ON conversations
-  FOR UPDATE USING (
-    id IN (
-      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
-    )
-  );
+  FOR UPDATE USING (is_chat_participant(id));
 
 -- ─── 2. CONVERSATION PARTICIPANTS ───────────────────────────────────────────
 
@@ -33,9 +39,7 @@ DROP POLICY IF EXISTS "conv_participants: participant read" ON conversation_part
 CREATE POLICY "conv_participants: participant read" ON conversation_participants
   FOR SELECT USING (
     user_id = auth.uid()
-    OR conversation_id IN (
-      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
-    )
+    OR is_chat_participant(conversation_id)
   );
 
 DROP POLICY IF EXISTS "conv_participants: authenticated insert" ON conversation_participants;
@@ -52,19 +56,13 @@ ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "messages: participant read" ON messages;
 CREATE POLICY "messages: participant read" ON messages
-  FOR SELECT USING (
-    conversation_id IN (
-      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
-    )
-  );
+  FOR SELECT USING (is_chat_participant(conversation_id));
 
 DROP POLICY IF EXISTS "messages: participant insert" ON messages;
 CREATE POLICY "messages: participant insert" ON messages
   FOR INSERT WITH CHECK (
     sender_id = auth.uid()
-    AND conversation_id IN (
-      SELECT conversation_id FROM conversation_participants WHERE user_id = auth.uid()
-    )
+    AND is_chat_participant(conversation_id)
   );
 
 DROP POLICY IF EXISTS "messages: own delete" ON messages;

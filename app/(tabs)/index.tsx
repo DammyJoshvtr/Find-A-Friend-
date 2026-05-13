@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -15,11 +17,14 @@ import { useFeedStore } from '../../store/feedStore'
 import { useNotificationsStore } from '../../store/notificationsStore'
 import PostCard from '../../components/feed/PostCard'
 import StoriesRow from '../../components/feed/StoriesRow'
-import CommentSheet from '../../components/feed/CommentSheet'
 import StoryViewer from '../../components/stories/StoryViewer'
 import AdCarousel from '../../components/feed/AdCarousel'
+import NeuralBackground from '../../components/NeuralBackground'
+import ScreenLoader from '../../components/ScreenLoader'
 import { getCurrentProfile } from '../../lib/profiles'
 import { useTheme } from '../../lib/theme'
+import { typography } from '../../lib/typography'
+import { hideTabBar, showTabBar } from '../../lib/tabBarAnim'
 import type { FeedPost } from '../../lib/feed'
 
 function getGreeting() {
@@ -38,8 +43,17 @@ export default function HomeScreen() {
   const { unreadCount, loadUnreadCount } = useNotificationsStore()
   const theme = useTheme()
 
-  const [commentPostId, setCommentPostId] = useState<string | null>(null)
   const [firstName, setFirstName] = useState<string | null>(null)
+  const lastScrollY = useRef(0)
+
+  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y
+    const dy = y - lastScrollY.current
+    lastScrollY.current = y
+    if (y < 50) { showTabBar(); return }
+    if (dy > 8) hideTabBar()
+    else if (dy < -8) showTabBar()
+  }, [])
 
   useEffect(() => {
     loadFeed()
@@ -56,17 +70,17 @@ export default function HomeScreen() {
 
   const renderPost = useCallback(
     ({ item }: { item: FeedPost }) => (
-      <PostCard post={item} onCommentPress={setCommentPostId} />
+      <PostCard post={item} />
     ), []
   )
 
-  const renderHeader = useCallback(() => <View><StoriesRow /></View>, [])
+  const renderHeader = useCallback(() => activeTab === 'following' ? <View><StoriesRow /></View> : null, [activeTab])
 
   const renderFooter = useCallback(() =>
     loading && posts.length > 0 ? (
       <ActivityIndicator color={theme.accent} style={{ paddingVertical: 20 }} />
     ) : null,
-  [loading, posts.length, theme.accent])
+    [loading, posts.length, theme.accent])
 
   const renderEmpty = useCallback(() =>
     !loading ? (
@@ -80,7 +94,7 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
     ) : null,
-  [loading, theme])
+    [loading, theme])
 
   const header = (
     <View style={[s.header, { borderBottomColor: theme.border }]}>
@@ -108,15 +122,7 @@ export default function HomeScreen() {
   const proofBanner = <AdCarousel />
 
   if (loading && !posts.length) {
-    return (
-      <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
-        {header}
-        <View style={s.loadingWrap}>
-          <ActivityIndicator size="large" color={theme.accent} />
-          <Text style={[s.loadingText, { color: theme.textMuted }]}>Loading feed...</Text>
-        </View>
-      </SafeAreaView>
-    )
+    return <ScreenLoader message="Loading feed..." />
   }
 
   if (error && !posts.length) {
@@ -135,20 +141,27 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
+      <NeuralBackground intensity="light" />
       {header}
       {proofBanner}
       <View style={[s.tabs, { borderBottomColor: theme.border }]}>
         <TouchableOpacity style={s.tab} onPress={() => setTab('forYou')}>
-          <Text style={[s.tabText, { color: theme.textMuted }, activeTab === 'forYou' && { color: theme.text, fontWeight: '700' }]}>
-            For You
-          </Text>
-          {activeTab === 'forYou' && <View style={[s.tabIndicator, { backgroundColor: theme.accent }]} />}
+          {activeTab === 'forYou' ? (
+            <View style={[s.tabPill, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}>
+              <Text style={[s.tabText, { color: theme.accent, fontWeight: '700' }]}>For You</Text>
+            </View>
+          ) : (
+            <Text style={[s.tabText, { color: theme.textMuted }]}>For You</Text>
+          )}
         </TouchableOpacity>
         <TouchableOpacity style={s.tab} onPress={() => setTab('following')}>
-          <Text style={[s.tabText, { color: theme.textMuted }, activeTab === 'following' && { color: theme.text, fontWeight: '700' }]}>
-            Following
-          </Text>
-          {activeTab === 'following' && <View style={[s.tabIndicator, { backgroundColor: theme.accent }]} />}
+          {activeTab === 'following' ? (
+            <View style={[s.tabPill, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}>
+              <Text style={[s.tabText, { color: theme.accent, fontWeight: '700' }]}>Following</Text>
+            </View>
+          ) : (
+            <Text style={[s.tabText, { color: theme.textMuted }]}>Following</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -169,6 +182,8 @@ export default function HomeScreen() {
         }
         onEndReached={handleEndReached}
         onEndReachedThreshold={0.5}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={s.listContent}
       />
@@ -178,12 +193,6 @@ export default function HomeScreen() {
         onPress={() => router.push('/create-post' as any)}>
         <Ionicons name="add" size={26} color="#fff" />
       </TouchableOpacity>
-
-      <CommentSheet
-        postId={commentPostId ?? ''}
-        visible={!!commentPostId}
-        onClose={() => setCommentPostId(null)}
-      />
 
       <StoryViewer />
     </SafeAreaView>
@@ -196,11 +205,11 @@ const s = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 0.5,
   },
-  logo: { fontSize: 24, fontWeight: '800', color: '#a78bfa', letterSpacing: 1 },
-  greeting: { fontSize: 12, marginTop: 1 },
+  logo: { fontSize: 24, fontFamily: typography.fontExtraBold, color: '#a78bfa', letterSpacing: 1 },
+  greeting: { fontSize: 12, fontFamily: typography.fontMedium, marginTop: 1 },
   headerRight: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   iconBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center', position: 'relative',
   },
   badge: {
@@ -210,28 +219,29 @@ const s = StyleSheet.create({
   },
   badgeText: { fontSize: 9, color: '#fff', fontWeight: '700' },
   tabs: { flexDirection: 'row', borderBottomWidth: 0.5 },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 14, position: 'relative' },
-  tabText: { fontSize: 15, fontWeight: '500' },
-  tabIndicator: {
-    position: 'absolute', bottom: 0, left: '25%', right: '25%',
-    height: 3, borderRadius: 2,
+  tab: { flex: 1, alignItems: 'center', paddingVertical: 8, position: 'relative' },
+  tabText: { fontSize: 12, fontFamily: typography.fontMedium },
+  tabPill: {
+    borderRadius: 20, borderWidth: 1,
+    paddingHorizontal: 18, paddingVertical: 5,
   },
-  listContent: { paddingBottom: 80 },
+  listContent: { paddingBottom: 148 },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 13 },
   errorText: { fontSize: 14, marginTop: 8 },
   retryBtn: { marginTop: 8, borderRadius: 20, paddingHorizontal: 24, paddingVertical: 10 },
   retryText: { fontSize: 13, fontWeight: '600', color: '#fff' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10, paddingHorizontal: 32 },
-  emptyTitle: { fontSize: 17, fontWeight: '600' },
-  emptyText: { fontSize: 13, textAlign: 'center' },
+  emptyTitle: { fontSize: 17, fontFamily: typography.fontSemiBold },
+  emptyText: { fontSize: 13, textAlign: 'center', fontFamily: typography.fontRegular },
   emptyBtn: { marginTop: 8, borderRadius: 20, paddingHorizontal: 24, paddingVertical: 10 },
   emptyBtnText: { fontSize: 13, fontWeight: '600', color: '#fff' },
   fab: {
-    position: 'absolute', bottom: 24, right: 20,
+    position: 'absolute', bottom: 108, right: 20,
     width: 54, height: 54, borderRadius: 27,
     alignItems: 'center', justifyContent: 'center',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
+    shadowColor: '#a78bfa',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.55, shadowRadius: 14, elevation: 10,
   },
 })

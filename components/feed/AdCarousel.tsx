@@ -5,37 +5,38 @@ import {
   StyleSheet,
   FlatList,
   Dimensions,
-  TouchableOpacity,
-  ImageBackground,
-  Platform,
+  Animated,
+  PanResponder,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../lib/theme'
+import { typography } from '../../lib/typography'
 
 const { width } = Dimensions.get('window')
-// We'll leave a small margin on the sides so it doesn't touch the screen edges
 const ITEM_WIDTH = width - 15
+const BANNER_HEIGHT = 140
+const RESTORE_DELAY_MS = 60_000
 
 const MOCK_ADS = [
   {
     id: '1',
     title: '50% Off Campus Coffee',
     subtitle: 'Show your FAF app at the Student Center cafe to get half off any latte before 10 AM.',
-    color: '#8b5cf6', // Violet
+    color: '#7c3aed',
     icon: 'cafe',
   },
   {
     id: '2',
     title: 'Spring Tech Hackathon',
     subtitle: 'Join the CS club this weekend. Free pizza, prizes, and great networking! Register now.',
-    color: '#10b981', // Emerald
+    color: '#0891b2',
     icon: 'laptop-outline',
   },
   {
     id: '3',
     title: 'Exclusive Vendor Deals',
     subtitle: 'Check out the Discover tab to find amazing local discounts just for students.',
-    color: '#f59e0b', // Amber
+    color: '#b45309',
     icon: 'pricetag',
   },
 ]
@@ -44,53 +45,137 @@ export default function AdCarousel() {
   const theme = useTheme()
   const flatListRef = useRef<FlatList>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [dismissed, setDismissed] = useState(false)
+  const isRestoringRef = useRef(false)
 
-  // Auto-scroll logic
+  // Swipe gesture animation
+  const dragY    = useRef(new Animated.Value(0)).current
+  const maxHeight = useRef(new Animated.Value(BANNER_HEIGHT)).current
+  const opacity  = useRef(new Animated.Value(1)).current
+
+  // Bouncy upward arrow hint
+  const arrowBounce = useRef(new Animated.Value(0)).current
+
+  // Start the arrow bounce loop whenever the banner is visible
   useEffect(() => {
+    if (dismissed) return
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(arrowBounce, { toValue: -5, duration: 380, useNativeDriver: true }),
+        Animated.spring(arrowBounce, { toValue: 0, useNativeDriver: true, bounciness: 14 }),
+        Animated.delay(800),
+      ])
+    )
+    loop.start()
+    return () => loop.stop()
+  }, [dismissed])
+
+  // After 60 s, slide the banner back down
+  useEffect(() => {
+    if (!dismissed) return
+    const timer = setTimeout(() => {
+      isRestoringRef.current = true
+      // Start off-screen above so the spring slides it into view
+      dragY.setValue(-BANNER_HEIGHT)
+      maxHeight.setValue(BANNER_HEIGHT)
+      opacity.setValue(1)
+      setDismissed(false)
+    }, RESTORE_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [dismissed])
+
+  // Once the component re-mounts after restore, spring dragY to 0
+  useEffect(() => {
+    if (!dismissed && isRestoringRef.current) {
+      isRestoringRef.current = false
+      Animated.spring(dragY, {
+        toValue: 0,
+        useNativeDriver: false,
+        bounciness: 10,
+        speed: 10,
+      }).start()
+    }
+  }, [dismissed])
+
+  const dismiss = () => {
+    Animated.parallel([
+      Animated.timing(dragY,     { toValue: -BANNER_HEIGHT, duration: 220, useNativeDriver: false }),
+      Animated.timing(opacity,   { toValue: 0,              duration: 180, useNativeDriver: false }),
+      Animated.timing(maxHeight, { toValue: 0,              duration: 320, delay: 80, useNativeDriver: false }),
+    ]).start(() => setDismissed(true))
+  }
+
+  const snapBack = () => {
+    Animated.spring(dragY, { toValue: 0, useNativeDriver: false, bounciness: 8 }).start()
+  }
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) =>
+        g.dy < -8 && Math.abs(g.dy) > Math.abs(g.dx) * 1.5,
+      onPanResponderMove: (_, g) => {
+        if (g.dy < 0) dragY.setValue(g.dy)
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy < -50 || g.vy < -0.6) dismiss()
+        else snapBack()
+      },
+      onPanResponderTerminate: snapBack,
+    })
+  ).current
+
+  // Auto-scroll ads
+  useEffect(() => {
+    if (dismissed) return
     const timer = setInterval(() => {
-      if (MOCK_ADS.length === 0) return
-
-      const nextIndex = (currentIndex + 1) % MOCK_ADS.length
-      flatListRef.current?.scrollToIndex({
-        index: nextIndex,
-        animated: true,
-      })
-      setCurrentIndex(nextIndex)
-    }, 5000) // Change ad every 5 seconds
-
+      const next = (currentIndex + 1) % MOCK_ADS.length
+      flatListRef.current?.scrollToIndex({ index: next, animated: true })
+      setCurrentIndex(next)
+    }, 5000)
     return () => clearInterval(timer)
-  }, [currentIndex])
+  }, [currentIndex, dismissed])
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index)
-    }
+    if (viewableItems.length > 0) setCurrentIndex(viewableItems[0].index)
   }).current
 
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50,
-  }).current
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current
 
   const renderItem = ({ item }: { item: typeof MOCK_ADS[0] }) => (
     <View style={[s.itemContainer, { width: ITEM_WIDTH }]}>
       <View style={[s.card, { backgroundColor: item.color }]}>
+        <View style={s.glassOverlay} />
         <View style={s.content}>
           <View style={s.textContainer}>
             <Text style={s.title}>{item.title}</Text>
-            <Text style={s.subtitle} numberOfLines={2}>
-              {item.subtitle}
-            </Text>
+            <Text style={s.subtitle} numberOfLines={2}>{item.subtitle}</Text>
           </View>
           <View style={s.iconContainer}>
-            <Ionicons name={item.icon as any} size={32} color="#fff" />
+            <Ionicons name={item.icon as any} size={30} color="#fff" />
           </View>
         </View>
       </View>
     </View>
   )
 
+  if (dismissed) return null
+
   return (
-    <View style={s.container}>
+    <Animated.View
+      style={[s.wrapper, { maxHeight, opacity, transform: [{ translateY: dragY }] }]}
+      {...panResponder.panHandlers}
+    >
+      {/* Swipe-up hint: bouncy arrow + drag bar */}
+      <View style={s.hintRow}>
+        <Animated.View style={{ transform: [{ translateY: arrowBounce }] }}>
+          <Ionicons name="chevron-up" size={14} color="rgba(255,255,255,0.35)" />
+        </Animated.View>
+        <View style={s.swipeBar} />
+        <Animated.View style={{ transform: [{ translateY: arrowBounce }] }}>
+          <Ionicons name="chevron-up" size={14} color="rgba(255,255,255,0.35)" />
+        </Animated.View>
+      </View>
+
       <FlatList
         ref={flatListRef}
         data={MOCK_ADS}
@@ -99,14 +184,14 @@ export default function AdCarousel() {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        snapToInterval={ITEM_WIDTH + 16} // Item width + margin
+        snapToInterval={ITEM_WIDTH + 16}
         snapToAlignment="center"
         decelerationRate="fast"
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={viewabilityConfig}
         contentContainerStyle={{ paddingHorizontal: 8 }}
       />
-      {/* Pagination Dots */}
+
       <View style={s.pagination}>
         {MOCK_ADS.map((_, index) => (
           <View
@@ -114,39 +199,49 @@ export default function AdCarousel() {
             style={[
               s.dot,
               { backgroundColor: index === currentIndex ? theme.accent : theme.border },
-              index === currentIndex && s.activeDot
+              index === currentIndex && s.activeDot,
             ]}
           />
         ))}
       </View>
-    </View>
+    </Animated.View>
   )
 }
 
 const s = StyleSheet.create({
-  container: {
-    marginVertical: 12,
+  wrapper: {
+    marginVertical: 8,
+    overflow: 'hidden',
+  },
+  hintRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingBottom: 4,
+  },
+  swipeBar: {
+    width: 28,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   itemContainer: {
     paddingHorizontal: 8,
   },
   card: {
-    borderRadius: 16,
-    paddingVertical: 17,
-    paddingHorizontal: 16,
-    minHeight: 90,
+    borderRadius: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    minHeight: 88,
     justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    overflow: 'hidden',
+  },
+  glassOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   content: {
     flexDirection: 'row',
@@ -159,20 +254,21 @@ const s = StyleSheet.create({
   },
   title: {
     color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 14,
+    fontFamily: typography.fontBold,
     marginBottom: 4,
   },
   subtitle: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
     lineHeight: 16,
+    fontFamily: typography.fontMedium,
   },
   iconContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -180,7 +276,8 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 10,
+    marginBottom: 4,
     gap: 6,
   },
   dot: {

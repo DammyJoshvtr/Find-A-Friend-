@@ -17,6 +17,7 @@ import { getInitials, getTimeAgo } from '../../lib/matching'
 import { supabase } from '../../lib/supabase'
 import type { Profile } from '../../lib/profiles'
 import { useTheme } from '../../lib/theme'
+import { typography } from '../../lib/typography'
 
 type Tab = 'posts' | 'liked'
 
@@ -57,7 +58,7 @@ function MiniPostCard({ post, onPress }: { post: MiniPost; onPress: () => void }
       )}
       <Text style={s.miniBody} numberOfLines={post.image_url ? 2 : 4}>{post.body}</Text>
       <View style={s.miniFooter}>
-        <TouchableOpacity style={s.miniAction} onPress={handleLike}>
+        <TouchableOpacity style={s.miniAction} onPress={handleLike} hitSlop={{top:10,bottom:10,left:10,right:10}}>
           <Ionicons name={liked ? 'heart' : 'heart-outline'} size={13} color={liked ? '#ef4444' : 'rgba(240,240,255,0.35)'} />
           <Text style={s.miniActionText}>{likeCount}</Text>
         </TouchableOpacity>
@@ -84,6 +85,7 @@ export default function ProfileScreen() {
 
   const [following, setFollowing] = useState(false)
   const [followerCount, setFollowerCount] = useState(0)
+  const [followingCount, setFollowingCount] = useState(0)
   const [followLoading, setFollowLoading] = useState(false)
 
   const [activeTab, setActiveTab] = useState<Tab>('posts')
@@ -99,20 +101,70 @@ export default function ProfileScreen() {
     if (id && profile) loadTabData(activeTab)
   }, [activeTab, profile])
 
+  const refreshCounts = useCallback(async () => {
+    const [followerRes, followingRes] = await Promise.all([
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
+    ])
+    if (followerRes.count !== null) setFollowerCount(followerRes.count)
+    if (followingRes.count !== null) setFollowingCount(followingRes.count)
+  }, [id])
+
+  // Real-time: follower/following counts + new posts
+  useEffect(() => {
+    if (!id) return
+    const channelName = `profile-rt:${id}`
+
+    // Remove any stale channel with this name (e.g. after React Navigation reconnect)
+    const stale = supabase.getChannels().find(c => c.topic === `realtime:${channelName}`)
+    if (stale) supabase.removeChannel(stale)
+
+    const channel = supabase
+      .channel(channelName)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'follows',
+        filter: `following_id=eq.${id}`,
+      }, () => { refreshCounts() })
+      .on('postgres_changes', {
+        event: 'DELETE', schema: 'public', table: 'follows',
+        filter: `following_id=eq.${id}`,
+      }, () => { refreshCounts() })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'posts',
+        filter: `author_id=eq.${id}`,
+      }, (payload: any) => {
+        if (!payload.new.is_anonymous) {
+          setPosts(prev => [payload.new as MiniPost, ...prev])
+        }
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+    // refreshCounts is stable while id is unchanged; omit to prevent double-subscribe on reconnect
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
   const loadProfile = async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
 
-    const [profileRes, statusRes] = await Promise.all([
+    const [profileRes, statusRes, followerRes, followingRes] = await Promise.all([
       getProfileById(id),
       getFollowStatus(id),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
     ])
 
     const p = profileRes
     setProfile(p)
-    setFollowerCount(p?.follower_count ?? 0)
+    setFollowerCount(followerRes.count ?? p?.follower_count ?? 0)
+    setFollowingCount(followingRes.count ?? p?.following_count ?? 0)
     setFollowing(statusRes.data === 'following')
-    setIsOwnProfile(user?.id === id)
+    const own = user?.id === id
+    setIsOwnProfile(own)
+    if (own) {
+      router.replace('/(tabs)/profile' as any)
+      return
+    }
     setLoading(false)
   }
 
@@ -247,7 +299,7 @@ export default function ProfileScreen() {
         <TouchableOpacity
           style={s.statItem}
           onPress={() => router.push(`/following/${id}` as any)}>
-          <Text style={s.statValue}>{profile.following_count}</Text>
+          <Text style={s.statValue}>{followingCount}</Text>
           <Text style={s.statLabel}>Following</Text>
         </TouchableOpacity>
       </View>
@@ -369,11 +421,11 @@ const s = StyleSheet.create({
     paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8,
   },
   backBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
   },
   editBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
   },
   avatarSection: { alignItems: 'center', marginTop: 8, marginBottom: 14 },
@@ -387,17 +439,17 @@ const s = StyleSheet.create({
     width: '100%', height: '100%',
     backgroundColor: '#2a1e40', alignItems: 'center', justifyContent: 'center',
   },
-  avatarInitials: { fontSize: 28, fontWeight: '700', color: '#c4b5fd' },
+  avatarInitials: { fontSize: 28, fontFamily: typography.fontBold, color: '#c4b5fd' },
   nameSection: { alignItems: 'center', paddingHorizontal: 32, marginBottom: 16 },
-  name: { fontSize: 22, fontWeight: '700', color: '#f0f0ff', marginBottom: 4 },
-  dept: { fontSize: 13, color: 'rgba(240,240,255,0.4)', marginBottom: 8 },
-  bio: { fontSize: 13, color: 'rgba(240,240,255,0.6)', textAlign: 'center', lineHeight: 18 },
+  name: { fontSize: 22, fontFamily: typography.fontBold, color: '#f0f0ff', marginBottom: 4 },
+  dept: { fontSize: 13, color: 'rgba(240,240,255,0.4)', marginBottom: 8, fontFamily: typography.fontRegular },
+  bio: { fontSize: 13, color: 'rgba(240,240,255,0.6)', textAlign: 'center', lineHeight: 18, fontFamily: typography.fontRegular },
   statsRow: {
     flexDirection: 'row', paddingHorizontal: 16, marginBottom: 14,
   },
   statItem: { flex: 1, alignItems: 'center', gap: 2 },
-  statValue: { fontSize: 20, fontWeight: '700', color: '#f0f0ff' },
-  statLabel: { fontSize: 11, color: 'rgba(240,240,255,0.35)' },
+  statValue: { fontSize: 20, fontFamily: typography.fontBold, color: '#f0f0ff' },
+  statLabel: { fontSize: 11, color: 'rgba(240,240,255,0.35)', fontFamily: typography.fontMedium },
   interestsRow: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 6,
     paddingHorizontal: 16, marginBottom: 14, justifyContent: 'center',
@@ -407,7 +459,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 4,
     borderWidth: 0.5, borderColor: 'rgba(167,139,250,0.3)',
   },
-  interestText: { fontSize: 11, color: '#c4b5fd' },
+  interestText: { fontSize: 11, color: '#c4b5fd', fontFamily: typography.fontMedium },
   actionRow: {
     flexDirection: 'row', gap: 10, paddingHorizontal: 16, marginBottom: 16,
   },
@@ -423,7 +475,7 @@ const s = StyleSheet.create({
     backgroundColor: '#1c1c2e',
     borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.1)',
   },
-  followText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  followText: { fontSize: 14, fontFamily: typography.fontSemiBold, color: '#fff' },
   followingText: { color: '#a78bfa' },
   editProfileText: { color: 'rgba(240,240,255,0.6)' },
   messageBtn: {
@@ -432,7 +484,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 20,
     borderWidth: 0.5, borderColor: 'rgba(167,139,250,0.3)',
   },
-  messageBtnText: { fontSize: 14, fontWeight: '500', color: '#a78bfa' },
+  messageBtnText: { fontSize: 14, fontFamily: typography.fontMedium, color: '#a78bfa' },
   tabBar: {
     flexDirection: 'row',
     borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.06)',
@@ -443,8 +495,8 @@ const s = StyleSheet.create({
     borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   tabActive: { borderBottomColor: '#a78bfa' },
-  tabText: { fontSize: 12, color: 'rgba(240,240,255,0.4)', fontWeight: '500' },
-  tabTextActive: { color: '#a78bfa', fontWeight: '700' },
+  tabText: { fontSize: 12, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontMedium },
+  tabTextActive: { color: '#a78bfa', fontFamily: typography.fontBold },
   // Mini post card
   miniCard: {
     marginHorizontal: 16, marginBottom: 10,
@@ -455,15 +507,15 @@ const s = StyleSheet.create({
   miniImage: { width: '100%', height: 180 },
   miniBody: {
     fontSize: 13, color: 'rgba(240,240,255,0.7)', lineHeight: 18,
-    padding: 12, paddingBottom: 8,
+    padding: 12, paddingBottom: 8, fontFamily: typography.fontRegular,
   },
   miniFooter: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 12, paddingBottom: 10,
   },
   miniAction: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  miniActionText: { fontSize: 11, color: 'rgba(240,240,255,0.4)' },
-  miniTime: { fontSize: 10, color: 'rgba(240,240,255,0.25)', marginLeft: 'auto' },
+  miniActionText: { fontSize: 11, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontRegular },
+  miniTime: { fontSize: 10, color: 'rgba(240,240,255,0.25)', marginLeft: 'auto', fontFamily: typography.fontRegular },
   empty: { alignItems: 'center', paddingVertical: 40, gap: 8 },
-  emptyText: { fontSize: 13, color: 'rgba(240,240,255,0.3)' },
+  emptyText: { fontSize: 13, color: 'rgba(240,240,255,0.3)', fontFamily: typography.fontRegular },
 })

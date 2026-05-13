@@ -11,12 +11,13 @@ import {
   TouchableOpacity,
   FlatList,
   TextInput,
-  KeyboardAvoidingView,
   Platform,
+  Keyboard,
   ActivityIndicator,
   Image,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import Toast from 'react-native-toast-message'
 import { getComments, commentOnPost } from '../../lib/feed'
 import { useFeedStore } from '../../store/feedStore'
 import { getInitials, getTimeAgo } from '../../lib/matching'
@@ -33,8 +34,21 @@ export default function CommentSheet({ postId, visible, onClose }: CommentSheetP
   const [loading, setLoading] = useState(false)
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [kbHeight, setKbHeight] = useState(0)
   const inputRef = useRef<TextInput>(null)
   const { incrementCommentCount } = useFeedStore()
+
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      e => setKbHeight(e.endCoordinates.height)
+    )
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKbHeight(0)
+    )
+    return () => { show.remove(); hide.remove() }
+  }, [])
 
   useEffect(() => {
     if (visible && postId) {
@@ -54,12 +68,16 @@ export default function CommentSheet({ postId, visible, onClose }: CommentSheetP
     if (!trimmed || sending) return
     setSending(true)
     const { data, error } = await commentOnPost(postId, trimmed)
-    if (!error && data) {
+    setSending(false)
+    if (error) {
+      Toast.show({ type: 'error', text1: 'Comment failed', text2: error.message ?? 'Please try again.' })
+      return
+    }
+    if (data) {
       setComments(prev => [...prev, data])
       incrementCommentCount(postId)
       setText('')
     }
-    setSending(false)
   }
 
   const renderComment = ({ item }: { item: PostComment }) => (
@@ -91,9 +109,7 @@ export default function CommentSheet({ postId, visible, onClose }: CommentSheetP
       onRequestClose={onClose}>
       <View style={s.overlay}>
         <TouchableOpacity style={s.backdrop} onPress={onClose} />
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={s.sheet}>
+        <View style={[s.sheet, { paddingBottom: kbHeight }]}>
           <View style={s.handle} />
           <View style={s.sheetHeader}>
             <Text style={s.title}>Comments</Text>
@@ -145,7 +161,7 @@ export default function CommentSheet({ postId, visible, onClose }: CommentSheetP
               )}
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </View>
     </Modal>
   )

@@ -15,6 +15,7 @@ import AnonPostCard from '../components/anonymous/AnonPostCard'
 import CommentSheet from '../components/feed/CommentSheet'
 import type { AnonymousPost } from '../lib/anonymous'
 import { useTheme } from '../lib/theme'
+import { typography } from '../lib/typography'
 
 export default function AnonymousScreen() {
   const [posts, setPosts] = useState<AnonymousPost[]>([])
@@ -132,15 +133,15 @@ const s = StyleSheet.create({
     borderBottomWidth: 0.5,
   },
   backBtn: {
-    width: 36, height: 36, borderRadius: 18,
+    width: 44, height: 44, borderRadius: 22,
     alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
-  subtitle: { fontSize: 10, textAlign: 'center' },
+  title: { fontSize: 18, fontFamily: typography.fontBold, textAlign: 'center' },
+  subtitle: { fontSize: 10, textAlign: 'center', fontFamily: typography.fontRegular },
 loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle: { fontSize: 16, fontWeight: '600', color: '#f0f0ff' },
-  emptyText: { fontSize: 13, color: 'rgba(240,240,255,0.4)' },
+  emptyTitle: { fontSize: 16, fontFamily: typography.fontSemiBold, color: '#f0f0ff' },
+  emptyText: { fontSize: 13, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontRegular },
   fab: {
     position: 'absolute', bottom: 24, right: 20,
     width: 54, height: 54, borderRadius: 27,
