@@ -75,7 +75,7 @@ export default function PostCard({ post }: PostCardProps) {
       { text: 'Add to Story', onPress: handleAddToStory },
       {
         text: 'Share externally', onPress: async () => {
-          try { await Share.share({ message: `${post.body}\n\n— via FAF` }) } catch {}
+          try { await Share.share({ message: `${post.body}\n\n— via FAF` }) } catch { }
         },
       },
       { text: 'Cancel', style: 'cancel' },
@@ -85,43 +85,43 @@ export default function PostCard({ post }: PostCardProps) {
     const isOwn = myUserId && post.author_id === myUserId
     Alert.alert('Options', undefined, isOwn
       ? [
-          {
-            text: 'Delete post', style: 'destructive',
-            onPress: () => {
-              Alert.alert('Delete post', 'This cannot be undone.', [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Delete', style: 'destructive',
-                  onPress: async () => {
-                    const { error } = await deletePost(post.id)
-                    if (error) Toast.show({ type: 'error', text1: 'Delete failed', text2: error.message })
-                    else Toast.show({ type: 'success', text1: 'Deleted', text2: 'Your post was removed' })
-                  },
+        {
+          text: 'Delete post', style: 'destructive',
+          onPress: () => {
+            Alert.alert('Delete post', 'This cannot be undone.', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Delete', style: 'destructive',
+                onPress: async () => {
+                  const { error } = await deletePost(post.id)
+                  if (error) Toast.show({ type: 'error', text1: 'Delete failed', text2: error.message })
+                  else Toast.show({ type: 'success', text1: 'Deleted', text2: 'Your post was removed' })
                 },
-              ])
-            },
+              },
+            ])
           },
-          { text: 'Cancel', style: 'cancel' },
-        ]
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
       : [
-          {
-            text: 'Report post', style: 'destructive',
-            onPress: () => {
-              Alert.alert('Report post', 'Report this content as inappropriate?', [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Report', style: 'destructive',
-                  onPress: async () => {
-                    const { error } = await reportPost(post.id)
-                    if (error) Toast.show({ type: 'error', text1: 'Report failed', text2: error.message })
-                    else Toast.show({ type: 'success', text1: 'Reported', text2: 'Thanks for keeping FAF safe' })
-                  },
+        {
+          text: 'Report post', style: 'destructive',
+          onPress: () => {
+            Alert.alert('Report post', 'Report this content as inappropriate?', [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Report', style: 'destructive',
+                onPress: async () => {
+                  const { error } = await reportPost(post.id)
+                  if (error) Toast.show({ type: 'error', text1: 'Report failed', text2: error.message })
+                  else Toast.show({ type: 'success', text1: 'Reported', text2: 'Thanks for keeping FAF safe' })
                 },
-              ])
-            },
+              },
+            ])
           },
-          { text: 'Cancel', style: 'cancel' },
-        ]
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]
     )
   }
   const handleAuthorPress = () => {
@@ -250,7 +250,7 @@ const s = StyleSheet.create({
   card: {
     marginHorizontal: 12,
     marginVertical: 5,
-    borderRadius: 20,
+    borderRadius: 5,
     borderWidth: 1,
     overflow: 'hidden',
   },
@@ -289,7 +289,7 @@ const s = StyleSheet.create({
   body: { fontSize: 14, lineHeight: 22, fontFamily: typography.fontRegular, marginBottom: 10 },
   media: {
     width: '100%', height: 220,
-    borderRadius: 14, marginBottom: 10,
+    borderRadius: 5, marginBottom: 10,
     borderWidth: 1,
   },
   actions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, paddingRight: 8 },

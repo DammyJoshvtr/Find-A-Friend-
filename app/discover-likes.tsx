@@ -86,16 +86,23 @@ export default function DiscoverLikesScreen() {
   useEffect(() => { load() }, [])
 
   const load = async () => {
-    const [likesRes, mutualRes] = await Promise.all([
-      getLikesReceived(),
-      getMutualLikes(),
-    ])
-    const realLikes   = likesRes.data   ?? []
-    const realMatches = mutualRes.data  ?? []
+    try {
+      const [likesRes, mutualRes] = await Promise.all([
+        getLikesReceived(),
+        getMutualLikes(),
+      ])
+      const realLikes   = likesRes.data   ?? []
+      const realMatches = mutualRes.data  ?? []
 
-    setLikedYou(realLikes.length   > 0 ? realLikes   : DEMO_LIKED_YOU)
-    setMatches( realMatches.length > 0 ? realMatches : DEMO_MATCHES)
-    setLoading(false)
+      setLikedYou(realLikes.length   > 0 ? realLikes   : DEMO_LIKED_YOU)
+      setMatches( realMatches.length > 0 ? realMatches : DEMO_MATCHES)
+    } catch {
+      // Fall back to demo data
+      setLikedYou(DEMO_LIKED_YOU)
+      setMatches(DEMO_MATCHES)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const displayed = tab === 'matches' ? matches : likedYou

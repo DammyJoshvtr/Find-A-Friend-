@@ -27,8 +27,10 @@ export type NotificationType =
   | 'story_view'
   | 'mention'
   | 'new_message'
+  | 'feedback_comment'
+  | 'feedback_upvote'
 
-export type NotificationEntityType = 'post' | 'event' | 'club' | 'story' | null
+export type NotificationEntityType = 'post' | 'event' | 'club' | 'story' | 'feedback' | null
 
 export interface AppNotification {
   id: string
@@ -193,33 +195,47 @@ Notifications.setNotificationHandler({
 })
 
 export async function registerForPushNotifications(): Promise<string | null> {
+  if (!Device.isDevice) {
+    console.log('[Push] Skipped: not a physical device')
+    return null
+  }
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync()
+  console.log('[Push] Existing permission status:', existingStatus)
+  let finalStatus = existingStatus
+
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync()
+    finalStatus = status
+    console.log('[Push] Permission after request:', finalStatus)
+  }
+
+  if (finalStatus !== 'granted') {
+    console.log('[Push] Permission denied — no token')
+    return null
+  }
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'FAF Notifications',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#a78bfa',
+    })
+  }
+
   try {
-    if (!Device.isDevice) return null
-
-    const { status: existingStatus } = await Notifications.getPermissionsAsync()
-    let finalStatus = existingStatus
-
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync()
-      finalStatus = status
-    }
-
-    if (finalStatus !== 'granted') return null
-
-    if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('default', {
-        name: 'FAF Notifications',
-        importance: Notifications.AndroidImportance.MAX,
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#a78bfa',
-      })
-    }
-
     const { data: tokenData } = await Notifications.getExpoPushTokenAsync({
       projectId: 'c91925a9-42d3-43de-bc48-1bd279422541',
     })
+    console.log('[Push] Token obtained:', tokenData)
     return tokenData ?? null
-  } catch {
+  } catch (err) {
+    if (__DEV__) {
+      console.warn('[Push] getExpoPushTokenAsync unavailable in dev client (Firebase not initialized). Run `eas build --profile development` with the GOOGLE_SERVICES_JSON secret to fix.', err)
+    } else {
+      console.error('[Push] getExpoPushTokenAsync failed:', err)
+    }
     return null
   }
 }
@@ -227,13 +243,18 @@ export async function registerForPushNotifications(): Promise<string | null> {
 export async function savePushToken(token: string): Promise<void> {
   try {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase
+    if (!user) {
+      console.log('[Push] savePushToken: no auth user')
+      return
+    }
+    const { error } = await supabase
       .from('profiles')
       .update({ push_token: token })
       .eq('id', user.id)
+    if (error) console.error('[Push] savePushToken DB error:', error)
+    else console.log('[Push] Token saved successfully for user:', user.id)
   } catch (error) {
-    console.log('Could not save push token:', error)
+    console.error('[Push] savePushToken exception:', error)
   }
 }
 

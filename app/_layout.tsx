@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { AppState } from 'react-native'
+import { AppState, Platform } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { Stack, router, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
@@ -9,6 +9,7 @@ import { useAuthStore } from '../store/authStore'
 import { useThemeStore } from '../store/themeStore'
 import { useNotificationsStore } from '../store/notificationsStore'
 import { usePresenceStore } from '../store/presenceStore'
+import { useFeedStore } from '../store/feedStore'
 import { ThemeProvider, useTheme } from '../lib/theme'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { registerForPushNotifications, savePushToken } from '../lib/notifications'
@@ -21,6 +22,7 @@ import {
   PlusJakartaSans_700Bold,
   PlusJakartaSans_800ExtraBold,
 } from '@expo-google-fonts/plus-jakarta-sans'
+import { Ionicons } from '@expo/vector-icons'
 import Toast from 'react-native-toast-message'
 import * as SplashScreen from 'expo-splash-screen'
 
@@ -47,15 +49,21 @@ function AppStack() {
 
   const { addNotification, loadUnreadCount } = useNotificationsStore()
   const { setOnlineUsers } = usePresenceStore()
+  const removePost = useFeedStore(s => s.removePost)
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
   useEffect(() => {
     if (!session) return
 
-    // Push notification registration
+    // Push notification registration (native)
     registerForPushNotifications().then(token => {
       if (token) savePushToken(token)
     })
+
+    // Web Push subscription (iOS PWA / Android PWA — background push via VAPID)
+    if (Platform.OS === 'web') {
+      subscribeToWebPush(session.user.id)
+    }
 
     // Load initial unread count
     loadUnreadCount()
@@ -87,6 +95,10 @@ function AppStack() {
       if (!presenceChannelRef.current) return
       if (nextState === 'active') {
         await presenceChannelRef.current.track({ user_id: session.user.id, online_at: Date.now() })
+        // Re-register push token in case it was rotated by the OS
+        registerForPushNotifications().then(token => { if (token) savePushToken(token) })
+        // Pick up any OTA update that landed while the app was backgrounded
+        checkForUpdate()
       } else {
         await presenceChannelRef.current.untrack()
       }
@@ -105,14 +117,25 @@ function AppStack() {
       })
       .subscribe()
 
+    // ── Dashboard-triggered OTA updates + post deletions ──────────────────
+    const updateChannel = supabase
+      .channel('app-updates')
+      .on('broadcast', { event: 'force_update' }, () => checkForUpdate())
+      .on('broadcast', { event: 'post_deleted' }, (payload: any) => {
+        const id = payload.payload?.postId as string | undefined
+        if (id) removePost(id)
+      })
+      .subscribe()
+
     return () => {
       presenceChannelRef.current?.untrack()
       supabase.removeChannel(presenceChannel)
       supabase.removeChannel(notifChannel)
+      supabase.removeChannel(updateChannel)
       appStateSub.remove()
       presenceChannelRef.current = null
     }
-  }, [session?.user?.id])
+  }, [session?.user?.id, removePost])
 
   useEffect(() => {
     if (!mounted || !initialized) return
@@ -121,13 +144,27 @@ function AppStack() {
   }, [session, segments, mounted, initialized])
 
   useEffect(() => {
-    const sub = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data as Record<string, string> | undefined
+    // User tapped the notification
+    const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data as Record<string, unknown> | undefined
+      const type = data?.type as string | undefined
+      // Force/soft update — check and apply OTA update immediately
+      if (type === 'force_update' || type === 'soft_update') {
+        checkForUpdate()
+        return
+      }
       if (data?.route) router.push(data.route as any)
       else if (data?.actorId) router.push(`/profile/${data.actorId}` as any)
       else router.push('/notifications' as any)
     })
-    return () => sub.remove()
+
+    // Notification received while app is in foreground — apply immediately
+    const receivedSub = Notifications.addNotificationReceivedListener(notification => {
+      const data = notification.request.content.data as Record<string, unknown> | undefined
+      if ((data?.type as string) === 'force_update') checkForUpdate()
+    })
+
+    return () => { responseSub.remove(); receivedSub.remove() }
   }, [])
 
   return (
@@ -179,7 +216,52 @@ function AppStack() {
   )
 }
 
+async function subscribeToWebPush(userId: string) {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') return
+
+    const reg = await navigator.serviceWorker.ready
+    const vapidKey = process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY
+    if (!vapidKey) return
+
+    // Convert base64url VAPID key to Uint8Array
+    const key = vapidKey.replace(/-/g, '+').replace(/_/g, '/')
+    const raw = atob(key)
+    const applicationServerKey = new Uint8Array(raw.length)
+    for (let i = 0; i < raw.length; i++) applicationServerKey[i] = raw.charCodeAt(i)
+
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })
+    const json = sub.toJSON()
+    const p256dh = json.keys?.p256dh
+    const auth = json.keys?.auth
+    if (!p256dh || !auth) return
+
+    const { supabase } = await import('../lib/supabase')
+    await supabase.from('web_push_subscriptions').upsert({
+      user_id: userId,
+      endpoint: sub.endpoint,
+      p256dh,
+      auth,
+    }, { onConflict: 'user_id' })
+  } catch {}
+}
+
 async function checkForUpdate() {
+  if (Platform.OS === 'web') {
+    // On web (PWA): tell the service worker to check for a new version.
+    // The SW will post SW_UPDATED to all clients after it activates,
+    // and +html.tsx reloads the page in response.
+    try {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration()
+        if (reg) await reg.update()
+      }
+    } catch {}
+    return
+  }
+  // Native (Android/iOS): use Expo OTA updates
   try {
     const result = await Updates.checkForUpdateAsync()
     if (result.isAvailable) {
@@ -197,6 +279,7 @@ export default function RootLayout() {
     PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold,
     PlusJakartaSans_800ExtraBold,
+    ...Ionicons.font,
   })
 
   useEffect(() => {

@@ -29,15 +29,19 @@ export default function MapScreen() {
   }, [])
 
   const loadEvents = async () => {
-    const { data } = await supabase
-      .from('events')
-      .select('*')
-      .gte('starts_at', new Date().toISOString())
-      .order('starts_at', { ascending: true })
-      .limit(10)
-
-    setEvents(data ?? [])
-    setLoading(false)
+    try {
+      const { data } = await supabase
+        .from('events')
+        .select('*')
+        .gte('starts_at', new Date().toISOString())
+        .order('starts_at', { ascending: true })
+        .limit(10)
+      setEvents(data ?? [])
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
+    }
   }
 
   const getVenueEvents = (venueName: string) => {

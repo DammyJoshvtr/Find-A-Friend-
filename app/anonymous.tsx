@@ -33,12 +33,17 @@ export default function AnonymousScreen() {
 
   const loadPosts = async () => {
     setLoading(true)
-    const { data } = await getAnonymousPosts(undefined, 20)
-    const results = data ?? []
-    setPosts(results)
-    setCursor(results.length > 0 ? results[results.length - 1].created_at : undefined)
-    setHasMore(results.length === 20)
-    setLoading(false)
+    try {
+      const { data } = await getAnonymousPosts(undefined, 20)
+      const results = data ?? []
+      setPosts(results)
+      setCursor(results.length > 0 ? results[results.length - 1].created_at : undefined)
+      setHasMore(results.length === 20)
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
+    }
   }
 
   const onRefresh = useCallback(async () => {

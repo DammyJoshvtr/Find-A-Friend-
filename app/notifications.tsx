@@ -53,6 +53,11 @@ function getNotificationBody(notif: AppNotification): string {
 }
 
 function getNotificationRoute(notif: AppNotification): string | null {
+  // new_message notifications always go to the sender's DM chat,
+  // regardless of entity_type — actor_id is the sender.
+  if (notif.type === 'new_message' && notif.actor_id) {
+    return `/chat/${notif.actor_id}`
+  }
   if (!notif.entity_id) return null
   switch (notif.entity_type) {
     case 'post':  return `/post/${notif.entity_id}`
@@ -127,8 +132,13 @@ export default function NotificationsScreen() {
   const handlePress = useCallback(async (notif: AppNotification) => {
     if (!notif.is_read) markNotificationRead(notif.id)
     const route = getNotificationRoute(notif)
-    if (route) router.push(route as any)
-    else if (notif.actor_id) router.push(`/profile/${notif.actor_id}` as any)
+    if (route) {
+      router.push(route as any)
+    } else if (notif.type === 'follow' || notif.type === 'connection_request') {
+      if (notif.actor_id) router.push(`/profile/${notif.actor_id}` as any)
+    } else if (notif.actor_id) {
+      router.push(`/profile/${notif.actor_id}` as any)
+    }
   }, [markNotificationRead])
 
   return (

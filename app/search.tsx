@@ -45,17 +45,23 @@ export default function SearchScreen() {
       return
     }
     setLoading(true)
-    const [uRes, pRes, hRes, cRes] = await Promise.all([
-      searchUsers(q),
-      searchPosts(q),
-      searchHashtags(q),
-      searchClubs(q),
-    ])
-    setUsers(uRes.data ?? [])
-    setPosts(pRes.data ?? [])
-    setHashtags(hRes.data ?? [])
-    setClubs(cRes.data ?? [])
-    setLoading(false)
+    try {
+      const [uRes, pRes, hRes, cRes] = await Promise.all([
+        searchUsers(q),
+        searchPosts(q),
+        searchHashtags(q),
+        searchClubs(q),
+      ])
+      setUsers(uRes.data ?? [])
+      setPosts(pRes.data ?? [])
+      setHashtags(hRes.data ?? [])
+      setClubs(cRes.data ?? [])
+    } catch {
+      // Non-fatal — clear results
+      setUsers([]); setPosts([]); setHashtags([]); setClubs([])
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
   useEffect(() => {

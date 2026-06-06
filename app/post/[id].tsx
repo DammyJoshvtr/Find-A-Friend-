@@ -59,10 +59,15 @@ export default function PostDetailScreen() {
 
   const loadData = async () => {
     setLoading(true)
-    const [postRes, commentsRes] = await Promise.all([getPost(id), getComments(id)])
-    setPost(postRes.data)
-    setComments(commentsRes.data ?? [])
-    setLoading(false)
+    try {
+      const [postRes, commentsRes] = await Promise.all([getPost(id), getComments(id)])
+      setPost(postRes.data)
+      setComments(commentsRes.data ?? [])
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleLike = () => {
@@ -323,7 +328,7 @@ export default function PostDetailScreen() {
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {/* ── Header ── */}
         <View style={[s.header, { borderBottomColor: theme.border }]}>
           <TouchableOpacity onPress={() => router.back()}

@@ -61,23 +61,27 @@ export default function CourseDetailScreen() {
 
   const loadCourse = async () => {
     setLoading(true)
-    const { data } = await getCourses()
-    const found = (data ?? []).find(c => c.id === id) ?? null
-    setCourse(found)
+    try {
+      const { data } = await getCourses()
+      const found = (data ?? []).find(c => c.id === id) ?? null
+      setCourse(found)
 
-    // Check enrollment
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user) {
-      const { data: enrollment } = await supabase
-        .from('course_enrollments')
-        .select('course_id')
-        .eq('user_id', user.id)
-        .eq('course_id', id)
-        .maybeSingle()
-      setIsEnrolled(!!enrollment)
+      // Check enrollment
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: enrollment } = await supabase
+          .from('course_enrollments')
+          .select('course_id')
+          .eq('user_id', user.id)
+          .eq('course_id', id)
+          .maybeSingle()
+        setIsEnrolled(!!enrollment)
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   const loadTabData = async (tab: Tab) => {

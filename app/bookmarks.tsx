@@ -18,10 +18,15 @@ export default function BookmarksScreen() {
   const theme = useTheme()
 
   const load = useCallback(async () => {
-    const { data } = await getBookmarkedPosts()
-    setPosts(data ?? [])
-    setLoading(false)
-    setRefreshing(false)
+    try {
+      const { data } = await getBookmarkedPosts()
+      setPosts(data ?? [])
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }, [])
 
   useEffect(() => { load() }, [load])

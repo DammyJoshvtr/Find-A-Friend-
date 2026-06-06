@@ -60,24 +60,28 @@ export default function StudyGroupDetailScreen() {
 
   const loadGroup = async () => {
     setLoading(true)
-    // Fetch all groups and find the one with matching id
-    const { data } = await getStudyGroups()
-    const found = (data ?? []).find(g => g.id === id) ?? null
-    setGroup(found)
+    try {
+      // Fetch all groups and find the one with matching id
+      const { data } = await getStudyGroups()
+      const found = (data ?? []).find(g => g.id === id) ?? null
+      setGroup(found)
 
-    // Check membership
-    const { data: { user } } = await supabase.auth.getUser()
-    if (user && found) {
-      const { data: membership } = await supabase
-        .from('study_group_members')
-        .select('user_id')
-        .eq('group_id', id)
-        .eq('user_id', user.id)
-        .maybeSingle()
-      setIsMember(!!membership)
+      // Check membership
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user && found) {
+        const { data: membership } = await supabase
+          .from('study_group_members')
+          .select('user_id')
+          .eq('group_id', id)
+          .eq('user_id', user.id)
+          .maybeSingle()
+        setIsMember(!!membership)
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   const loadTabData = async (tab: Tab) => {
@@ -90,7 +94,7 @@ export default function StudyGroupDetailScreen() {
     } else if (tab === 'members') {
       const { data, error } = await supabase
         .from('study_group_members')
-        .select('user_id, joined_at, profiles!user_id(id, full_name, avatar_url, department)')
+        .select('user_id, joined_at, profiles(id, full_name, avatar_url, department)')
         .eq('group_id', id)
         .order('joined_at', { ascending: true })
       if (!error) setMembers((data ?? []) as GroupMember[])
@@ -217,31 +221,28 @@ export default function StudyGroupDetailScreen() {
         <FlatList
           data={members}
           keyExtractor={item => item.user_id}
-          renderItem={({ item }) => {
-            const profile = item.profiles?.[0] ?? null
-            return (
-              <TouchableOpacity
-                style={s.memberRow}
-                onPress={() => router.push(`/profile/${item.user_id}` as any)}>
-                <View style={s.memberAvatar}>
-                  {profile?.avatar_url ? (
-                    <Image source={{ uri: profile.avatar_url }} style={s.memberAvatarImg} />
-                  ) : (
-                    <Text style={s.memberInitials}>
-                      {getInitials(profile?.full_name ?? '??')}
-                    </Text>
-                  )}
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={s.memberName}>{profile?.full_name ?? 'Member'}</Text>
-                  {profile?.department && (
-                    <Text style={s.memberDept}>{profile.department}</Text>
-                  )}
-                </View>
-                <Text style={s.joinedAt}>{getTimeAgo(item.joined_at)}</Text>
-              </TouchableOpacity>
-            )
-          }}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={s.memberRow}
+              onPress={() => router.push(`/profile/${item.user_id}` as any)}>
+              <View style={s.memberAvatar}>
+                {item.profiles?.avatar_url ? (
+                  <Image source={{ uri: item.profiles.avatar_url }} style={s.memberAvatarImg} />
+                ) : (
+                  <Text style={s.memberInitials}>
+                    {getInitials(item.profiles?.full_name ?? '??')}
+                  </Text>
+                )}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.memberName}>{item.profiles?.full_name ?? 'Member'}</Text>
+                {item.profiles?.department && (
+                  <Text style={s.memberDept}>{item.profiles.department}</Text>
+                )}
+              </View>
+              <Text style={s.joinedAt}>{getTimeAgo(item.joined_at)}</Text>
+            </TouchableOpacity>
+          )}
           ListEmptyComponent={
             <View style={s.empty}>
               <Ionicons name="people-outline" size={36} color="rgba(240,240,255,0.1)" />
@@ -304,7 +305,7 @@ export default function StudyGroupDetailScreen() {
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={0}>
 
         {/* Header */}
@@ -318,13 +319,6 @@ export default function StudyGroupDetailScreen() {
               <Text style={s.groupCourse}>{group.courses.code}</Text>
             )}
           </View>
-          {isMember && (
-            <TouchableOpacity
-              style={s.chatBtn}
-              onPress={() => router.push(`/study-room/${id}` as any)}>
-              <Ionicons name="chatbubbles-outline" size={16} color="#60a5fa" />
-            </TouchableOpacity>
-          )}
           <TouchableOpacity
             style={[s.joinBtn, isMember && s.leaveBtn, (isFull && !isMember) && s.fullBtn]}
             onPress={handleJoinLeave}
@@ -407,13 +401,6 @@ const s = StyleSheet.create({
   },
   groupName: { fontSize: 15, fontWeight: '700', color: '#f0f0ff' },
   groupCourse: { fontSize: 11, color: '#60a5fa', marginTop: 1 },
-  chatBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(96,165,250,0.12)',
-    borderWidth: 0.5, borderColor: 'rgba(96,165,250,0.3)',
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: 4,
-  },
   joinBtn: {
     backgroundColor: '#60a5fa', borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 7, minWidth: 52, alignItems: 'center',

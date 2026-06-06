@@ -216,24 +216,33 @@ export default function PoolScreen() {
   }, [sessionId])
 
   const loadSession = async () => {
-    const { data: sess } = await supabase
-      .from('live_game_sessions')
-      .select('*')
-      .eq('id', sessionId)
-      .single()
-    
-    if (sess) {
-      // Deterministic turn: host goes first
-      const isHost = sess.host_id === myId
-      setMyTurn(isHost)
-      setPhase('playing')
-      setTurnStage(isHost ? 'aiming' : 'bot_thinking')
-      addLog(isHost ? 'You won the break!' : `${botLabel} is breaking!`)
+    try {
+      const { data: sess } = await supabase
+        .from('live_game_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single()
+
+      if (sess) {
+        // Deterministic turn: host goes first
+        const isHost = sess.host_id === myId
+        setMyTurn(isHost)
+        setPhase('playing')
+        setTurnStage(isHost ? 'aiming' : 'bot_thinking')
+        addLog(isHost ? 'You won the break!' : `${botLabel} is breaking!`)
+      }
+    } catch {
+      // Non-fatal — fall through to single-player mode
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const subscribe = () => {
+    // Remove any stale channel from a previous mount cycle
+    const stale = supabase.getChannels().find(c => c.topic === `realtime:game_room:${sessionId}`)
+    if (stale) supabase.removeChannel(stale)
+
     channelRef.current = supabase.channel(`game_room:${sessionId}`)
       .on('broadcast', { event: 'move' }, ({ payload }) => {
         if (payload.type === 'AIM') {

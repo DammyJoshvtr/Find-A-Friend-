@@ -4,31 +4,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>FAF | Neural Campus Experience</title>
-    <meta name="description" content="The neural-linked campus ecosystem. Where reality meets dimension.">
+    <title>FAF (Find-A-Friend) | Campus Social & Connection Hub</title>
+    <meta name="description" content="Find friends, share posts & stories, join clubs & study groups, RSVP to events, view campus maps, and unlock exclusive local vendor deals.">
 
     <!-- Styles -->
     <link rel="stylesheet" href="style.css">
 
     <!-- Fonts -->
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap"
         rel="stylesheet">
 
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <!-- Three.js -->
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.128.0/build/three.module.js"
-            }
-        }
-    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 
 <body>
@@ -57,15 +50,15 @@
                             </defs>
                         </svg>
                     </div>
-                    <span class="logo-text">FA<span class="gradient-text">F</span></span>
+                    <span class="logo-text" title="Find-A-Friend">FA<span class="gradient-text">F</span></span>
                     <div class="logo-badge">BETA</div>
                 </div>
 
                 <div class="nav-links">
-                    <a href="#experience" class="nav-link">Experience</a>
-                    <a href="#capabilities" class="nav-link">Capabilities</a>
-                    <a href="#neural" class="nav-link">Neural</a>
-                    <a href="#launch" class="nav-link">Launch</a>
+                    <a href="#experience" class="nav-link">Features</a>
+                    <a href="#capabilities" class="nav-link">App Segments</a>
+                    <a href="#neural" class="nav-link">Network</a>
+                    <a href="#launch" class="nav-link">Join</a>
                 </div>
 
                 <div class="nav-actions">
@@ -73,7 +66,7 @@
                         <i class="fas fa-globe"></i>
                     </button>
                     <button class="btn-premium" id="signupBtn">
-                        <span class="btn-text">Enter Vortex</span>
+                        <span class="btn-text">Join FAF</span>
                         <i class="fas fa-arrow-right"></i>
                     </button>
                 </div>
@@ -86,66 +79,55 @@
 
         <!-- Hero Section -->
         <section class="hero" id="hero">
+            <!-- Hero canvas for connection network animation -->
+            <canvas id="hero-canvas"></canvas>
+
             <div class="hero-container">
                 <div class="hero-badge">
                     <span class="pulse-dot"></span>
-                    <span>LIVE · 2,347 ACTIVE</span>
+                    <span>LIVE · 2,347 ACTIVE STUDENTS</span>
                 </div>
 
                 <h1 class="hero-title">
-                    <span class="title-line">REALITY</span>
-                    <span class="title-line gradient-text">REFRAMED</span>
+                    <span class="title-line">CAMPUS LIFE</span>
+                    <span class="title-line gradient-text">CONNECTED</span>
                 </h1>
 
                 <p class="hero-subtitle">
-                    The first neural-integrated campus ecosystem. Where digital consciousness meets physical reality.
+                    <strong>FAF (Find-A-Friend)</strong> is the ultimate campus network built to bring your university experience to life. Find friends, share posts & stories, join study groups & clubs, and access exclusive local campus deals — all in one unified student hub.
                 </p>
 
                 <div class="hero-stats">
                     <div class="stat">
                         <div class="stat-number">5K+</div>
-                        <div class="stat-label">Active Neurons</div>
+                        <div class="stat-label">Active Students</div>
                     </div>
                     <div class="stat-divider"></div>
                     <div class="stat">
-                        <div class="stat-number">99.9%</div>
-                        <div class="stat-label">Uptime Sync</div>
+                        <div class="stat-number">99%</div>
+                        <div class="stat-label">Match Rate</div>
                     </div>
                     <div class="stat-divider"></div>
                     <div class="stat">
-                        <div class="stat-number">0.2s</div>
-                        <div class="stat-label">Neural Latency</div>
+                        <div class="stat-number">Zero</div>
+                        <div class="stat-label">Inner Circle Lag</div>
                     </div>
                 </div>
 
                 <div class="hero-actions">
                     <button class="btn-primary" id="exploreBtn">
-                        <span>Explore Neural Grid</span>
+                        <span>Explore Campus Hub</span>
                         <i class="fas fa-chevron-right"></i>
                     </button>
-                    <button class="btn-secondary">
+                    <button class="btn-secondary" id="demoBtn">
                         <i class="fas fa-play"></i>
-                        <span>Immersion Trailer</span>
+                        <span>Watch Demo</span>
                     </button>
                 </div>
             </div>
 
             <div class="hero-visual">
-                <div class="floating-elements">
-                    <div class="float-card card-1">
-                        <i class="fas fa-brain"></i>
-                        <span>Neural Link</span>
-                    </div>
-                    <div class="float-card card-2">
-                        <i class="fas fa-users"></i>
-                        <span>Sync Active</span>
-                    </div>
-                    <div class="float-card card-3">
-                        <i class="fas fa-chart-line"></i>
-                        <span>+284% Engage</span>
-                    </div>
-                </div>
-                <div class="hero-glow"></div>
+                <!-- Visual placeholder to maintain layout balance -->
             </div>
         </section>
 
@@ -153,21 +135,21 @@
         <section class="experience" id="experience">
             <div class="section-container">
                 <div class="section-header">
-                    <span class="section-tag">THE JOURNEY</span>
-                    <h2 class="section-title">Neural Integration<span class="gradient-text"> Protocol</span></h2>
-                    <p class="section-subtitle">Three dimensions of complete campus immersion</p>
+                    <span class="section-tag">HOW IT WORKS</span>
+                    <h2 class="section-title">Connect & Engage<span class="gradient-text"> Effortlessly</span></h2>
+                    <p class="section-subtitle">Three simple steps to unlock your new campus social experience</p>
                 </div>
 
                 <div class="experience-grid">
                     <div class="exp-card">
                         <div class="exp-number">01</div>
                         <div class="exp-icon">
-                            <i class="fas fa-fingerprint"></i>
+                            <i class="fas fa-user-check"></i>
                         </div>
-                        <h3>Identity Sync</h3>
-                        <p>Biometric authentication meets blockchain security. Your digital twin, uniquely yours.</p>
+                        <h3>Verify & Profile</h3>
+                        <p>Sign up securely with your student email. Create your profile, list your courses and interests.</p>
                         <div class="exp-meta">
-                            <span>Quantum Encryption</span>
+                            <span>Secure Verification</span>
                             <i class="fas fa-arrow-right"></i>
                         </div>
                     </div>
@@ -175,12 +157,12 @@
                     <div class="exp-card active">
                         <div class="exp-number">02</div>
                         <div class="exp-icon">
-                            <i class="fas fa-brain"></i>
+                            <i class="fas fa-network-wired"></i>
                         </div>
-                        <h3>Neural Discovery</h3>
-                        <p>AI-powered connections that understand your interests before you do.</p>
+                        <h3>Match & Connect</h3>
+                        <p>Find-A-Friend matching algorithm connects you with class peers and students sharing your passions.</p>
                         <div class="exp-meta">
-                            <span>Real-time Sync</span>
+                            <span>Interest Matcher</span>
                             <i class="fas fa-arrow-right"></i>
                         </div>
                     </div>
@@ -188,12 +170,12 @@
                     <div class="exp-card">
                         <div class="exp-number">03</div>
                         <div class="exp-icon">
-                            <i class="fas fa-crown"></i>
+                            <i class="fas fa-rocket"></i>
                         </div>
-                        <h3>Transcend</h3>
-                        <p>Unlock the complete campus metaverse with premium neural privileges.</p>
+                        <h3>Explore & Interact</h3>
+                        <p>Post to the feed, share stories, join clubs, RSVP to events, and join study rooms.</p>
                         <div class="exp-meta">
-                            <span>Exclusive Access</span>
+                            <span>Full Campus Hub</span>
                             <i class="fas fa-arrow-right"></i>
                         </div>
                     </div>
@@ -206,81 +188,81 @@
             <div class="section-container">
                 <div class="capabilities-header">
                     <div>
-                        <span class="section-tag">CORE SYSTEMS</span>
-                        <h2 class="section-title">Neurologic<span class="gradient-text"> Capabilities</span></h2>
+                        <span class="section-tag">APP SEGMENTS</span>
+                        <h2 class="section-title">Unmatched Student<span class="gradient-text"> Powerhouses</span></h2>
                     </div>
                     <div class="capabilities-stat">
                         <div class="stat-circle">
-                            <span>99.9%</span>
-                            <small>Uptime</small>
+                            <span>100%</span>
+                            <small>Verified</small>
                         </div>
                     </div>
                 </div>
 
                 <div class="capabilities-grid">
-                    <div class="cap-card">
+                    <div class="cap-card" onclick="location.href='chat.html'" style="cursor: pointer;">
                         <div class="cap-icon">
                             <i class="fas fa-comment-dots"></i>
                         </div>
                         <div class="cap-content">
-                            <h4>Quantum Chat</h4>
-                            <p>Instantaneous messaging with end-to-end quantum encryption</p>
-                            <div class="cap-badge">Zero Latency</div>
+                            <h4>Real-time Chat</h4>
+                            <p>Direct message peers or chat with study groups and club members instantly.</p>
+                            <div class="cap-badge">Group & Direct</div>
                         </div>
                     </div>
 
-                    <div class="cap-card">
+                    <div class="cap-card" onclick="location.href='anonymous.html'" style="cursor: pointer;">
                         <div class="cap-icon">
                             <i class="fas fa-mask"></i>
                         </div>
                         <div class="cap-content">
-                            <h4>Anonymity Shield</h4>
-                            <p>Express freely with military-grade privacy protocols</p>
-                            <div class="cap-badge">Encrypted</div>
+                            <h4>Confessions Board</h4>
+                            <p>Express thoughts freely. Identity is fully masked at database layers with verified safety protocols.</p>
+                            <div class="cap-badge">Private</div>
                         </div>
                     </div>
 
-                    <div class="cap-card">
+                    <div class="cap-card" onclick="location.href='map.html'" style="cursor: pointer;">
                         <div class="cap-icon">
-                            <i class="fas fa-map"></i>
+                            <i class="fas fa-map-marked-alt"></i>
                         </div>
                         <div class="cap-content">
-                            <h4>Holo-Mapping</h4>
-                            <p>3D neural navigation of your entire campus ecosystem</p>
-                            <div class="cap-badge">Live</div>
+                            <h4>Interactive Map</h4>
+                            <p>Find building overlay pinpoints, live event locations, and vendor stores offline-ready.</p>
+                            <div class="cap-badge">Offline-Ready</div>
                         </div>
                     </div>
 
-                    <div class="cap-card">
+                    <div class="cap-card" onclick="location.href='academic.html'" style="cursor: pointer;">
                         <div class="cap-icon">
-                            <i class="fas fa-chalkboard-user"></i>
+                            <i class="fas fa-book-reader"></i>
                         </div>
                         <div class="cap-content">
-                            <h4>Academic Core</h4>
-                            <p>AI study groups and predictive learning algorithms</p>
-                            <div class="cap-badge">Smart</div>
+                            <h4>Academic Hub</h4>
+                            <p>Enroll in course discussion boards, find study partners, and share/download resources.</p>
+                            <div class="cap-badge">Class Groups</div>
                         </div>
                     </div>
 
-                    <div class="cap-card">
+                    <div class="cap-card" onclick="location.href='events.html'" style="cursor: pointer;">
                         <div class="cap-icon">
-                            <i class="fas fa-ticket-alt"></i>
+                            <i class="fas fa-calendar-alt"></i>
                         </div>
                         <div class="cap-content">
-                            <h4>Event Horizon</h4>
-                            <p>Exclusive campus experiences and premium deals</p>
-                            <div class="cap-badge">Hot</div>
+                            <h4>Events & RSVPs</h4>
+                            <p>Discover, filter by category/club, create, and RSVP to campus events in real-time.</p>
+                            <div class="cap-badge">Live Events</div>
                         </div>
                     </div>
 
-                    <div class="cap-card">
+                    <div class="cap-card" onclick="location.href='vendors.html'" style="cursor: pointer;">
                         <div class="cap-icon">
-                            <i class="fas fa-chart-simple"></i>
+                            <i class="fas fa-tags"></i>
                         </div>
                         <div class="cap-content">
-                            <h4>Neural Analytics</h4>
-                            <p>Track your campus impact and digital footprint</p>
-                            <div class="cap-badge">Real-time</div>
+                            <h4>Vendor Deals</h4>
+                            <p>Browse local campus vendors and claim exclusive student discounts and deals.</p>
+                            <div class="cap-badge">Saved Deals</div>
                         </div>
                     </div>
                 </div>
@@ -292,22 +274,21 @@
             <div class="neural-container">
                 <div class="neural-content">
                     <span class="section-tag">VISUALIZE</span>
-                    <h2 class="section-title">The Neural<span class="gradient-text"> Network</span></h2>
-                    <p class="neural-desc">Watch as thousands of students connect in real-time across the neural grid.
-                        Every pulse represents a connection, every wave a shared moment.</p>
+                    <h2 class="section-title">The Student<span class="gradient-text"> Connection Grid</span></h2>
+                    <p class="neural-desc">Watch connections happen in real time. FAF brings your campus together by matching shared interests, courses, and passions.</p>
 
                     <div class="neural-stats">
                         <div class="neural-stat">
                             <span class="stat-value" id="activeUsers">2,347</span>
-                            <span class="stat-label">Active Connections</span>
+                            <span class="stat-label">Active Students</span>
                         </div>
                         <div class="neural-stat">
                             <span class="stat-value" id="messagesSent">1.2M</span>
-                            <span class="stat-label">Messages Sent</span>
+                            <span class="stat-label">Interests Matched</span>
                         </div>
                         <div class="neural-stat">
                             <span class="stat-value" id="eventsCreated">847</span>
-                            <span class="stat-label">Events Created</span>
+                            <span class="stat-label">Events & Clubs</span>
                         </div>
                     </div>
                 </div>
@@ -324,37 +305,36 @@
             <div class="launch-container">
                 <div class="launch-card">
                     <div class="launch-glow"></div>
-                    <div class="launch-badge">LIMITED ACCESS</div>
-                    <h2 class="launch-title">Initialize Your<span class="gradient-text"> Neural Profile</span></h2>
-                    <p class="launch-desc">Join the cognitive elite. Early access grants exclusive neural badges and
-                        premium features.</p>
+                    <div class="launch-badge">JOIN THE NETWORK</div>
+                    <h2 class="launch-title">Get Early Access to <span class="gradient-text">FAF</span></h2>
+                    <p class="launch-desc">Sign up with your school email to be notified when your campus goes live on the Find-A-Friend app.</p>
 
                     <div class="launch-benefits">
                         <div class="benefit">
                             <i class="fas fa-check-circle"></i>
-                            <span>Lifetime neural badge</span>
+                            <span>Connect with verified class peers</span>
                         </div>
                         <div class="benefit">
                             <i class="fas fa-check-circle"></i>
-                            <span>Priority quantum support</span>
+                            <span>Join exclusive study rooms</span>
                         </div>
                         <div class="benefit">
                             <i class="fas fa-check-circle"></i>
-                            <span>Early feature access</span>
+                            <span>Access school vendor discounts</span>
                         </div>
                     </div>
 
                     <div class="launch-form">
-                        <input type="email" placeholder="Enter neural email" id="emailInput">
+                        <input type="email" placeholder="Enter your student email" id="emailInput">
                         <button class="btn-launch" id="launchBtn">
-                            <span>Initialize</span>
+                            <span>Request Access</span>
                             <i class="fas fa-arrow-right"></i>
                         </button>
                     </div>
 
                     <div class="launch-note">
                         <i class="fas fa-shield-alt"></i>
-                        <span>Quantum encrypted · No spam · Unsubscribe anytime</span>
+                        <span>Verified student emails only · No spam</span>
                     </div>
                 </div>
             </div>
@@ -372,47 +352,46 @@
                                 <circle cx="16" cy="16" r="4" fill="url(#gradient2)" />
                             </svg>
                         </div>
-                        <span>FAF NEURAL</span>
+                        <span>FAF (Find-A-Friend)</span>
                     </div>
-                    <p class="footer-desc">Redefining the campus experience through neural integration and quantum
-                        connectivity.</p>
+                    <p class="footer-desc">FAF (Find-A-Friend) connects students through shared interests, courses, clubs, and campus events. Find your circle today.</p>
                     <div class="footer-social">
-                        <i class="fab fa-twitter"></i>
-                        <i class="fab fa-discord"></i>
-                        <i class="fab fa-github"></i>
-                        <i class="fab fa-instagram"></i>
+                        <a href="javascript:void(0)" aria-label="X (Twitter)"><i class="fab fa-twitter"></i></a>
+                        <a href="javascript:void(0)" aria-label="Discord"><i class="fab fa-discord"></i></a>
+                        <a href="javascript:void(0)" aria-label="GitHub"><i class="fab fa-github"></i></a>
+                        <a href="javascript:void(0)" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
                     </div>
                 </div>
 
                 <div class="footer-links">
                     <div class="link-group">
-                        <h4>System</h4>
-                        <a href="#">Neural Protocol</a>
-                        <a href="#">Quantum Security</a>
-                        <a href="#">Status</a>
+                        <h4>App Features</h4>
+                        <a href="chat.html">Real-time Chat</a>
+                        <a href="academic.html">Study Groups</a>
+                        <a href="anonymous.html">Confessions</a>
+                        <a href="events.html">Events & RSVPs</a>
                     </div>
                     <div class="link-group">
-                        <h4>Resources</h4>
-                        <a href="#">Documentation</a>
-                        <a href="#">API Access</a>
-                        <a href="#">Support</a>
+                        <h4>Support</h4>
+                        <a href="#">Help Center</a>
+                        <a href="#">Student Verification</a>
+                        <a href="#">Vendor Apply</a>
                     </div>
                     <div class="link-group">
                         <h4>Legal</h4>
-                        <a href="#">Neural Privacy</a>
-                        <a href="#">Terms of Sync</a>
-                        <a href="#">Cookie Protocol</a>
+                        <a href="#">Privacy Policy</a>
+                        <a href="#">Terms of Service</a>
+                        <a href="#">Code of Conduct</a>
                     </div>
                 </div>
             </div>
 
             <div class="footer-bottom">
-                <p>&copy; 2026 FAF NEURAL SYSTEMS — ENTER THE VORTEX</p>
+                <p>&copy; 2026 FAF (FIND-A-FRIEND) — CONNECTING YOUR CAMPUS</p>
             </div>
         </footer>
     </div>
 
-    <script type="module" src="script.js"></script>
+    <script src="script.js"></script>
 </body>
-
 </html>

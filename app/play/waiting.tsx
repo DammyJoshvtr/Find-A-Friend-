@@ -220,35 +220,59 @@ export default function WaitingScreen() {
 
   const joinSession = async (sid: string, userId: string) => {
     // Check our role in this session
-    const { data: sess } = await supabase
+    const { data: sess, error: fetchErr } = await supabase
       .from('live_game_sessions')
       .select('*')
       .eq('id', sid)
       .single()
-    
-    if (!sess) { setError('Session not found'); return }
+
+    if (fetchErr || !sess) { setError('Session not found'); return }
 
     setSessionId(sid)
 
     if (sess.host_id !== userId && !sess.guest_id) {
-      // We are the guest joining for the first time
-      await supabase
+      // We are the guest joining for the first time — mark active so the host's
+      // subscription fires and both players get the launchGame() call.
+      const { error: updateErr } = await supabase
         .from('live_game_sessions')
         .update({ guest_id: userId, status: 'active' })
         .eq('id', sid)
+      if (updateErr) { setError('Could not join session'); return }
     } else if (sess.host_id === userId && sess.guest_id) {
-      // We are host and guest is already here
+      // Host is rejoining and guest is already present — ensure status is active
       await supabase
         .from('live_game_sessions')
         .update({ status: 'active' })
         .eq('id', sid)
+      // Host already knows about guest — resolve opponent info immediately
+      const { data: guestProf } = await supabase
+        .from('profiles').select('full_name').eq('id', sess.guest_id).single()
+      if (guestProf) setOpponentName(guestProf.full_name ?? 'Opponent')
+      setOpponentReady(true)
+    } else if (sess.status === 'active') {
+      // Session is already active (both joined) — launch directly
+      setPhase('launching')
+      setTimeout(() => launchGame(sid), 800)
+      return
     }
 
+    // Subscribe and wait for active confirmation
     setPhase('waiting')
     subscribeToSession(sid, userId)
+
+    // If both players are already set on the session, transition now
+    if (sess.status === 'active' && sess.guest_id && sess.host_id) {
+      setOpponentReady(true)
+      setPhase('launching')
+      setTimeout(() => launchGame(sid), 1200)
+    }
   }
 
   const subscribeToSession = (sid: string, userId: string) => {
+    // Remove any stale channel for this session before subscribing
+    const stale = supabase.getChannels().find(c => c.topic === `realtime:live-session-${sid}`)
+    if (stale) supabase.removeChannel(stale)
+
     channelRef.current = supabase
       .channel(`live-session-${sid}`)
       .on('postgres_changes', {
@@ -263,9 +287,11 @@ export default function WaitingScreen() {
 
         if (partner) {
           setOpponentReady(true)
-          // Fetch partner name
+          // Fetch partner name if not already set
           supabase.from('profiles').select('full_name').eq('id', partner).single()
-            .then(({ data: p }) => p && setOpponentName(p.full_name ?? 'Opponent'))
+            .then(({ data: p }) => {
+              if (p?.full_name) setOpponentName(p.full_name)
+            })
         }
 
         if (s.status === 'active' && s.guest_id && s.host_id) {
@@ -274,7 +300,11 @@ export default function WaitingScreen() {
           setTimeout(() => launchGame(sid), 1200)
         }
       })
-      .subscribe()
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          setError('Connection error — please try again')
+        }
+      })
   }
 
   const launchGame = (sid: string | null) => {

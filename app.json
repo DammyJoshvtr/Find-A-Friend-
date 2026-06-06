@@ -23,6 +23,7 @@
         "backgroundColor": "#0d0d14"
       },
       "package": "com.ayomideenoch.faf",
+      "googleServicesFile": "./google-services.json",
       "softwareKeyboardLayoutMode": "pan",
       "jsEngine": "hermes",
       "enableProguardInReleaseBuilds": true,
@@ -39,12 +40,29 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/favicon.png",
+      "themeColor": "#0d0d14",
+      "backgroundColor": "#0d0d14",
+      "name": "FAF",
+      "shortName": "FAF",
+      "description": "Your campus social app",
+      "display": "standalone",
+      "orientation": "portrait",
+      "scope": "/",
+      "startUrl": "/"
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
       "expo-image-picker",
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"
+          ]
+        }
+      ],
       [
         "expo-notifications",
         {

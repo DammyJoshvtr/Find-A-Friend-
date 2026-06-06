@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FAF | Vendor Deals</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Canvas for 3D Background -->
+        <canvas id="bg-canvas"></canvas>
+
+        <!-- Custom Cursor -->
+        <div class="cursor-dot"></div>
+        <div class="cursor-outline"></div>
+
+        <div class="subpage-container">
+            <div class="subpage-header">
+                <a href="index.html" class="btn-back">
+                    <i class="fas fa-chevron-left"></i> Back to Grid
+                </a>
+                <h1 class="subpage-title gradient-text">Vendor Deals</h1>
+                <div style="width: 100px;"></div> <!-- spacer -->
+            </div>
+
+            <div class="dashboard-layout">
+                <!-- Sidebar -->
+                <aside class="dash-sidebar">
+                    <h3 class="sidebar-title">Saved Deals</h3>
+                    <div class="dash-card" style="padding: 1rem; text-align: center; margin-bottom: 1.5rem;">
+                        <span style="font-size: 2.5rem; font-weight: 800; color: var(--accent-cyan);" id="savedDealsCount">0</span>
+                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.3rem;">Deals Saved for Later</p>
+                    </div>
+
+                    <h3 class="sidebar-title">FAF Hub</h3>
+                    <ul class="sidebar-menu">
+                        <a href="chat.html" class="menu-item">
+                            <i class="fas fa-comment-dots"></i> Chats
+                        </a>
+                        <a href="academic.html" class="menu-item">
+                            <i class="fas fa-book-reader"></i> Academic Hub
+                        </a>
+                        <a href="anonymous.html" class="menu-item">
+                            <i class="fas fa-mask"></i> Confessions
+                        </a>
+                        <a href="map.html" class="menu-item">
+                            <i class="fas fa-map-marked-alt"></i> Campus Map
+                        </a>
+                        <a href="events.html" class="menu-item">
+                            <i class="fas fa-calendar-alt"></i> Events
+                        </a>
+                        <a href="vendors.html" class="menu-item active">
+                            <i class="fas fa-tags"></i> Vendor Deals
+                        </a>
+                    </ul>
+                </aside>
+
+                <!-- Main Panel -->
+                <main class="dash-main">
+                    <div class="dash-card">
+                        <h3 class="sidebar-title" style="color: var(--accent-cyan);">Exclusive Student Discounts</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                            Show your FAF verification badge at these local campus vendors to redeem exclusive student deals, or save them to claim later.
+                        </p>
+
+                        <!-- Deals grid -->
+                        <div class="deals-grid">
+                            <!-- Deal 1 -->
+                            <div class="deal-card">
+                                <span class="deal-tag">BOGO</span>
+                                <span class="deal-vendor">Central Cafe</span>
+                                <h4 class="deal-title">Buy 1 Get 1 Bubble Tea</h4>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">Get equal or lesser value bubble tea free. Available Monday through Friday after 3 PM.</p>
+                                <button class="btn-premium save-deal-btn" style="width: 100%; justify-content: center; margin-top: 0.8rem; background: var(--gradient-2);" data-id="deal-1">
+                                    <span>Save Deal</span>
+                                </button>
+                            </div>
+
+                            <!-- Deal 2 -->
+                            <div class="deal-card">
+                                <span class="deal-tag">20% OFF</span>
+                                <span class="deal-vendor">Campus Bookstore</span>
+                                <h4 class="deal-title">20% Off University Merch</h4>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">Save on all official hoodies, sweatpants, caps, and campus notebooks. Excludes textbooks.</p>
+                                <button class="btn-premium save-deal-btn" style="width: 100%; justify-content: center; margin-top: 0.8rem; background: var(--gradient-2);" data-id="deal-2">
+                                    <span>Save Deal</span>
+                                </button>
+                            </div>
+
+                            <!-- Deal 3 -->
+                            <div class="deal-card">
+                                <span class="deal-tag">$9.99</span>
+                                <span class="deal-vendor">Campus Pizza Co.</span>
+                                <h4 class="deal-title">Large 1-Topping Pizza</h4>
+                                <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">Special student price. Show FAF profile to redeem. Valid for dine-in or collection only.</p>
+                                <button class="btn-premium save-deal-btn" style="width: 100%; justify-content: center; margin-top: 0.8rem; background: var(--gradient-2);" data-id="deal-3">
+                                    <span>Save Deal</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script imports -->
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.128.0/build/three.module.js';
+
+        // 3D Particles Background
+        const canvas = document.getElementById('bg-canvas');
+        if (canvas) {
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 800;
+            const posArray = new Float32Array(particlesCount * 3);
+
+            for (let i = 0; i < particlesCount * 3; i += 3) {
+                posArray[i] = (Math.random() - 0.5) * 150;
+                posArray[i + 1] = (Math.random() - 0.5) * 80;
+                posArray[i + 2] = (Math.random() - 0.5) * 80 - 40;
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particlesMaterial = new THREE.PointsMaterial({
+                color: 0x06b6d4,
+                size: 0.2,
+                transparent: true,
+                opacity: 0.5,
+                blending: THREE.AdditiveBlending
+            });
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+            camera.position.z = 30;
+
+            const animate = () => {
+                requestAnimationFrame(animate);
+                particlesMesh.rotation.y += 0.0005;
+                particlesMesh.rotation.x += 0.0002;
+                renderer.render(scene, camera);
+            };
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // Custom Cursor
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorOutline = document.querySelector('.cursor-outline');
+        if (cursorDot && cursorOutline && window.innerWidth > 768) {
+            let mouseX = 0, mouseY = 0;
+            let outlineX = 0, outlineY = 0;
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                cursorDot.style.transform = `translate(${mouseX - 4}px, ${mouseY - 4}px)`;
+            });
+            const animateOutline = () => {
+                outlineX += (mouseX - outlineX) * 0.1;
+                outlineY += (mouseY - outlineY) * 0.1;
+                cursorOutline.style.transform = `translate(${outlineX - 20}px, ${outlineY - 20}px)`;
+                requestAnimationFrame(animateOutline);
+            };
+            animateOutline();
+
+            const interactiveElements = document.querySelectorAll('button, a, .menu-item');
+            interactiveElements.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    cursorOutline.style.width = '50px';
+                    cursorOutline.style.height = '50px';
+                    cursorOutline.style.borderColor = '#06b6d4';
+                });
+                el.addEventListener('mouseleave', () => {
+                    cursorOutline.style.width = '40px';
+                    cursorOutline.style.height = '40px';
+                    cursorOutline.style.borderColor = '#a78bfa';
+                });
+            });
+        }
+
+        // Save deal toggle
+        const saveBtns = document.querySelectorAll('.save-deal-btn');
+        const savedCount = document.getElementById('savedDealsCount');
+        let count = 0;
+
+        saveBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const btnSpan = btn.querySelector('span');
+
+                if (btn.classList.contains('saved')) {
+                    btn.classList.remove('saved');
+                    btn.style.background = 'var(--gradient-2)';
+                    btnSpan.textContent = 'Save Deal';
+                    count--;
+                } else {
+                    btn.classList.add('saved');
+                    btn.style.background = '#10b981'; // Green active status
+                    btnSpan.innerHTML = '<i class="fas fa-check"></i> Saved';
+                    count++;
+                }
+
+                savedCount.textContent = count;
+
+                if (navigator.vibrate) navigator.vibrate(30);
+            });
+        });
+    </script>
+</body>
+</html>

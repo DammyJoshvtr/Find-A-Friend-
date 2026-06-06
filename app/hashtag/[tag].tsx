@@ -33,13 +33,18 @@ export default function HashtagScreen() {
   const loadPosts = async () => {
     setLoading(true)
     setError(null)
-    const { data, error: err } = await getHashtagPosts(tag, undefined, 20)
-    if (err) { setError(err.message); setLoading(false); return }
-    const results = data ?? []
-    setPosts(results)
-    setCursor(results.length > 0 ? results[results.length - 1].created_at : undefined)
-    setHasMore(results.length === 20)
-    setLoading(false)
+    try {
+      const { data, error: err } = await getHashtagPosts(tag, undefined, 20)
+      if (err) { setError(err.message); return }
+      const results = data ?? []
+      setPosts(results)
+      setCursor(results.length > 0 ? results[results.length - 1].created_at : undefined)
+      setHasMore(results.length === 20)
+    } catch (err: any) {
+      setError(err?.message ?? 'Failed to load posts')
+    } finally {
+      setLoading(false)
+    }
   }
 
   const onRefresh = useCallback(async () => {

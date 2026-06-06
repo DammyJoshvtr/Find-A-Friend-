@@ -1,4 +1,4 @@
-/**
+﻿/**
  * app/vendor-apply.tsx
  * Vendor application form — name, category, description, location.
  */
@@ -57,7 +57,7 @@ export default function VendorApplyScreen() {
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 
         {/* Header */}
         <View style={s.header}>
@@ -233,3 +233,4 @@ const s = StyleSheet.create({
   },
   termsText: { flex: 1, fontSize: 11, color: 'rgba(240,240,255,0.3)', lineHeight: 16 },
 })
+

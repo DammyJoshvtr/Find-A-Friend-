@@ -3,7 +3,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme, glowShadow } from '../../lib/theme'
 import { BlurView } from 'expo-blur'
-import { StyleSheet, Platform, Appearance, View } from 'react-native'
+import { StyleSheet, Platform, View } from 'react-native'
 import { useNotificationsStore } from '../../store/notificationsStore'
 import { tabBarTranslateY, showTabBar } from '../../lib/tabBarAnim'
 
@@ -21,7 +21,6 @@ function TabIcon({ name, color, size, focused }: { name: any; color: string; siz
 export default function TabLayout() {
   const insets = useSafeAreaInsets()
   const theme = useTheme()
-  const isDark = Appearance.getColorScheme() !== 'light'
   const unreadCount = useNotificationsStore(s => s.unreadCount)
 
   return (
@@ -40,9 +39,10 @@ export default function TabLayout() {
           elevation: 0,
           transform: [{ translateY: tabBarTranslateY }],
         },
+        // App is always dark — use 'dark' tint unconditionally
         tabBarBackground: () =>
           Platform.OS === 'ios' ? (
-            <BlurView tint={isDark ? 'dark' : 'light'} intensity={80} style={StyleSheet.absoluteFill} />
+            <BlurView tint="dark" intensity={80} style={StyleSheet.absoluteFill} />
           ) : null,
         tabBarActiveTintColor: theme.accent,
         tabBarInactiveTintColor: theme.textMuted,

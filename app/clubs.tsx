@@ -43,18 +43,23 @@ export default function ClubsScreen() {
 
   const loadClubs = async () => {
     setLoading(true)
-    const { data } = await getClubs()
-    const rawClubs = data ?? []
-    const ids = rawClubs.map(c => c.id)
-    const memberships = await getMyClubMemberships(ids)
-    const hydrated = rawClubs.map(c => ({
-      ...c,
-      is_member: memberships.has(c.id),
-      user_role: memberships.get(c.id) ?? null,
-    }))
-    setClubs(hydrated)
-    setLoading(false)
-    setRefreshing(false)
+    try {
+      const { data } = await getClubs()
+      const rawClubs = data ?? []
+      const ids = rawClubs.map(c => c.id)
+      const memberships = await getMyClubMemberships(ids)
+      const hydrated = rawClubs.map(c => ({
+        ...c,
+        is_member: memberships.has(c.id),
+        user_role: memberships.get(c.id) ?? null,
+      }))
+      setClubs(hydrated)
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
   }
 
   const onRefresh = useCallback(() => { setRefreshing(true); loadClubs() }, [])

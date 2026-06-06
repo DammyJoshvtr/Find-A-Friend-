@@ -1,4 +1,4 @@
-/**
+﻿/**
  * app/create-anonymous-post.tsx
  * Create an anonymous post with disclaimer checkbox.
  */
@@ -40,7 +40,7 @@ export default function CreateAnonPostScreen() {
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {/* Header */}
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.back()} style={s.closeBtn}>
@@ -180,3 +180,4 @@ const s = StyleSheet.create({
   },
   warningText: { flex: 1, fontSize: 11, color: 'rgba(251,191,36,0.8)', lineHeight: 16 },
 })
+

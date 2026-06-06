@@ -1,9 +1,10 @@
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
+﻿import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useState } from 'react'
 import { router } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../lib/theme'
+import { registerForPushNotifications, savePushToken } from '../../lib/notifications'
 
 const allInterests = [
   'Music', 'Tech', 'Art', 'Sports', 'Gaming', 'Photography',
@@ -74,13 +75,17 @@ export default function OnboardingScreen() {
   if (error) {
     Alert.alert('Error saving profile', error.message)
   } else {
+    // Request push notification permission during onboarding so the token
+    // is saved before the user enters the app for the first time.
+    const token = await registerForPushNotifications()
+    if (token) await savePushToken(token)
     router.replace('/(tabs)')
   }
 }
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 
       <View style={s.progressBar}>
         {[1, 2, 3].map(i => (

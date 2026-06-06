@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+// THREE is loaded globally via CDN in index.html
 
 // ============================================
 // 3D Background with Three.js
@@ -6,7 +6,7 @@ import * as THREE from 'three';
 
 const init3DBackground = () => {
     const canvas = document.getElementById('bg-canvas');
-    if (!canvas) return;
+    if (!canvas || typeof THREE === 'undefined') return;
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -100,6 +100,208 @@ const init3DBackground = () => {
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
+};
+
+// ============================================
+// Hero Canvas Network Animation (Plexus vs Grid Mode)
+// ============================================
+
+const initHeroCanvas = () => {
+    const canvas = document.getElementById('hero-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    // Set high-DPI sizing
+    const setSize = () => {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    };
+    setSize();
+    window.addEventListener('resize', setSize);
+    
+    // Track mouse movement relative to the canvas
+    const mouse = { x: null, y: null, radius: 155 };
+    
+    const heroSection = document.getElementById('hero');
+    if (heroSection) {
+        heroSection.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = e.clientX - rect.left;
+            mouse.y = e.clientY - rect.top;
+        });
+        
+        heroSection.addEventListener('mouseleave', () => {
+            mouse.x = null;
+            mouse.y = null;
+        });
+    }
+    
+    // Responsive configurations for particle density and line visibility
+    const getResponsiveConfig = () => {
+        const width = window.innerWidth;
+        if (width < 480) {
+            return {
+                count: 10,
+                maxDist: 50,
+                lineAlphaScale: 0.12,
+                mouseRadius: 60,
+                nodeRadiusScale: 0.5,
+                nodeAlpha: 0.25
+            };
+        } else if (width < 768) {
+            return {
+                count: 18,
+                maxDist: 60,
+                lineAlphaScale: 0.18,
+                mouseRadius: 80,
+                nodeRadiusScale: 0.65,
+                nodeAlpha: 0.45
+            };
+        } else if (width < 1024) {
+            return {
+                count: 32,
+                maxDist: 75,
+                lineAlphaScale: 0.28,
+                mouseRadius: 110,
+                nodeRadiusScale: 0.8,
+                nodeAlpha: 0.65
+            };
+        } else {
+            return {
+                count: 50,
+                maxDist: 85,
+                lineAlphaScale: 0.4,
+                mouseRadius: 150,
+                nodeRadiusScale: 0.95,
+                nodeAlpha: 0.85
+            };
+        }
+    };
+    
+    let config = getResponsiveConfig();
+    
+    // Violet Theme Configuration
+    const nodeColor = '#a78bfa';
+    const lineColorBase = 'rgba(167, 139, 250, ';
+    
+    // Plexus particle setup
+    const particles = [];
+    
+    const initParticles = () => {
+        config = getResponsiveConfig(); // re-evaluate on resize
+        particles.length = 0;
+        const rect = canvas.getBoundingClientRect();
+        const width = rect.width;
+        const height = rect.height;
+        for (let i = 0; i < config.count; i++) {
+            particles.push({
+                x: Math.random() * width,
+                y: Math.random() * height,
+                vx: (Math.random() - 0.5) * 0.6,
+                vy: (Math.random() - 0.5) * 0.6,
+                radius: (Math.random() * 1.5 + 1.2) * config.nodeRadiusScale,
+                pulseSpeed: Math.random() * 0.02 + 0.01,
+                pulseTime: Math.random() * 100
+            });
+        }
+    };
+    initParticles();
+    
+    // Handle resizing logic
+    window.addEventListener('resize', initParticles);
+    
+    // Animation Loop
+    let time = 0;
+    const animate = () => {
+        time += 1;
+        const rect = canvas.getBoundingClientRect();
+        const width = rect.width;
+        const height = rect.height;
+        
+        ctx.clearRect(0, 0, width, height);
+        
+        // Draw connection lines between nodes
+        for (let i = 0; i < particles.length; i++) {
+            const p1 = particles[i];
+            
+            // Draw connection line to mouse
+            if (mouse.x !== null && mouse.y !== null) {
+                const dx = mouse.x - p1.x;
+                const dy = mouse.y - p1.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < config.mouseRadius) {
+                    const alpha = (1 - dist / config.mouseRadius) * (config.lineAlphaScale + 0.1);
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(mouse.x, mouse.y);
+                    ctx.strokeStyle = lineColorBase + alpha + ')';
+                    ctx.lineWidth = 1.8 * config.nodeRadiusScale;
+                    ctx.stroke();
+                    
+                    // Gravitate particles slightly towards mouse
+                    p1.x += dx * 0.015;
+                    p1.y += dy * 0.015;
+                }
+            }
+            
+            for (let j = i + 1; j < particles.length; j++) {
+                const p2 = particles[j];
+                const dx = p1.x - p2.x;
+                const dy = p1.y - p2.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist < config.maxDist) {
+                    const alpha = (1 - dist / config.maxDist) * config.lineAlphaScale;
+                    ctx.beginPath();
+                    ctx.moveTo(p1.x, p1.y);
+                    ctx.lineTo(p2.x, p2.y);
+                    ctx.strokeStyle = lineColorBase + alpha + ')';
+                    ctx.lineWidth = 1.4 * config.nodeRadiusScale;
+                    ctx.stroke();
+                }
+            }
+        }
+        
+        // Draw and update nodes
+        particles.forEach(p => {
+            // Motion
+            p.x += p.vx;
+            p.y += p.vy;
+            
+            // Boundary bounce
+            if (p.x < 0 || p.x > width) p.vx *= -1;
+            if (p.y < 0 || p.y > height) p.vy *= -1;
+            
+            // Pulse glow
+            p.pulseTime += p.pulseSpeed;
+            const pulse = (Math.sin(p.pulseTime) + 1) / 2;
+            const currentRadius = p.radius + pulse * 1.5;
+            
+            // Draw node with the exact color theme from initNeuralCanvas
+            ctx.save();
+            ctx.globalAlpha = config.nodeAlpha || 1.0;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, currentRadius, 0, Math.PI * 2);
+            const gradient = ctx.createRadialGradient(p.x - 2, p.y - 2, 0, p.x, p.y, currentRadius);
+            gradient.addColorStop(0, '#a78bfa');
+            gradient.addColorStop(1, '#3b82f6');
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            
+            // Glow effect
+            ctx.shadowBlur = 10 * config.nodeRadiusScale;
+            ctx.shadowColor = '#a78bfa';
+            ctx.fill();
+            ctx.restore();
+        });
+        
+        requestAnimationFrame(animate);
+    };
+    
+    animate();
 };
 
 // ============================================
@@ -424,27 +626,27 @@ const initButtons = () => {
 
             // Button action
             if (action === 'signup') {
-                btn.innerHTML = '<span>Initializing...</span><i class="fas fa-spinner fa-spin"></i>';
+                btn.innerHTML = '<span>Connecting...</span><i class="fas fa-spinner fa-spin"></i>';
                 setTimeout(() => {
-                    alert('Welcome to the Neural Grid. Your journey begins now.');
-                    btn.innerHTML = '<span>Enter Vortex</span><i class="fas fa-arrow-right"></i>';
-                }, 1500);
+                    btn.innerHTML = '<span>Join FAF</span><i class="fas fa-arrow-right"></i>';
+                    showLaunchpadModal();
+                }, 1000);
             } else if (action === 'explore') {
                 const experienceSection = document.getElementById('experience');
                 if (experienceSection) {
                     experienceSection.scrollIntoView({ behavior: 'smooth' });
                 }
             } else if (action === 'launch' && emailInput) {
-                const email = emailInput.value;
+                const email = emailInput.value.trim();
                 if (email && email.includes('@')) {
-                    btn.innerHTML = '<span>Initializing</span><i class="fas fa-spinner fa-spin"></i>';
+                    btn.innerHTML = '<span>Requesting...</span><i class="fas fa-spinner fa-spin"></i>';
                     setTimeout(() => {
-                        alert(`Neural profile initialized for ${email}. Check your inbox for quantum confirmation.`);
-                        btn.innerHTML = '<span>Initialize</span><i class="fas fa-arrow-right"></i>';
+                        btn.innerHTML = '<span>Request Access</span><i class="fas fa-arrow-right"></i>';
                         emailInput.value = '';
-                    }, 1500);
+                        showLaunchpadModal(email);
+                    }, 1000);
                 } else {
-                    alert('Please enter a valid neural email address.');
+                    alert('Please enter a valid student email address.');
                 }
             }
         });
@@ -453,6 +655,186 @@ const initButtons = () => {
     handleButtonClick(signupBtn, 'signup');
     handleButtonClick(exploreBtn, 'explore');
     handleButtonClick(launchBtn, 'launch');
+};
+
+// ============================================
+// FAF Launchpad Modal
+// ============================================
+
+const showLaunchpadModal = (email = '') => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    const pwaUrl = './pwa/';
+
+    overlay.innerHTML = `
+        <div class="modal-content" style="max-width: 550px;">
+            <button class="modal-close">&times;</button>
+            <h3 class="modal-title gradient-text" style="margin-bottom: 0.8rem; font-family: 'Outfit', sans-serif;">FAF Launchpad</h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+                ${email ? `Profile initialized for <strong>${email}</strong>.` : 'Access the Find-A-Friend student network instantly.'}
+            </p>
+            
+            <div style="display: flex; flex-direction: column; gap: 1rem; text-align: left;">
+                <!-- Web / PWA option -->
+                <div style="background: var(--bg-tertiary); border: 1px solid var(--glass-border); padding: 1.2rem; border-radius: 16px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1; padding-right: 1rem;">
+                        <h4 style="font-family: 'Outfit', sans-serif; color: var(--accent-violet); margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fas fa-globe"></i> Web Version (PWA)
+                        </h4>
+                        <p style="font-size: 0.8rem; color: var(--text-secondary);">Run directly in your browser. Install as a progressive web app on your home screen.</p>
+                    </div>
+                    <a href="${pwaUrl}" target="_blank" class="btn-premium" style="text-decoration: none; padding: 0.6rem 1.2rem; font-size: 0.8rem;">
+                        <span>Launch PWA</span>
+                    </a>
+                </div>
+
+                <!-- Android option -->
+                <div style="background: var(--bg-tertiary); border: 1px solid var(--glass-border); padding: 1.2rem; border-radius: 16px; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1; padding-right: 1rem;">
+                        <h4 style="font-family: 'Outfit', sans-serif; color: var(--accent-cyan); margin-bottom: 0.2rem; display: flex; align-items: center; gap: 0.5rem;">
+                            <i class="fab fa-android"></i> Android Native
+                        </h4>
+                        <p style="font-size: 0.8rem; color: var(--text-secondary);">Download the FAF Android APK directly to install the native app on your phone.</p>
+                    </div>
+                    <a href="https://expo.dev/artifacts/eas/jCt5RyJVZcpykaBFGY23Uj.apk" download class="btn-premium" style="text-decoration: none; padding: 0.6rem 1.2rem; font-size: 0.8rem; background: var(--gradient-2);">
+                        <span>Download APK</span>
+                    </a>
+                </div>
+            </div>
+
+            <button class="btn-premium modal-btn-close" style="width: 100%; justify-content: center; margin-top: 1.5rem; background: transparent; border: 1px solid var(--glass-border); color: var(--text-secondary);">
+                <span>Close Launchpad</span>
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    setTimeout(() => overlay.classList.add('active'), 50);
+
+    const close = () => {
+        overlay.classList.remove('active');
+        setTimeout(() => overlay.remove(), 300);
+    };
+
+    overlay.querySelector('.modal-close').addEventListener('click', close);
+    overlay.querySelector('.modal-btn-close').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close();
+    });
+
+    // Download handled via link; no extra click handler needed
+
+    if (navigator.vibrate) navigator.vibrate(50);
+};
+
+// ============================================
+// Coming Soon Popup for Social Media Icons
+// ============================================
+
+const showComingSoonModal = (platformName = '') => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    overlay.innerHTML = `
+        <div class="modal-content" style="max-width: 400px; text-align: center; padding: 2.5rem 2rem;">
+            <button class="modal-close">&times;</button>
+            <div style="font-size: 3rem; color: var(--accent-violet); margin-bottom: 1rem; animation: pulse-glow 2s ease-in-out infinite;">
+                <i class="fas fa-clock"></i>
+            </div>
+            <h3 class="modal-title gradient-text" style="margin-bottom: 0.8rem; font-family: 'Outfit', sans-serif;">Coming Soon</h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.5;">
+                We are currently building our official <strong>${platformName}</strong> presence. Stay tuned for updates!
+            </p>
+            <button class="btn-premium modal-btn-close" style="width: 100%; justify-content: center; background: var(--gradient-1);">
+                <span>Got It!</span>
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Animation triggers
+    setTimeout(() => overlay.classList.add('active'), 50);
+
+    const close = () => {
+        overlay.classList.remove('active');
+        setTimeout(() => overlay.remove(), 300);
+    };
+
+    overlay.querySelector('.modal-close').addEventListener('click', close);
+    overlay.querySelector('.modal-btn-close').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) close();
+    });
+
+    if (navigator.vibrate) navigator.vibrate(50);
+};
+
+const initSocialIcons = () => {
+    const socialLinks = document.querySelectorAll('.footer-social a');
+    socialLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const icon = link.querySelector('i');
+            let platformName = 'Social Media';
+            if (icon) {
+                if (icon.classList.contains('fa-twitter')) platformName = 'X (Twitter)';
+                else if (icon.classList.contains('fa-discord')) platformName = 'Discord';
+                else if (icon.classList.contains('fa-github')) platformName = 'GitHub';
+                else if (icon.classList.contains('fa-instagram')) platformName = 'Instagram';
+            }
+            showComingSoonModal(platformName);
+        });
+    });
+};
+
+// ============================================
+// Interactive Demo Modal
+// ============================================
+
+const initDemoModal = () => {
+    const demoBtn = document.getElementById('demoBtn');
+    if (!demoBtn) return;
+
+    demoBtn.addEventListener('click', () => {
+        // Create modal elements
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-content">
+                <button class="modal-close">&times;</button>
+                <h3 class="modal-title gradient-text" style="margin-bottom: 1.2rem;">FAF (Find-A-Friend)</h3>
+                <div class="modal-body" style="display: flex; flex-direction: column; gap: 0.8rem; text-align: left; font-size: 0.9rem;">
+                    <p style="margin-bottom: 0.5rem; font-weight: 600;">FAF is the ultimate campus network built to bring your university experience to life:</p>
+                    <p>📢 <strong>Campus Feed & Stories:</strong> Share daily updates and view 24h student stories.</p>
+                    <p>🤝 <strong>Friend Matcher:</strong> Discover and connect with peers based on interest match scores.</p>
+                    <p>💬 <strong>Chat Rooms:</strong> Send direct messages or coordinate in active course study channels.</p>
+                    <p>🔒 <strong>Confessions Board:</strong> Share anonymous thoughts safely with encrypted audit trails.</p>
+                    <p>📍 <strong>Campus Map:</strong> View buildings and live events overlay offline-ready.</p>
+                </div>
+                <button class="btn-premium modal-btn-close" style="width: 100%; justify-content: center; margin-top: 1.5rem;">Got It!</button>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        // Animation triggers
+        setTimeout(() => overlay.classList.add('active'), 50);
+
+        const close = () => {
+            overlay.classList.remove('active');
+            setTimeout(() => overlay.remove(), 300);
+        };
+
+        overlay.querySelector('.modal-close').addEventListener('click', close);
+        overlay.querySelector('.modal-btn-close').addEventListener('click', close);
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) close();
+        });
+
+        if (navigator.vibrate) navigator.vibrate(50);
+    });
 };
 
 // Add ripple styles
@@ -507,18 +889,19 @@ const initTypingAnimation = () => {
 
 const initParallax = () => {
     document.addEventListener('mousemove', (e) => {
-        const cards = document.querySelectorAll('.float-card');
+        const chips = document.querySelectorAll('.float-chip');
         const mouseX = e.clientX / window.innerWidth;
         const mouseY = e.clientY / window.innerHeight;
 
-        cards.forEach((card, index) => {
-            const speed = 20 + (index * 10);
+        chips.forEach((chip, index) => {
+            const speed = 12 + (index * 6);
             const x = (mouseX - 0.5) * speed;
             const y = (mouseY - 0.5) * speed;
-            card.style.transform = `translate(${x}px, ${y}px)`;
+            chip.style.transform = `translate(${x}px, ${y}px)`;
         });
     });
 };
+
 
 // ============================================
 // Initialize Everything
@@ -526,15 +909,18 @@ const initParallax = () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     init3DBackground();
+    initHeroCanvas();
     initNeuralCanvas();
     initCustomCursor();
     initScrollAnimations();
     initNavbar();
     initCounters();
     initButtons();
+    initDemoModal();
+    initSocialIcons();
     addRippleStyles();
     initTypingAnimation();
     initParallax();
 
-    console.log('FAF Neural Interface Loaded — Reality Reframed');
+    console.log('FAF (Find-A-Friend) Landing Page Loaded');
 });

@@ -100,9 +100,14 @@ export default function WordleScreen() {
   const [loading, setLoading] = useState(!!sessionId)
 
   const channelRef = useRef<any>(null)
+  // Ref-synced word so the broadcast handler is never stale
+  const wordRef = useRef('')
 
   const shakeValue = useSharedValue(0)
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shakeValue.value }] }))
+
+  // Keep wordRef in sync with state
+  useEffect(() => { wordRef.current = word }, [word])
 
   // Initial load
   useEffect(() => {
@@ -117,27 +122,38 @@ export default function WordleScreen() {
   }, [sessionId])
 
   const loadSession = async () => {
-    const { data: sess } = await supabase
-      .from('live_game_sessions')
-      .select('*')
-      .eq('id', sessionId)
-      .single()
-    
-    if (sess?.state?.word) {
-      setWord(sess.state.word)
-    } else {
+    try {
+      const { data: sess } = await supabase
+        .from('live_game_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .single()
+
+      if (sess?.state?.word) {
+        setWord(sess.state.word)
+      } else {
+        setWord(WORDS[Math.floor(Math.random() * WORDS.length)])
+      }
+    } catch {
+      // Non-fatal — fall back to random word
       setWord(WORDS[Math.floor(Math.random() * WORDS.length)])
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const subscribe = () => {
+    // Remove any stale channel from a previous mount cycle
+    const stale = supabase.getChannels().find(c => c.topic === `realtime:game_room:${sessionId}`)
+    if (stale) supabase.removeChannel(stale)
+
     channelRef.current = supabase.channel(`game_room:${sessionId}`)
       .on('broadcast', { event: 'move' }, ({ payload }) => {
         if (payload.type === 'GUESS') {
           setBotGuesses(prev => {
             const next = [...prev, payload.word]
-            if (payload.word === word) {
+            // Use ref to avoid stale closure on word state
+            if (payload.word === wordRef.current) {
               setGameOver(true)
               setWinner('bot')
             } else if (next.length >= MAX_GUESSES) {

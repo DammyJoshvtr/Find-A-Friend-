@@ -145,27 +145,32 @@ export default function ProfileScreen() {
 
   const loadProfile = async () => {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
 
-    const [profileRes, statusRes, followerRes, followingRes] = await Promise.all([
-      getProfileById(id),
-      getFollowStatus(id),
-      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
-      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
-    ])
+      const [profileRes, statusRes, followerRes, followingRes] = await Promise.all([
+        getProfileById(id),
+        getFollowStatus(id),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
+      ])
 
-    const p = profileRes
-    setProfile(p)
-    setFollowerCount(followerRes.count ?? p?.follower_count ?? 0)
-    setFollowingCount(followingRes.count ?? p?.following_count ?? 0)
-    setFollowing(statusRes.data === 'following')
-    const own = user?.id === id
-    setIsOwnProfile(own)
-    if (own) {
-      router.replace('/profile' as any)
-      return
+      const p = profileRes
+      setProfile(p)
+      setFollowerCount(followerRes.count ?? p?.follower_count ?? 0)
+      setFollowingCount(followingRes.count ?? p?.following_count ?? 0)
+      setFollowing(statusRes.data === 'following')
+      const own = user?.id === id
+      setIsOwnProfile(own)
+      if (own) {
+        router.replace('/profile' as any)
+        return
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const loadTabData = async (tab: Tab) => {

@@ -57,40 +57,50 @@ export default function ClubDetailScreen() {
 
   const loadHeader = async () => {
     setLoading(true)
-    const [clubRes, myRole] = await Promise.all([
-      getClubDetail(id),
-      getMyClubRole(id),
-    ])
-    setClub(clubRes.data)
-    setRole(myRole)
-    setLoading(false)
+    try {
+      const [clubRes, myRole] = await Promise.all([
+        getClubDetail(id),
+        getMyClubRole(id),
+      ])
+      setClub(clubRes.data)
+      setRole(myRole)
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
+    }
   }
 
   const loadTabData = async (tab: Tab) => {
     setTabLoading(true)
-    switch (tab) {
-      case 'feed': {
-        const { data } = await getClubPosts(id)
-        setPosts(data ?? [])
-        break
+    try {
+      switch (tab) {
+        case 'feed': {
+          const { data } = await getClubPosts(id)
+          setPosts(data ?? [])
+          break
+        }
+        case 'announcements': {
+          const { data } = await getClubAnnouncements(id)
+          setAnnouncements(data ?? [])
+          break
+        }
+        case 'members': {
+          const { data } = await getClubMembers(id)
+          setMembers(data ?? [])
+          break
+        }
+        case 'events': {
+          const { data } = await getClubEvents(id)
+          setEvents(data ?? [])
+          break
+        }
       }
-      case 'announcements': {
-        const { data } = await getClubAnnouncements(id)
-        setAnnouncements(data ?? [])
-        break
-      }
-      case 'members': {
-        const { data } = await getClubMembers(id)
-        setMembers(data ?? [])
-        break
-      }
-      case 'events': {
-        const { data } = await getClubEvents(id)
-        setEvents(data ?? [])
-        break
-      }
+    } catch {
+      // Non-fatal — keep existing tab data
+    } finally {
+      setTabLoading(false)
     }
-    setTabLoading(false)
   }
 
   const handleJoinLeave = async () => {

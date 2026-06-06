@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+﻿import React, { useEffect, useState } from 'react'
 import {
   View, Text, TouchableOpacity, StyleSheet, TextInput,
   ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
@@ -245,7 +245,7 @@ export default function VerifyScreen() {
       <SafeAreaView style={{ flex: 1 }}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'android' ? 24 : 0}
         >
           <ScrollView
@@ -459,3 +459,4 @@ const s = StyleSheet.create({
   },
   termsLink: { color: 'rgba(167,139,250,0.6)' },
 })
+

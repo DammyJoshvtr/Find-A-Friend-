@@ -15,12 +15,18 @@ import {
   StatusBar,
   PanResponder,
   Alert,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import Toast from 'react-native-toast-message'
 import { useStoriesStore, selectCurrentStory, selectCurrentGroup } from '../../store/storiesStore'
 import { useAuthStore } from '../../store/authStore'
+import { supabase } from '../../lib/supabase'
 import { deleteStory } from '../../lib/stories'
 import { getInitials, getTimeAgo } from '../../lib/matching'
+
+const STORY_EMOJIS = ['❤️', '😂', '😮', '🔥', '👏']
 
 const { width: SCREEN_W } = Dimensions.get('window')
 
@@ -40,8 +46,14 @@ export default function StoryViewer() {
   const group = useStoriesStore(selectCurrentGroup)
 
   const progressAnim = useRef(new Animated.Value(0)).current
-  const progressRef = useRef<Animated.CompositeAnimation | null>(null)
+  const progressRef  = useRef<Animated.CompositeAnimation | null>(null)
   const [paused, setPaused] = useState(false)
+
+  // Reactions + comments
+  const [myReaction,     setMyReaction]     = useState<string | null>(null)
+  const [storyComment,   setStoryComment]   = useState('')
+  const [sendingComment, setSendingComment] = useState(false)
+  const commentInputRef = useRef<TextInput>(null)
 
   const visible = !!viewerGroupId
 
@@ -82,6 +94,89 @@ export default function StoryViewer() {
       startProgress()
     }
   }, [paused])
+
+  // Load current user's reaction when story changes
+  useEffect(() => {
+    if (!story?.id || !user?.id) { setMyReaction(null); return }
+    supabase
+      .from('story_reactions')
+      .select('emoji')
+      .eq('story_id', story.id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => setMyReaction(data?.emoji ?? null))
+    setStoryComment('')
+  }, [story?.id, user?.id])
+
+  const handleReaction = async (emoji: string) => {
+    if (!story?.id || !user?.id) return
+    const isSame = myReaction === emoji
+    setMyReaction(isSame ? null : emoji)
+    if (isSame) {
+      await supabase.from('story_reactions').delete()
+        .eq('story_id', story.id).eq('user_id', user.id)
+    } else {
+      await supabase.from('story_reactions').upsert(
+        { user_id: user.id, story_id: story.id, emoji },
+        { onConflict: 'user_id,story_id' },
+      )
+      // Mirror to author's DM so they see it in chat
+      if (story.author_id !== user.id) {
+        const { data: convId } = await supabase.rpc('get_or_create_conversation', {
+          p_other_user_id: story.author_id,
+        })
+        if (convId) {
+          await supabase.from('messages').insert({
+            conversation_id: convId,
+            sender_id: user.id,
+            body: JSON.stringify({
+              _type: 'story_reaction',
+              emoji,
+              storyId: story.id,
+              caption: story.caption ?? '',
+              mediaUrl: story.media_url,
+            }),
+          })
+        }
+      }
+    }
+  }
+
+  const handleSendStoryComment = async () => {
+    const text = storyComment.trim()
+    if (!text || !story?.id || !user?.id) return
+    setSendingComment(true)
+
+    // Mirror to author's DM regardless of story_comments table availability
+    if (story.author_id !== user.id) {
+      const { data: convId } = await supabase.rpc('get_or_create_conversation', {
+        p_other_user_id: story.author_id,
+      })
+      if (convId) {
+        await supabase.from('messages').insert({
+          conversation_id: convId,
+          sender_id: user.id,
+          body: JSON.stringify({
+            _type: 'story_comment',
+            body: text,
+            storyId: story.id,
+            caption: story.caption ?? '',
+            mediaUrl: story.media_url,
+          }),
+        })
+      }
+    }
+
+    // Also insert into story_comments if the table exists (best-effort)
+    await supabase.from('story_comments').insert({
+      story_id: story.id, author_id: user.id, body: text,
+    })
+
+    setStoryComment('')
+    commentInputRef.current?.blur()
+    Toast.show({ type: 'success', text1: 'Comment sent!' })
+    setSendingComment(false)
+  }
 
   const handlePrev = () => {
     progressRef.current?.stop()
@@ -220,6 +315,42 @@ export default function StoryViewer() {
             <Text style={s.caption}>{story.caption}</Text>
           </View>
         ) : null}
+
+        {/* Bottom interaction bar: emoji reactions + comment input */}
+        <View style={s.interactionBar}>
+          <View style={s.emojiRow}>
+            {STORY_EMOJIS.map(emoji => (
+              <TouchableOpacity
+                key={emoji}
+                onPress={() => handleReaction(emoji)}
+                style={[s.emojiBtn, myReaction === emoji && s.emojiBtnActive]}
+              >
+                <Text style={s.emojiText}>{emoji}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <View style={s.storyCommentRow}>
+            <TextInput
+              ref={commentInputRef}
+              style={s.storyCommentInput}
+              placeholder="Send a comment..."
+              placeholderTextColor="rgba(255,255,255,0.5)"
+              value={storyComment}
+              onChangeText={setStoryComment}
+              onFocus={() => setPaused(true)}
+              onBlur={() => setPaused(false)}
+              returnKeyType="send"
+              onSubmitEditing={handleSendStoryComment}
+            />
+            {storyComment.trim() ? (
+              <TouchableOpacity onPress={handleSendStoryComment} style={s.storyCommentSendBtn}>
+                {sendingComment
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Ionicons name="send" size={16} color="#fff" />}
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
       </View>
     </Modal>
   )
@@ -328,7 +459,7 @@ const s = StyleSheet.create({
   },
   captionWrap: {
     position: 'absolute',
-    bottom: 50,
+    bottom: 140,
     left: 20,
     right: 20,
   },
@@ -345,13 +476,63 @@ const s = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: 120,  // leave room for interaction bar
     flexDirection: 'row',
   },
-  tapLeft: {
-    flex: 1,
+  tapLeft:  { flex: 1 },
+  tapRight: { flex: 1 },
+  interactionBar: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingBottom: 28,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    gap: 10,
   },
-  tapRight: {
+  emojiRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  emojiBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  emojiBtnActive: {
+    backgroundColor: 'rgba(255,255,255,0.28)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.7)',
+  },
+  emojiText: { fontSize: 22 },
+  storyCommentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  storyCommentInput: {
     flex: 1,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    paddingHorizontal: 14,
+    fontSize: 13,
+    color: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  storyCommentSendBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 })

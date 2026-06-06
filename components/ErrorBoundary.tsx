@@ -1,5 +1,5 @@
 import React from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, Appearance } from 'react-native'
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 
 interface Props {
   children: React.ReactNode
@@ -22,10 +22,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (!this.state.hasError) return this.props.children
-    const isDark = Appearance.getColorScheme() !== 'light'
-    const bg = isDark ? '#0d0d14' : '#f2f2f7'
-    const textColor = isDark ? '#f0f0ff' : '#0d0d20'
-    const mutedColor = isDark ? 'rgba(240,240,255,0.4)' : 'rgba(13,13,32,0.45)'
+    // App is always dark — hardcode dark colours so this boundary never
+    // depends on Appearance.getColorScheme() which would return the system
+    // theme rather than the user's in-app preference.
+    const bg         = '#0a0a1a'
+    const textColor  = '#f0f0ff'
+    const mutedColor = 'rgba(240,240,255,0.4)'
     const accentColor = '#a78bfa'
 
     return (
@@ -51,4 +53,3 @@ const s = StyleSheet.create({
   btn: { borderRadius: 20, paddingHorizontal: 24, paddingVertical: 10, borderWidth: 0.5 },
   btnText: { fontSize: 14, fontWeight: '600' },
 })
-

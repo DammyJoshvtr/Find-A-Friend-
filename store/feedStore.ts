@@ -41,6 +41,7 @@ interface FeedState {
   toggleBookmark: (postId: string) => Promise<void>
   setTab: (tab: 'forYou' | 'following') => Promise<void>
   prependPost: (post: FeedPost) => void
+  removePost: (postId: string) => void
   incrementCommentCount: (postId: string) => void
   repostPost: (postId: string) => Promise<{ error: Error | null }>
   deletePost: (postId: string) => Promise<{ error: Error | null }>
@@ -316,6 +317,13 @@ export const useFeedStore = create<FeedState>((set, get) => ({
     set(state => ({
       posts: [post, ...state.posts],
     }))
+  },
+
+  // -------------------------------------------------------------------------
+  // Realtime: post deleted (by admin dashboard or owner)
+  // -------------------------------------------------------------------------
+  removePost: (postId: string) => {
+    set(state => ({ posts: state.posts.filter(p => p.id !== postId) }))
   },
 
   // -------------------------------------------------------------------------

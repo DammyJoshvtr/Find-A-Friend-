@@ -24,6 +24,7 @@ import {
   type Attachment,
 } from '../../lib/chatAttachments'
 import { GAME_META, type GameType } from '../../lib/games'
+import { usePresenceStore } from '../../store/presenceStore'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -39,6 +40,21 @@ function parseAcceptance(body: string): { _type: 'challenge_accepted'; gameType:
   try {
     const obj = JSON.parse(body)
     if (obj?._type === 'challenge_accepted') return obj
+    return null
+  } catch { return null }
+}
+
+function parseStoryInteraction(body: string): {
+  _type: 'story_reaction' | 'story_comment'
+  emoji?: string
+  body?: string
+  storyId: string
+  caption: string
+  mediaUrl: string
+} | null {
+  try {
+    const obj = JSON.parse(body)
+    if (obj?._type === 'story_reaction' || obj?._type === 'story_comment') return obj
     return null
   } catch { return null }
 }
@@ -228,6 +244,84 @@ const ab = StyleSheet.create({
   sub: { fontSize: 11, fontFamily: typography.fontRegular },
   btn: { borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
   btnText: { fontSize: 13, fontFamily: typography.fontBold, color: '#fff' },
+})
+
+// ─── Story interaction bubble ─────────────────────────────────────────────────
+
+function StoryInteractionBubble({ interaction, mine }: {
+  interaction: {
+    _type: string
+    emoji?: string
+    body?: string
+    caption: string
+    mediaUrl: string
+  }
+  mine: boolean
+}) {
+  const theme      = useTheme()
+  const isReaction = interaction._type === 'story_reaction'
+
+  return (
+    <View style={[
+      sib.card,
+      {
+        backgroundColor: mine ? 'rgba(167,139,250,0.15)' : 'rgba(255,255,255,0.06)',
+        borderColor:     mine ? 'rgba(167,139,250,0.35)' : 'rgba(255,255,255,0.1)',
+      },
+    ]}>
+      {/* Story thumbnail strip */}
+      {interaction.mediaUrl ? (
+        <Image source={{ uri: interaction.mediaUrl }} style={sib.thumb} resizeMode="cover" />
+      ) : (
+        <View style={[sib.thumbPlaceholder, { backgroundColor: 'rgba(167,139,250,0.1)' }]}>
+          <Ionicons name="image-outline" size={18} color="rgba(167,139,250,0.5)" />
+        </View>
+      )}
+
+      <View style={sib.info}>
+        <Text style={sib.tag}>
+          {isReaction ? 'Reacted to your story' : 'Commented on your story'}
+        </Text>
+        {!!interaction.caption && (
+          <Text style={[sib.caption, { color: theme.textFaint }]} numberOfLines={1}>
+            {interaction.caption}
+          </Text>
+        )}
+        {isReaction ? (
+          <Text style={sib.reactionEmoji}>{interaction.emoji}</Text>
+        ) : (
+          <Text style={[sib.commentBody, { color: theme.text }]} numberOfLines={3}>
+            "{interaction.body}"
+          </Text>
+        )}
+      </View>
+    </View>
+  )
+}
+
+const sib = StyleSheet.create({
+  card: {
+    flexDirection: 'row',
+    borderRadius: 16,
+    borderWidth: 1,
+    overflow: 'hidden',
+    maxWidth: 270,
+    minWidth: 190,
+  },
+  thumb: { width: 64, height: 86 },
+  thumbPlaceholder: {
+    width: 64, height: 86,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  info: { flex: 1, padding: 10, justifyContent: 'center', gap: 4 },
+  tag: {
+    fontSize: 9, fontFamily: typography.fontSemiBold,
+    textTransform: 'uppercase', letterSpacing: 0.6,
+    color: 'rgba(167,139,250,0.8)',
+  },
+  caption: { fontSize: 10, fontFamily: typography.fontRegular },
+  reactionEmoji: { fontSize: 28, marginTop: 2 },
+  commentBody: { fontSize: 12, fontFamily: typography.fontRegular, fontStyle: 'italic', lineHeight: 17 },
 })
 
 // ─── Message actions modal ────────────────────────────────────────────────────
@@ -600,17 +694,18 @@ function ChatBackground() {
 }
 
 // ─── Tick status indicator (sent / delivered / read) ─────────────────────────
-// Single tick  = optimistic (sending)
-// Double tick  = delivered
-// Blue ticks   = read (approximated as any non-optimistic sent message)
+// Single grey tick  = optimistic (sending)
+// Double grey ticks = delivered (confirmed in DB, not yet read)
+// Double blue ticks = read
 
-function TickStatus({ optimistic, color }: { optimistic: boolean; color: string }) {
+function TickStatus({ optimistic, isRead }: { optimistic: boolean; isRead: boolean }) {
   if (optimistic) {
-    // Single tick — message is still sending
-    return <Text style={{ fontSize: 9, color, lineHeight: 13 }}>✓</Text>
+    return <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.35)', lineHeight: 13 }}>✓</Text>
   }
-  // Double tick — delivered / read
-  return <Text style={{ fontSize: 9, color: '#60a5fa', lineHeight: 13 }}>✓✓</Text>
+  if (isRead) {
+    return <Text style={{ fontSize: 9, color: '#60a5fa', lineHeight: 13 }}>✓✓</Text>
+  }
+  return <Text style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)', lineHeight: 13 }}>✓✓</Text>
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -643,7 +738,7 @@ export default function DirectMessageScreen() {
       setMyId(user.id)
 
       const { data: profile } = await supabase
-        .from('profiles').select('id, full_name, avatar_url, is_online')
+        .from('profiles').select('id, full_name, avatar_url')
         .eq('id', otherUserId).single()
       setOtherProfile(profile)
 
@@ -662,6 +757,14 @@ export default function DirectMessageScreen() {
       setMessages(msgs ?? [])
       setLoading(false)
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: false }), 100)
+
+      // Mark all unread messages from the other person as read
+      await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .eq('conversation_id', cid)
+        .neq('sender_id', user.id)
+        .eq('is_read', false)
     } catch (err) {
       console.error('Init error:', err); setLoading(false)
     }
@@ -686,6 +789,16 @@ export default function DirectMessageScreen() {
         const { data: profile } = await supabase
           .from('profiles').select('id, full_name, avatar_url')
           .eq('id', payload.new.sender_id).single()
+
+        // Mark as read immediately if message is from the other person
+        if (payload.new.sender_id !== myId) {
+          supabase
+            .from('messages')
+            .update({ is_read: true })
+            .eq('id', payload.new.id)
+            .then(() => {})
+        }
+
         setMessages(prev => {
           const idx = prev.findIndex(m =>
             m._optimistic && m.body === payload.new.body && m.sender_id === payload.new.sender_id
@@ -695,7 +808,9 @@ export default function DirectMessageScreen() {
             updated[idx] = { ...payload.new, profiles: profile }
             return updated
           }
-          return [...prev, { ...payload.new, profiles: profile }]
+          const newMsg = { ...payload.new, profiles: profile }
+          if (payload.new.sender_id !== myId) newMsg.is_read = true
+          return [...prev, newMsg]
         })
         setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80)
       })
@@ -710,13 +825,6 @@ export default function DirectMessageScreen() {
         filter: 'conversation_id=eq.' + convId,
       }, (payload: any) => {
         setMessages(prev => prev.filter(m => m.id !== payload.old?.id))
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public', table: 'profiles',
-        filter: `id=eq.${otherUserId}`,
-      }, (payload: any) => {
-        if ('is_online' in payload.new)
-          setOtherProfile((prev: any) => prev ? { ...prev, is_online: payload.new.is_online } : prev)
       })
       .subscribe()
 
@@ -812,8 +920,9 @@ export default function DirectMessageScreen() {
     }
   }
 
-  const otherName = otherProfile?.full_name ?? 'Chat'
-  const isOnline  = otherProfile?.is_online ?? false
+  const otherName  = otherProfile?.full_name ?? 'Chat'
+  const checkOnline = usePresenceStore(s => s.isOnline)
+  const isOnline   = otherUserId ? checkOnline(otherUserId) : false
   const hasText   = input.trim().length > 0
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -840,7 +949,7 @@ export default function DirectMessageScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}>
+        keyboardVerticalOffset={insets.top}>
 
         {/* ── WhatsApp-style header ───────────────────────────────────────── */}
         <View style={[
@@ -904,13 +1013,22 @@ export default function DirectMessageScreen() {
 
           {/* Right action icons: video call, voice call, three-dots menu */}
           <View style={s.headerActions}>
-            <TouchableOpacity style={s.headerIconBtn} hitSlop={8}>
+            <TouchableOpacity
+              style={s.headerIconBtn}
+              hitSlop={8}
+              onPress={() => Toast.show({ type: 'info', text1: 'Coming soon', text2: 'Video calls are not yet available.' })}>
               <Ionicons name="videocam-outline" size={22} color={theme.textMuted} />
             </TouchableOpacity>
-            <TouchableOpacity style={s.headerIconBtn} hitSlop={8}>
+            <TouchableOpacity
+              style={s.headerIconBtn}
+              hitSlop={8}
+              onPress={() => Toast.show({ type: 'info', text1: 'Coming soon', text2: 'Voice calls are not yet available.' })}>
               <Ionicons name="call-outline" size={20} color={theme.textMuted} />
             </TouchableOpacity>
-            <TouchableOpacity style={s.headerIconBtn} hitSlop={8}>
+            <TouchableOpacity
+              style={s.headerIconBtn}
+              hitSlop={8}
+              onPress={() => Toast.show({ type: 'info', text1: 'Options', text2: 'More options coming soon.' })}>
               <Ionicons name="ellipsis-vertical" size={20} color={theme.textMuted} />
             </TouchableOpacity>
           </View>
@@ -935,15 +1053,28 @@ export default function DirectMessageScreen() {
               {messages.length === 0 && <EmptyState name={otherName} />}
 
               {messages.map((m, i) => {
-                const mine      = m.sender_id === myId
-                const parsed    = parseAttachment(m.body)
-                const challenge  = parseChallenge(m.body)
-                const acceptance = parseAcceptance(m.body)
+                const mine             = m.sender_id === myId
+                const parsed           = parseAttachment(m.body)
+                const challenge        = parseChallenge(m.body)
+                const acceptance       = parseAcceptance(m.body)
+                const storyInteraction = parseStoryInteraction(m.body)
 
                 // Day separator — inserted before a message if the day differs from the previous
                 const prevMsg   = messages[i - 1]
                 const showSep   = i === 0 || !isSameDay(prevMsg?.created_at, m.created_at)
                 const dayLabel  = showSep ? getDayLabel(m.created_at) : ''
+
+                // ── Story reaction / comment bubble ─────────────────────────
+                if (storyInteraction) {
+                  return (
+                    <View key={m.id ?? i}>
+                      {showSep && <DaySeparator label={dayLabel} />}
+                      <View style={[s.msgRow, mine && s.msgRowMine]}>
+                        <StoryInteractionBubble interaction={storyInteraction} mine={mine} />
+                      </View>
+                    </View>
+                  )
+                }
 
                 // ── Challenge bubble ────────────────────────────────────────
                 if (challenge) {
@@ -987,12 +1118,7 @@ export default function DirectMessageScreen() {
                   <View key={m.id ?? i}>
                     {showSep && <DaySeparator label={dayLabel} />}
                     <View style={[s.msgRow, mine && s.msgRowMine]}>
-                      {/*
-                        Bubble wrapper View — intentionally has NO maxWidth.
-                        maxWidth lives only on the bubble TouchableOpacity (s.bubble)
-                        to avoid the RN double-constraint squeezing bug.
-                      */}
-                      <View>
+                      <View style={s.bubbleWrap}>
                         <TouchableOpacity
                           activeOpacity={0.85}
                           onLongPress={() => {
@@ -1054,7 +1180,7 @@ export default function DirectMessageScreen() {
                             {mine && (
                               <TickStatus
                                 optimistic={!!m._optimistic}
-                                color={m._optimistic ? 'rgba(255,255,255,0.35)' : '#60a5fa'}
+                                isRead={m.is_read === true}
                               />
                             )}
                           </View>
@@ -1174,8 +1300,7 @@ export default function DirectMessageScreen() {
               <TouchableOpacity
                 style={[s.micBtn, { borderColor: 'rgba(167,139,250,0.2)' }]}
                 activeOpacity={0.7}
-                // Mic button is a placeholder — voice recording is not yet implemented
-                onPress={() => {}}>
+                onPress={() => Toast.show({ type: 'info', text1: 'Coming soon', text2: 'Voice messages are not yet available.' })}>
                 <Ionicons name="mic-outline" size={22} color={theme.textMuted} />
               </TouchableOpacity>
             )}
@@ -1258,23 +1383,33 @@ const s = StyleSheet.create({
   messages: { flex: 1 },
 
   // ── Message rows ─────────────────────────────────────────────────────────────
-  msgRow:     { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 3 },
-  msgRowMine: { flexDirection: 'row-reverse' },
+  msgRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginBottom: 3,
+    // Full-width so the child bubbleWrap's maxWidth % resolves against screen width
+    alignSelf: 'stretch',
+  },
+  msgRowMine: {
+    justifyContent: 'flex-end',
+  },
 
-  // ── Bubbles — maxWidth ONLY on this element (never on outer wrapper) ──────────
-  bubble: {
+  // ── Bubble wrapper — maxWidth % MUST live here so it resolves against the ──────
+  // ── full-width msgRow, not against the unconstrained inner TouchableOpacity ────
+  bubbleWrap: {
     maxWidth: '78%',
+  },
+
+  // ── Bubble (no maxWidth here — constrained by bubbleWrap above) ───────────────
+  bubble: {
     borderRadius: 18,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginHorizontal: 2,
   },
   bubbleMine: {
-    // WhatsApp: bottom-right corner is nearly flat
     borderBottomRightRadius: 2,
   },
   bubbleTheirs: {
-    // WhatsApp: bottom-left corner is nearly flat
     borderBottomLeftRadius: 2,
     borderWidth: 0.5,
   },

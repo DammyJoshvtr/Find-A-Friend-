@@ -1,28 +1,42 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
+type ThemeMode = 'dark' | 'darker'
+
 interface ThemeState {
-  isDark: boolean
+  mode: ThemeMode
+  isDarker: boolean
   hydrated: boolean
+  setMode: (mode: ThemeMode) => void
   toggleTheme: () => void
   hydrate: () => Promise<void>
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
-  isDark: true,
+  mode: 'dark',
+  isDarker: false,
   hydrated: false,
 
   hydrate: async () => {
     if (get().hydrated) return
-    const stored = await AsyncStorage.getItem('isDark').catch(() => null)
-    const isDark = stored === null ? true : stored === 'true'
-    set({ isDark, hydrated: true })
+    const stored = await AsyncStorage.getItem('themeMode').catch(() => null)
+    // Support legacy 'isDark' key — if present, both modes are dark variants
+    const legacyDark = await AsyncStorage.getItem('isDark').catch(() => null)
+    let mode: ThemeMode = 'dark'
+    if (stored === 'darker') mode = 'darker'
+    else if (stored === 'dark') mode = 'dark'
+    else if (legacyDark !== null) mode = 'dark' // migrate old users to dark
+    set({ mode, isDarker: mode === 'darker', hydrated: true })
   },
 
-  toggleTheme: () =>
-    set((state) => {
-      const next = !state.isDark
-      AsyncStorage.setItem('isDark', String(next)).catch(() => {})
-      return { isDark: next }
-    }),
+  setMode: (mode: ThemeMode) => {
+    AsyncStorage.setItem('themeMode', mode).catch(() => {})
+    set({ mode, isDarker: mode === 'darker' })
+  },
+
+  toggleTheme: () => {
+    const next: ThemeMode = get().mode === 'dark' ? 'darker' : 'dark'
+    AsyncStorage.setItem('themeMode', next).catch(() => {})
+    set({ mode: next, isDarker: next === 'darker' })
+  },
 }))

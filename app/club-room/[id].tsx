@@ -57,37 +57,42 @@ export default function ClubRoomScreen() {
   const [isMember, setIsMember] = useState(false)
 
   const load = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !clubId) { setLoading(false); return }
-    setMyId(user.id)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || !clubId) return
+      setMyId(user.id)
 
-    // Load club info
-    const { data: club } = await supabase
-      .from('clubs').select('name, color').eq('id', clubId).single()
-    if (club) { setClubName(club.name); setClubColor(club.color ?? '#a78bfa') }
+      // Load club info
+      const { data: club } = await supabase
+        .from('clubs').select('name, color').eq('id', clubId).single()
+      if (club) { setClubName(club.name); setClubColor(club.color ?? '#a78bfa') }
 
-    // Check membership
-    const { data: membership } = await supabase
-      .from('club_members').select('role')
-      .eq('club_id', clubId).eq('user_id', user.id).maybeSingle()
-    setIsMember(!!membership)
+      // Check membership
+      const { data: membership } = await supabase
+        .from('club_members').select('role')
+        .eq('club_id', clubId).eq('user_id', user.id).maybeSingle()
+      setIsMember(!!membership)
 
-    // Load recent messages
-    const { data: msgs, error } = await supabase
-      .from('club_messages')
-      .select('*, profiles!sender_id(id, full_name, avatar_url)')
-      .eq('club_id', clubId)
-      .order('created_at', { ascending: true })
-      .limit(100)
+      // Load recent messages
+      const { data: msgs, error } = await supabase
+        .from('club_messages')
+        .select('*, profiles!sender_id(id, full_name, avatar_url)')
+        .eq('club_id', clubId)
+        .order('created_at', { ascending: true })
+        .limit(100)
 
-    if (error && error.code === '42P01') {
-      // Table doesn't exist yet
-      Toast.show({ type: 'info', text1: 'Chat not yet set up', text2: 'Run the club_messages SQL in Supabase first.' })
+      if (error && error.code === '42P01') {
+        // Table doesn't exist yet
+        Toast.show({ type: 'info', text1: 'Chat not yet set up', text2: 'Run the club_messages SQL in Supabase first.' })
+      }
+
+      setMessages(msgs ?? [])
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100)
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
     }
-
-    setMessages(msgs ?? [])
-    setLoading(false)
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100)
   }, [clubId])
 
   useEffect(() => { load() }, [load])

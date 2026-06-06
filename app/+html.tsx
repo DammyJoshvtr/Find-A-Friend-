@@ -1,9 +1,5 @@
 import { ScrollViewStyleReset } from 'expo-router/html';
 
-// This file is web-only and used to configure the root HTML for every
-// web page during static rendering.
-// The contents of this function only run in Node.js environments and
-// do not have access to the DOM or browser APIs.
 export default function Root({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
@@ -12,15 +8,23 @@ export default function Root({ children }: { children: React.ReactNode }) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 
-        {/* 
-          Disable body scrolling on web. This makes ScrollView components work closer to how they do on native. 
-          However, body scrolling is often nice to have for mobile web. If you want to enable it, remove this line.
-        */}
-        <ScrollViewStyleReset />
+        {/* PWA manifest */}
+        <link rel="manifest" href="/manifest.json" />
 
-        {/* Using raw CSS styles as an escape-hatch to ensure the background color never flickers in dark-mode. */}
+        {/* iOS PWA meta tags */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="FAF" />
+        <link rel="apple-touch-icon" href="/assets/images/icon.png" />
+
+        {/* Theme */}
+        <meta name="theme-color" content="#0d0d14" />
+
+        <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: responsiveBackground }} />
-        {/* Add any additional <head> elements that you want globally available on web... */}
+
+        {/* Register service worker */}
+        <script dangerouslySetInnerHTML={{ __html: swRegistration }} />
       </head>
       <body>{children}</body>
     </html>
@@ -29,10 +33,26 @@ export default function Root({ children }: { children: React.ReactNode }) {
 
 const responsiveBackground = `
 body {
-  background-color: #fff;
-}
-@media (prefers-color-scheme: dark) {
-  body {
-    background-color: #000;
-  }
+  background-color: #0d0d14;
+}`;
+
+const swRegistration = `
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js').then(function(reg) {
+      // When the SW sends SW_UPDATED (triggered by admin push from dashboard),
+      // reload the page so users get the new version immediately.
+      navigator.serviceWorker.addEventListener('message', function(event) {
+        if (event.data && event.data.type === 'SW_UPDATED') {
+          window.location.reload();
+        }
+      });
+
+      // Fallback: if a new SW takes control without posting a message
+      // (e.g. user had the tab open when the update arrived), reload then too.
+      navigator.serviceWorker.addEventListener('controllerchange', function() {
+        if (reg.active) window.location.reload();
+      });
+    });
+  });
 }`;

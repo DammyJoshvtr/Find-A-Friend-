@@ -8,7 +8,7 @@ import { useTheme } from '../lib/theme'
 const FAQS = [
   {
     q: 'What is FAF?',
-    a: 'FAF (For All Friends) is a social app exclusively for university students. You can share posts, stories, join clubs, find events, and connect with your campus community.',
+    a: 'FAF (Find-A-Friend) is a social app exclusively for university students. You can share posts, stories, join clubs, find events, and connect with your campus community.',
   },
   {
     q: 'How do stories work?',

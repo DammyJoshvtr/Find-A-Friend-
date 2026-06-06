@@ -68,20 +68,26 @@ export default function GameLobbyScreen() {
   useEffect(() => { load() }, [])
 
   const load = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
 
-    const [followRes, statsRes] = await Promise.all([
-      user ? getFollowing(user.id) : Promise.resolve({ data: null, error: null }),
-      getMyStats(),
-    ])
+      const [followRes, statsRes] = await Promise.all([
+        user ? getFollowing(user.id) : Promise.resolve({ data: null, error: null }),
+        getMyStats(),
+      ])
 
-    const real = followRes.data ?? []
-    // Always show FAF Bot first, then real friends (or demo friends if none)
-    setFriends([FAF_BOT, ...(real.length > 0 ? real : DEMO_FRIENDS)])
+      const real = followRes.data ?? []
+      // Always show FAF Bot first, then real friends (or demo friends if none)
+      setFriends([FAF_BOT, ...(real.length > 0 ? real : DEMO_FRIENDS)])
 
-    const allStats = statsRes.data ?? []
-    setStat(allStats.find(s => s.game_type === gt) ?? null)
-    setLoading(false)
+      const allStats = statsRes.data ?? []
+      setStat(allStats.find(s => s.game_type === gt) ?? null)
+    } catch {
+      // Non-fatal — show FAF Bot as fallback
+      setFriends([FAF_BOT, ...DEMO_FRIENDS])
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleChallenge = async (friend: FollowProfile) => {

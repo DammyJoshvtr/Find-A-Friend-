@@ -43,6 +43,9 @@ export default function TriviaScreen() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const botRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const channelRef = useRef<any>(null)
+  // Track current question index in a ref so the realtime handler always sees
+  // the latest value without requiring a re-subscribe on each question.
+  const qIndexRef = useRef(0)
 
   // Animations
   const timerScale = useSharedValue(1)
@@ -87,16 +90,24 @@ export default function TriviaScreen() {
   }
 
   const subscribe = () => {
+    // Remove stale channel before re-subscribing
+    const stale = supabase.getChannels().find(c => c.topic === `realtime:game_room:${sessionId}`)
+    if (stale) supabase.removeChannel(stale)
+
     channelRef.current = supabase.channel(`game_room:${sessionId}`)
       .on('broadcast', { event: 'move' }, ({ payload }) => {
-        if (payload.type === 'ANSWER' && payload.qIndex === qIndex) {
+        // Use qIndexRef (not the closed-over qIndex) so we always compare
+        // against the current question, not the question at subscribe time.
+        if (payload.type === 'ANSWER' && payload.qIndex === qIndexRef.current) {
           setOppAnswer(payload.answerIndex)
-          // Score is calculated on result phase, but we can sync it
-          setOppScore(payload.totalScore)
+          setOppScore(payload.totalScore ?? 0)
         }
       })
       .subscribe()
   }
+
+  // Keep qIndexRef in sync with state so the broadcast handler sees current question
+  useEffect(() => { qIndexRef.current = qIndex }, [qIndex])
 
   // Countdown before game
   useEffect(() => {
@@ -132,13 +143,13 @@ export default function TriviaScreen() {
   // Main timer
   useEffect(() => {
     if (phase !== 'playing') return
-    if (timer <= 0) { resolveRound(null); return }
+    if (timer <= 0) { resolveRound(null, 0); return }
     timerRef.current = setInterval(() => setTimer(t => t - 1), 1000)
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [phase, qIndex])
 
   useEffect(() => {
-    if (phase === 'playing' && timer <= 0) resolveRound(null)
+    if (phase === 'playing' && timer <= 0) resolveRound(null, 0)
   }, [timer])
 
   const handleAnswer = (idx: number) => {

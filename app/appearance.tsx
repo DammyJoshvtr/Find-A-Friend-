@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Switch } from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
@@ -7,16 +7,26 @@ import { useTheme } from '../lib/theme'
 import { typography } from '../lib/typography'
 
 export default function AppearanceScreen() {
-  const { isDark, toggleTheme } = useThemeStore()
+  const { mode, setMode } = useThemeStore()
   const theme = useTheme()
 
-  const options = [
-    { label: 'Dark mode', icon: '🌙', value: isDark, onToggle: toggleTheme },
-  ]
-
   const themes = [
-    { label: 'Dark',   icon: '🌑', active: isDark,  onPress: () => { if (!isDark) toggleTheme() } },
-    { label: 'Light',  icon: '☀️', active: !isDark, onPress: () => { if (isDark) toggleTheme() } },
+    {
+      label: 'Dark',
+      icon: '🌑',
+      value: 'dark' as const,
+      description: 'Deep dark — easy on the eyes',
+      active: mode === 'dark',
+      onPress: () => setMode('dark'),
+    },
+    {
+      label: 'Darker',
+      icon: '⬛',
+      value: 'darker' as const,
+      description: 'AMOLED black — maximum contrast',
+      active: mode === 'darker',
+      onPress: () => setMode('darker'),
+    },
   ]
 
   return (
@@ -26,45 +36,45 @@ export default function AppearanceScreen() {
           <Ionicons name="arrow-back" size={20} color={theme.text} />
         </TouchableOpacity>
         <Text style={[s.title, { color: theme.text }]}>Appearance</Text>
-        <View style={{ width: 36 }} />
+        <View style={{ width: 44 }} />
       </View>
 
       <View style={{ padding: 16, gap: 16 }}>
-        {/* Theme picker */}
         <Text style={[s.sectionLabel, { color: theme.textMuted }]}>Theme</Text>
-        <View style={s.themeRow}>
-          {themes.map(t => (
-            <TouchableOpacity
-              key={t.label}
-              style={[
-                s.themeCard,
-                { backgroundColor: theme.card, borderColor: t.active ? theme.accent : theme.border },
-              ]}
-              onPress={t.onPress}>
-              <Text style={s.themeIcon}>{t.icon}</Text>
-              <Text style={[s.themeLabel, { color: t.active ? theme.accent : theme.textMuted }]}>
-                {t.label}
-              </Text>
-              {t.active && (
-                <View style={[s.activeCheck, { backgroundColor: theme.accent }]}>
-                  <Ionicons name="checkmark" size={12} color="#fff" />
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
 
-        {/* Toggle row */}
-        <View style={[s.row, { backgroundColor: theme.card, borderColor: theme.border }]}>
-          <Text style={s.rowIcon}>🌙</Text>
-          <Text style={[s.rowLabel, { color: theme.text }]}>Dark mode</Text>
-          <Switch
-            value={isDark}
-            onValueChange={toggleTheme}
-            thumbColor={isDark ? theme.accent : '#ccc'}
-            trackColor={{ false: theme.card2, true: theme.accentBg }}
-          />
-        </View>
+        {themes.map(t => (
+          <TouchableOpacity
+            key={t.value}
+            style={[
+              s.themeCard,
+              { backgroundColor: theme.card, borderColor: t.active ? theme.accent : theme.border },
+            ]}
+            onPress={t.onPress}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: t.active }}
+            accessibilityLabel={t.label}>
+            <View style={s.themeLeft}>
+              <Text style={s.themeIcon}>{t.icon}</Text>
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={[s.themeLabel, { color: t.active ? theme.accent : theme.text }]}>
+                  {t.label}
+                </Text>
+                <Text style={[s.themeDesc, { color: theme.textMuted }]}>
+                  {t.description}
+                </Text>
+              </View>
+            </View>
+            {t.active && (
+              <View style={[s.activeCheck, { backgroundColor: theme.accent }]}>
+                <Ionicons name="checkmark" size={14} color="#fff" />
+              </View>
+            )}
+          </TouchableOpacity>
+        ))}
+
+        <Text style={[s.note, { color: theme.textFaint }]}>
+          Both themes use a dark background optimised for night use. Darker uses near-black AMOLED colours for maximum contrast on OLED screens.
+        </Text>
       </View>
     </SafeAreaView>
   )
@@ -78,22 +88,20 @@ const s = StyleSheet.create({
   },
   backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 17, fontFamily: typography.fontSemiBold },
-  sectionLabel: { fontSize: 12, fontFamily: typography.fontMedium, marginBottom: -8 },
-  themeRow: { flexDirection: 'row', gap: 12 },
+  sectionLabel: { fontSize: 12, fontFamily: typography.fontMedium, textTransform: 'uppercase', letterSpacing: 0.8 },
   themeCard: {
-    flex: 1, borderRadius: 16, padding: 20, alignItems: 'center',
-    gap: 8, borderWidth: 1.5, position: 'relative',
+    borderRadius: 16, padding: 16, borderWidth: 1.5,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  themeIcon: { fontSize: 32 },
-  themeLabel: { fontSize: 14, fontFamily: typography.fontSemiBold },
+  themeLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
+  themeIcon: { fontSize: 28 },
+  themeLabel: { fontSize: 15, fontFamily: typography.fontSemiBold },
+  themeDesc: { fontSize: 12, fontFamily: typography.fontRegular },
   activeCheck: {
-    position: 'absolute', top: 10, right: 10,
-    width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+    width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
   },
-  row: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    padding: 14, borderRadius: 14, borderWidth: 0.5,
+  note: {
+    fontSize: 12, fontFamily: typography.fontRegular, lineHeight: 18,
+    marginTop: 4,
   },
-  rowIcon: { fontSize: 18 },
-  rowLabel: { flex: 1, fontSize: 15, fontFamily: typography.fontMedium },
 })

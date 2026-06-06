@@ -176,26 +176,30 @@ export default function AcademicScreen() {
 
   const loadTab = async (tab: Tab, refresh = false) => {
     if (!refresh) setLoading(true)
-    switch (tab) {
-      case 'courses': {
-        const { data } = await getMyEnrolledCourses()
-        setCourses(data ?? [])
-        break
+    try {
+      switch (tab) {
+        case 'courses': {
+          const { data } = await getMyEnrolledCourses()
+          setCourses(data ?? [])
+          break
+        }
+        case 'groups': {
+          const { data } = await getStudyGroups()
+          setStudyGroups(data ?? [])
+          break
+        }
+        case 'resources': {
+          const { data } = await getResources()
+          setResources(data ?? [])
+          break
+        }
       }
-      case 'groups': {
-        const { data } = await getStudyGroups()
-        // Hydrate is_member — always false on initial load (joined groups come from server)
-        setStudyGroups(data ?? [])
-        break
-      }
-      case 'resources': {
-        const { data } = await getResources()
-        setResources(data ?? [])
-        break
-      }
+    } catch {
+      // Non-fatal — keep existing data
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-    setLoading(false)
-    setRefreshing(false)
   }
 
   const onRefresh = useCallback(() => {

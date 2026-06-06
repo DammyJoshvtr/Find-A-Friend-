@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FAF | Anonymous Confessions</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Canvas for 3D Background -->
+        <canvas id="bg-canvas"></canvas>
+
+        <!-- Custom Cursor -->
+        <div class="cursor-dot"></div>
+        <div class="cursor-outline"></div>
+
+        <div class="subpage-container">
+            <div class="subpage-header">
+                <a href="index.html" class="btn-back">
+                    <i class="fas fa-chevron-left"></i> Back to Grid
+                </a>
+                <h1 class="subpage-title gradient-text">Confessions Board</h1>
+                <div style="width: 100px;"></div> <!-- spacer -->
+            </div>
+
+            <div class="dashboard-layout">
+                <!-- Sidebar -->
+                <aside class="dash-sidebar">
+                    <h3 class="sidebar-title">FAF Hub</h3>
+                    <ul class="sidebar-menu">
+                        <a href="chat.html" class="menu-item">
+                            <i class="fas fa-comment-dots"></i> Chats
+                        </a>
+                        <a href="academic.html" class="menu-item">
+                            <i class="fas fa-book-reader"></i> Academic Hub
+                        </a>
+                        <a href="anonymous.html" class="menu-item active">
+                            <i class="fas fa-mask"></i> Confessions
+                        </a>
+                        <a href="map.html" class="menu-item">
+                            <i class="fas fa-map-marked-alt"></i> Campus Map
+                        </a>
+                        <a href="events.html" class="menu-item">
+                            <i class="fas fa-calendar-alt"></i> Events
+                        </a>
+                        <a href="vendors.html" class="menu-item">
+                            <i class="fas fa-tags"></i> Vendor Deals
+                        </a>
+                    </ul>
+                </aside>
+
+                <!-- Main Panel -->
+                <main class="dash-main">
+                    <!-- Create Confession Card -->
+                    <div class="dash-card">
+                        <h3 class="sidebar-title" style="color: var(--accent-pink);">Post a Secret</h3>
+                        <textarea class="dash-textarea" id="confessionText" placeholder="What's on your mind? Everything you post here is fully anonymous. Real identities are locked at database levels."></textarea>
+                        <div style="display: flex; justify-content: flex-end;">
+                            <button class="btn-premium" id="submitConfessionBtn" style="background: var(--gradient-3);">
+                                <span>Submit Confession</span>
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Confessions Feed -->
+                    <div class="dash-main" id="confessionsList">
+                        <div class="confession-card">
+                            <div class="confession-header">
+                                <span class="confession-tag-badge">#Anon-8349</span>
+                                <span class="post-time">2 hours ago</span>
+                            </div>
+                            <p class="post-body">To the person who returned my lost airpods at the student center yesterday: thank you so much! You saved my week!</p>
+                            <div class="post-actions">
+                                <button class="post-action-btn"><i class="fas fa-heart"></i> 142</button>
+                                <button class="post-action-btn"><i class="fas fa-comment"></i> 18</button>
+                            </div>
+                        </div>
+
+                        <div class="confession-card">
+                            <div class="confession-header">
+                                <span class="confession-tag-badge">#Anon-8291</span>
+                                <span class="post-time">5 hours ago</span>
+                            </div>
+                            <p class="post-body">Honestly, CS midterms are coming up and I am completely overwhelmed. Hope the study groups in the academic hub actually help.</p>
+                            <div class="post-actions">
+                                <button class="post-action-btn"><i class="fas fa-heart"></i> 89</button>
+                                <button class="post-action-btn"><i class="fas fa-comment"></i> 32</button>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script imports -->
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.128.0/build/three.module.js';
+
+        // 3D Particles Background
+        const canvas = document.getElementById('bg-canvas');
+        if (canvas) {
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 800;
+            const posArray = new Float32Array(particlesCount * 3);
+
+            for (let i = 0; i < particlesCount * 3; i += 3) {
+                posArray[i] = (Math.random() - 0.5) * 150;
+                posArray[i + 1] = (Math.random() - 0.5) * 80;
+                posArray[i + 2] = (Math.random() - 0.5) * 80 - 40;
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particlesMaterial = new THREE.PointsMaterial({
+                color: 0xec4899,
+                size: 0.2,
+                transparent: true,
+                opacity: 0.5,
+                blending: THREE.AdditiveBlending
+            });
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+            camera.position.z = 30;
+
+            const animate = () => {
+                requestAnimationFrame(animate);
+                particlesMesh.rotation.y += 0.0005;
+                particlesMesh.rotation.x += 0.0002;
+                renderer.render(scene, camera);
+            };
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // Custom Cursor
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorOutline = document.querySelector('.cursor-outline');
+        if (cursorDot && cursorOutline && window.innerWidth > 768) {
+            let mouseX = 0, mouseY = 0;
+            let outlineX = 0, outlineY = 0;
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                cursorDot.style.transform = `translate(${mouseX - 4}px, ${mouseY - 4}px)`;
+            });
+            const animateOutline = () => {
+                outlineX += (mouseX - outlineX) * 0.1;
+                outlineY += (mouseY - outlineY) * 0.1;
+                cursorOutline.style.transform = `translate(${outlineX - 20}px, ${outlineY - 20}px)`;
+                requestAnimationFrame(animateOutline);
+            };
+            animateOutline();
+
+            const interactiveElements = document.querySelectorAll('button, a, .menu-item');
+            interactiveElements.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    cursorOutline.style.width = '50px';
+                    cursorOutline.style.height = '50px';
+                    cursorOutline.style.borderColor = '#ec4899';
+                });
+                el.addEventListener('mouseleave', () => {
+                    cursorOutline.style.width = '40px';
+                    cursorOutline.style.height = '40px';
+                    cursorOutline.style.borderColor = '#a78bfa';
+                });
+            });
+        }
+
+        // Add confession functionality
+        const confessionText = document.getElementById('confessionText');
+        const submitConfessionBtn = document.getElementById('submitConfessionBtn');
+        const confessionsList = document.getElementById('confessionsList');
+
+        submitConfessionBtn.addEventListener('click', () => {
+            const text = confessionText.value.trim();
+            if (!text) return;
+
+            // Generate a random id
+            const anonNum = Math.floor(1000 + Math.random() * 9000);
+
+            // Create card HTML element
+            const newCard = document.createElement('div');
+            newCard.className = 'confession-card';
+            newCard.innerHTML = `
+                <div class="confession-header">
+                    <span class="confession-tag-badge">#Anon-${anonNum}</span>
+                    <span class="post-time">Just now</span>
+                </div>
+                <p class="post-body">${text}</p>
+                <div class="post-actions">
+                    <button class="post-action-btn"><i class="fas fa-heart"></i> 0</button>
+                    <button class="post-action-btn"><i class="fas fa-comment"></i> 0</button>
+                </div>
+            `;
+
+            // Prepend new confession to top of list
+            confessionsList.insertBefore(newCard, confessionsList.firstChild);
+
+            // Clear input text
+            confessionText.value = '';
+
+            // Soft haptic feedback vibration
+            if (navigator.vibrate) navigator.vibrate(40);
+        });
+    </script>
+</body>
+</html>

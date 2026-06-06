@@ -11,42 +11,40 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
+import { supabase } from '../../lib/supabase'
 
 const { width } = Dimensions.get('window')
 const ITEM_WIDTH = width - 15
 const BANNER_HEIGHT = 140
 const RESTORE_DELAY_MS = 60_000
 
-const MOCK_ADS = [
-  {
-    id: '1',
-    title: '50% Off Campus Coffee',
-    subtitle: 'Show your FAF app at the Student Center cafe to get half off any latte before 10 AM.',
-    color: '#7c3aed',
-    icon: 'cafe',
-  },
-  {
-    id: '2',
-    title: 'Spring Tech Hackathon',
-    subtitle: 'Join the CS club this weekend. Free pizza, prizes, and great networking! Register now.',
-    color: '#0891b2',
-    icon: 'laptop-outline',
-  },
-  {
-    id: '3',
-    title: 'Exclusive Vendor Deals',
-    subtitle: 'Check out the Discover tab to find amazing local discounts just for students.',
-    color: '#b45309',
-    icon: 'pricetag',
-  },
-]
+interface Ad {
+  id: string
+  title: string
+  subtitle: string
+  color: string
+  icon: string
+}
 
 export default function AdCarousel() {
   const theme = useTheme()
   const flatListRef = useRef<FlatList>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [dismissed, setDismissed] = useState(false)
+  const [ads, setAds] = useState<Ad[]>([])
   const isRestoringRef = useRef(false)
+
+  // Fetch active ads from Supabase
+  useEffect(() => {
+    supabase
+      .from('app_ads')
+      .select('id, title, subtitle, color, icon')
+      .eq('active', true)
+      .order('display_order', { ascending: true })
+      .then(({ data }) => {
+        if (data && data.length > 0) setAds(data)
+      })
+  }, [])
 
   // Swipe gesture animation
   const dragY    = useRef(new Animated.Value(0)).current
@@ -75,7 +73,6 @@ export default function AdCarousel() {
     if (!dismissed) return
     const timer = setTimeout(() => {
       isRestoringRef.current = true
-      // Start off-screen above so the spring slides it into view
       dragY.setValue(-BANNER_HEIGHT)
       maxHeight.setValue(BANNER_HEIGHT)
       opacity.setValue(1)
@@ -126,14 +123,14 @@ export default function AdCarousel() {
 
   // Auto-scroll ads
   useEffect(() => {
-    if (dismissed) return
+    if (dismissed || ads.length < 2) return
     const timer = setInterval(() => {
-      const next = (currentIndex + 1) % MOCK_ADS.length
+      const next = (currentIndex + 1) % ads.length
       flatListRef.current?.scrollToIndex({ index: next, animated: true })
       setCurrentIndex(next)
     }, 5000)
     return () => clearInterval(timer)
-  }, [currentIndex, dismissed])
+  }, [currentIndex, dismissed, ads.length])
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems.length > 0) setCurrentIndex(viewableItems[0].index)
@@ -141,7 +138,7 @@ export default function AdCarousel() {
 
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current
 
-  const renderItem = ({ item }: { item: typeof MOCK_ADS[0] }) => (
+  const renderItem = ({ item }: { item: Ad }) => (
     <View style={[s.itemContainer, { width: ITEM_WIDTH }]}>
       <View style={[s.card, { backgroundColor: item.color }]}>
         <View style={s.glassOverlay} />
@@ -158,7 +155,7 @@ export default function AdCarousel() {
     </View>
   )
 
-  if (dismissed) return null
+  if (dismissed || ads.length === 0) return null
 
   return (
     <Animated.View
@@ -178,7 +175,7 @@ export default function AdCarousel() {
 
       <FlatList
         ref={flatListRef}
-        data={MOCK_ADS}
+        data={ads}
         renderItem={renderItem}
         keyExtractor={item => item.id}
         horizontal
@@ -193,7 +190,7 @@ export default function AdCarousel() {
       />
 
       <View style={s.pagination}>
-        {MOCK_ADS.map((_, index) => (
+        {ads.map((_, index) => (
           <View
             key={index}
             style={[

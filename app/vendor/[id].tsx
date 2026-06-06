@@ -106,13 +106,18 @@ export default function VendorDetailScreen() {
 
   const loadVendor = async () => {
     setLoading(true)
-    const [vendorRes, savedIds] = await Promise.all([
-      getVendorDetail(id),
-      getMySavedDealIds(),
-    ])
-    setVendor(vendorRes.data)
-    setSavedDealIds(savedIds)
-    setLoading(false)
+    try {
+      const [vendorRes, savedIds] = await Promise.all([
+        getVendorDetail(id),
+        getMySavedDealIds(),
+      ])
+      setVendor(vendorRes.data)
+      setSavedDealIds(savedIds)
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleToggleSave = (dealId: string) => {

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "580976880969",
+    "project_id": "find-a-friend-67eac",
+    "storage_bucket": "find-a-friend-67eac.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:580976880969:android:b92ae4db0ebd3044453e98",
+        "android_client_info": {
+          "package_name": "com.ayomideenoch.faf"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2PDh2PRwAyfn-cSGwppDFiXMp8giNxqg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

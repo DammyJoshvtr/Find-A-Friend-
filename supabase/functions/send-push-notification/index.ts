@@ -15,6 +15,8 @@ function buildBody(type: string, actorName: string, customBody?: string | null):
     case 'story_view':         return `${actorName} viewed your story`
     case 'mention':            return `${actorName} mentioned you in a post`
     case 'new_message':        return `${actorName} sent you a message`
+    case 'feedback_comment':   return `${actorName} commented on your Campus Voice post`
+    case 'feedback_upvote':    return `${actorName} upvoted your Campus Voice post`
     default:                   return 'You have a new notification'
   }
 }
@@ -22,10 +24,11 @@ function buildBody(type: string, actorName: string, customBody?: string | null):
 function buildRoute(entityType: string | null, entityId: string | null): string | null {
   if (!entityType || !entityId) return null
   switch (entityType) {
-    case 'post':  return `/post/${entityId}`
-    case 'event': return `/event/${entityId}`
-    case 'club':  return `/club/${entityId}`
-    default:      return null
+    case 'post':     return `/post/${entityId}`
+    case 'event':    return `/event/${entityId}`
+    case 'club':     return `/club/${entityId}`
+    case 'feedback': return `/feedback`
+    default:         return null
   }
 }
 

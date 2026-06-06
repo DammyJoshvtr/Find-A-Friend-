@@ -28,14 +28,19 @@ export default function EventDetailScreen() {
 
   const loadData = async () => {
     setLoading(true)
-    const [eventRes, attendeesRes] = await Promise.all([
-      getEventDetail(id),
-      getEventAttendees(id, 'going'),
-    ])
-    setEvent(eventRes.data)
-    setRsvpStatus(eventRes.data?.user_rsvp_status ?? null)
-    setAttendees(attendeesRes.data ?? [])
-    setLoading(false)
+    try {
+      const [eventRes, attendeesRes] = await Promise.all([
+        getEventDetail(id),
+        getEventAttendees(id, 'going'),
+      ])
+      setEvent(eventRes.data)
+      setRsvpStatus(eventRes.data?.user_rsvp_status ?? null)
+      setAttendees(attendeesRes.data ?? [])
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleRsvp = async () => {

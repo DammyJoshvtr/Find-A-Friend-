@@ -75,18 +75,28 @@ export default function GamesScreen() {
   useEffect(() => { init() }, [])
 
   const init = async () => {
-    const { data } = await getMyStats()
-    setStats(data ?? [])
-    await switchGame('pool')
-    setLoading(false)
+    try {
+      const { data } = await getMyStats()
+      setStats(data ?? [])
+      await switchGame('pool')
+    } catch {
+      // Non-fatal — show demo data
+    } finally {
+      setLoading(false)
+    }
   }
 
   const switchGame = async (gt: GameType) => {
     setActiveGame(gt)
     setLbLoading(true)
-    const { data } = await getLeaderboard(gt, 5)
-    setLeaders(data && data.length > 0 ? data : DEMO_LEADERS)
-    setLbLoading(false)
+    try {
+      const { data } = await getLeaderboard(gt, 5)
+      setLeaders(data && data.length > 0 ? data : DEMO_LEADERS)
+    } catch {
+      setLeaders(DEMO_LEADERS)
+    } finally {
+      setLbLoading(false)
+    }
   }
 
   const statFor = (gt: GameType) =>

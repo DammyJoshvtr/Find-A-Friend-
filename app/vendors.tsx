@@ -32,14 +32,19 @@ export default function VendorsScreen() {
   const loadVendors = async () => {
     setLoading(true)
     setError(null)
-    const { data, error: err } = await getVendorsWithDeals()
-    if (err) {
+    try {
+      const { data, error: err } = await getVendorsWithDeals()
+      if (err) {
+        setError('Could not load vendors. Pull down to retry.')
+      } else {
+        setVendors(data ?? [])
+      }
+    } catch {
       setError('Could not load vendors. Pull down to retry.')
-    } else {
-      setVendors(data ?? [])
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
     }
-    setLoading(false)
-    setRefreshing(false)
   }
 
   const onRefresh = useCallback(() => {

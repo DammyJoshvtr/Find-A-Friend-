@@ -57,22 +57,27 @@ export default function ProfileScreen() {
 
   const loadAll = useCallback(async () => {
     setLoading(true)
-    const [p, s] = await Promise.all([getCurrentProfile(), getProfileStats()])
-    setProfile(p)
-    setStats(s)
-    setFullName(p?.full_name ?? '')
-    setBio(p?.bio ?? '')
-    setInterests(p?.interests ?? [])
+    try {
+      const [p, s] = await Promise.all([getCurrentProfile(), getProfileStats()])
+      setProfile(p)
+      setStats(s)
+      setFullName(p?.full_name ?? '')
+      setBio(p?.bio ?? '')
+      setInterests(p?.interests ?? [])
 
-    if (p?.id) {
-      const [postsRes, bmRes] = await Promise.all([
-        getUserFeedPosts(p.id),
-        getBookmarkedPosts(),
-      ])
-      setUserPosts(postsRes.data ?? [])
-      setBookmarks(bmRes.data ?? [])
+      if (p?.id) {
+        const [postsRes, bmRes] = await Promise.all([
+          getUserFeedPosts(p.id),
+          getBookmarkedPosts(),
+        ])
+        setUserPosts(postsRes.data ?? [])
+        setBookmarks(bmRes.data ?? [])
+      }
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }, [])
 
   useEffect(() => {

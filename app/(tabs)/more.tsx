@@ -39,11 +39,15 @@ export default function MoreScreen() {
   const { onScroll, scrollEventThrottle } = useTabBarScroll()
 
   useEffect(() => {
-    Promise.all([getCurrentProfile(), getProfileStats()]).then(([p, s]) => {
-      setProfile(p)
-      setStats(s)
-      setLoading(false)
-    })
+    Promise.all([getCurrentProfile(), getProfileStats()])
+      .then(([p, s]) => {
+        setProfile(p)
+        setStats(s)
+      })
+      .catch(() => {
+        // Non-fatal
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
@@ -60,6 +64,22 @@ export default function MoreScreen() {
         router.replace('/(auth)/welcome' as any)
       }},
     ])
+  }
+
+  const [updating, setUpdating] = useState(false)
+
+  const handleCheckUpdate = async () => {
+    if (updating) return
+    setUpdating(true)
+    Toast.show({ type: 'info', text1: 'Checking for updates...', text2: 'Restarting to apply latest version.' })
+    setTimeout(async () => {
+      try {
+        await Updates.reloadAsync()
+      } catch {
+        Toast.show({ type: 'error', text1: 'Restart failed', text2: 'Try closing and reopening the app manually.' })
+        setUpdating(false)
+      }
+    }, 1200)
   }
 
   const handleDeleteAccount = () => {
@@ -99,7 +119,7 @@ export default function MoreScreen() {
       onPress: () => router.push('/privacy-settings' as any),
     },
     {
-      icon: '🌙', label: 'Appearance', sub: 'Dark & light mode',
+      icon: '🌙', label: 'Appearance', sub: 'Dark & darker mode',
       onPress: () => router.push('/appearance' as any),
     },
     {
@@ -109,6 +129,10 @@ export default function MoreScreen() {
     {
       icon: '❓', label: 'Help & support', sub: 'FAQs and contact',
       onPress: () => router.push('/help' as any),
+    },
+    {
+      icon: '🔄', label: 'Check for updates', sub: 'Pull the latest app changes',
+      onPress: handleCheckUpdate,
     },
     {
       icon: '🗑️', label: 'Delete account', sub: 'Permanently remove your data',
@@ -216,7 +240,10 @@ export default function MoreScreen() {
                 <Text style={[s.menuLabel, { color: item.danger ? '#ef4444' : theme.text }]}>{item.label}</Text>
                 <Text style={[s.menuSub, { color: theme.textMuted }]}>{item.sub}</Text>
               </View>
-              <Text style={[s.menuArrow, { color: theme.textMuted }]}>›</Text>
+              {item.label === 'Check for updates' && updating
+                ? <ActivityIndicator size="small" color="#a78bfa" />
+                : <Text style={[s.menuArrow, { color: theme.textMuted }]}>›</Text>}
+
             </TouchableOpacity>
           ))}
         </View>

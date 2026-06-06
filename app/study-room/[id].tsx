@@ -59,35 +59,40 @@ export default function StudyRoomScreen() {
   const [isMember, setIsMember] = useState(false)
 
   const load = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !groupId) { setLoading(false); return }
-    setMyId(user.id)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user || !groupId) return
+      setMyId(user.id)
 
-    // Load group info
-    const { data: groups } = await supabase
-      .from('study_groups').select('name').eq('id', groupId).single()
-    if (groups) setGroupName(groups.name)
+      // Load group info
+      const { data: groups } = await supabase
+        .from('study_groups').select('name').eq('id', groupId).single()
+      if (groups) setGroupName(groups.name)
 
-    // Check membership
-    const { data: membership } = await supabase
-      .from('study_group_members').select('user_id')
-      .eq('group_id', groupId).eq('user_id', user.id).maybeSingle()
-    setIsMember(!!membership)
+      // Check membership
+      const { data: membership } = await supabase
+        .from('study_group_members').select('user_id')
+        .eq('group_id', groupId).eq('user_id', user.id).maybeSingle()
+      setIsMember(!!membership)
 
-    // Load messages
-    const { data: msgs, error } = await supabase
-      .from('study_group_messages')
-      .select('*, profiles!sender_id(id, full_name, avatar_url)')
-      .eq('group_id', groupId)
-      .order('created_at', { ascending: true })
-      .limit(100)
+      // Load messages
+      const { data: msgs, error } = await supabase
+        .from('study_group_messages')
+        .select('*, profiles!sender_id(id, full_name, avatar_url)')
+        .eq('group_id', groupId)
+        .order('created_at', { ascending: true })
+        .limit(100)
 
-    if (error && error.code === '42P01') {
-      Toast.show({ type: 'info', text1: 'Run study_group_messages SQL', text2: 'Check code comments.' })
+      if (error && error.code === '42P01') {
+        Toast.show({ type: 'info', text1: 'Run study_group_messages SQL', text2: 'Check code comments.' })
+      }
+      setMessages(msgs ?? [])
+      setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100)
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
     }
-    setMessages(msgs ?? [])
-    setLoading(false)
-    setTimeout(() => listRef.current?.scrollToEnd({ animated: false }), 100)
   }, [groupId])
 
   useEffect(() => { load() }, [load])

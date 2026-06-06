@@ -69,11 +69,25 @@ export default function LeaderboardScreen() {
   useEffect(() => {
     load()
 
-    // Realtime: refresh whenever a game_session is inserted
+    // Realtime: refresh whenever a game_session is inserted or updated
+    // (covers both new results and score corrections)
     channelRef.current = supabase
       .channel(`leaderboard-${gt}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'game_sessions', filter: `game_type=eq.${gt}` },
-        () => { refresh() })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'game_sessions',
+        filter: `game_type=eq.${gt}`,
+      }, () => { refresh() })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'game_sessions',
+        filter: `game_type=eq.${gt}`,
+      }, () => { refresh() })
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'live_game_sessions',
+        filter: `game_type=eq.${gt}`,
+      }, (payload: any) => {
+        // Refresh leaderboard when a live session finishes
+        if (payload.new?.status === 'finished') refresh()
+      })
       .subscribe()
 
     return () => {
@@ -88,29 +102,39 @@ export default function LeaderboardScreen() {
 
   const load = async () => {
     setLoading(true)
-    const [list, userRes] = await Promise.all([
-      fetchEntries(),
-      supabase.auth.getUser(),
-      new Promise<void>(r => setTimeout(r, MIN_LOADER_MS)),
-    ])
+    try {
+      const [list, userRes] = await Promise.all([
+        fetchEntries(),
+        supabase.auth.getUser(),
+        new Promise<void>(r => setTimeout(r, MIN_LOADER_MS)),
+      ])
 
-    const user = userRes.data.user
-    currentUserRef.current = user?.id ?? null
-    setEntries(list)
-    if (user) {
-      const idx = list.findIndex(e => e.user_id === user.id)
-      if (idx !== -1) setMyEntry({ rank: idx + 1, entry: list[idx] })
+      const user = userRes.data.user
+      currentUserRef.current = user?.id ?? null
+      setEntries(list)
+      if (user) {
+        const idx = list.findIndex(e => e.user_id === user.id)
+        if (idx !== -1) setMyEntry({ rank: idx + 1, entry: list[idx] })
+        else setMyEntry(null)
+      }
+    } catch {
+      // Non-fatal — display demo data that was set by fetchEntries
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const refresh = async () => {
-    const list = await fetchEntries()
-    setEntries(list)
-    const uid = currentUserRef.current
-    if (uid) {
-      const idx = list.findIndex(e => e.user_id === uid)
-      setMyEntry(idx !== -1 ? { rank: idx + 1, entry: list[idx] } : null)
+    try {
+      const list = await fetchEntries()
+      setEntries(list)
+      const uid = currentUserRef.current
+      if (uid) {
+        const idx = list.findIndex(e => e.user_id === uid)
+        setMyEntry(idx !== -1 ? { rank: idx + 1, entry: list[idx] } : null)
+      }
+    } catch {
+      // Non-fatal — keep current entries
     }
   }
 

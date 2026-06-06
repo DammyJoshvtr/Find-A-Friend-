@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FAF | Interactive Campus Map</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Canvas for 3D Background -->
+        <canvas id="bg-canvas"></canvas>
+
+        <!-- Custom Cursor -->
+        <div class="cursor-dot"></div>
+        <div class="cursor-outline"></div>
+
+        <div class="subpage-container">
+            <div class="subpage-header">
+                <a href="index.html" class="btn-back">
+                    <i class="fas fa-chevron-left"></i> Back to Grid
+                </a>
+                <h1 class="subpage-title gradient-text">Interactive Campus Map</h1>
+                <div style="width: 100px;"></div> <!-- spacer -->
+            </div>
+
+            <div class="dashboard-layout">
+                <!-- Sidebar -->
+                <aside class="dash-sidebar">
+                    <h3 class="sidebar-title">FAF Hub</h3>
+                    <ul class="sidebar-menu">
+                        <a href="chat.html" class="menu-item">
+                            <i class="fas fa-comment-dots"></i> Chats
+                        </a>
+                        <a href="academic.html" class="menu-item">
+                            <i class="fas fa-book-reader"></i> Academic Hub
+                        </a>
+                        <a href="anonymous.html" class="menu-item">
+                            <i class="fas fa-mask"></i> Confessions
+                        </a>
+                        <a href="map.html" class="menu-item active">
+                            <i class="fas fa-map-marked-alt"></i> Campus Map
+                        </a>
+                        <a href="events.html" class="menu-item">
+                            <i class="fas fa-calendar-alt"></i> Events
+                        </a>
+                        <a href="vendors.html" class="menu-item">
+                            <i class="fas fa-tags"></i> Vendor Deals
+                        </a>
+                    </ul>
+                </aside>
+
+                <!-- Main Panel -->
+                <main class="dash-main">
+                    <div class="dash-card">
+                        <h3 class="sidebar-title">Campus Landmarks & Events</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                            Click on any pin below to discover building details, active events, and local student deals happening at that campus landmark.
+                        </p>
+
+                        <!-- Map Area -->
+                        <div class="map-canvas-container" id="mapContainer">
+                            <div class="map-background-mock"></div>
+                            <div class="map-grid-overlay"></div>
+
+                            <!-- Pins -->
+                            <div class="map-pin active" style="left: 20%; top: 30%;" data-landmark="library">
+                                <i class="fas fa-book"></i>
+                            </div>
+                            <div class="map-pin" style="left: 70%; top: 40%;" data-landmark="student-center">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="map-pin" style="left: 45%; top: 65%;" data-landmark="stadium">
+                                <i class="fas fa-running"></i>
+                            </div>
+                            <div class="map-pin" style="left: 80%; top: 15%;" data-landmark="food-court">
+                                <i class="fas fa-utensils"></i>
+                            </div>
+
+                            <!-- Floating Map Info Box -->
+                            <div class="map-info-box" id="mapInfoBox">
+                                <h4 id="infoTitle" style="color: var(--accent-violet);">Campus Library</h4>
+                                <p id="infoDesc" style="font-size: 0.85rem; color: var(--text-secondary);">The central academic center, featuring study pods, computer rooms, and research archives.</p>
+                                <div style="display: flex; flex-direction: column; gap: 0.3rem; margin-top: 0.5rem; border-top: 1px solid var(--glass-border); padding-top: 0.5rem;">
+                                    <span style="font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan);"><i class="fas fa-calendar-day"></i> Active Event: CS-101 study group (3:00 PM)</span>
+                                    <span style="font-size: 0.75rem; font-weight: 700; color: var(--accent-pink);"><i class="fas fa-tags"></i> Campus Deal: 15% off printing at copy counter</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script imports -->
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.128.0/build/three.module.js';
+
+        // 3D Particles Background
+        const canvas = document.getElementById('bg-canvas');
+        if (canvas) {
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 800;
+            const posArray = new Float32Array(particlesCount * 3);
+
+            for (let i = 0; i < particlesCount * 3; i += 3) {
+                posArray[i] = (Math.random() - 0.5) * 150;
+                posArray[i + 1] = (Math.random() - 0.5) * 80;
+                posArray[i + 2] = (Math.random() - 0.5) * 80 - 40;
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particlesMaterial = new THREE.PointsMaterial({
+                color: 0x3b82f6,
+                size: 0.2,
+                transparent: true,
+                opacity: 0.5,
+                blending: THREE.AdditiveBlending
+            });
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+            camera.position.z = 30;
+
+            const animate = () => {
+                requestAnimationFrame(animate);
+                particlesMesh.rotation.y += 0.0005;
+                particlesMesh.rotation.x += 0.0002;
+                renderer.render(scene, camera);
+            };
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // Custom Cursor
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorOutline = document.querySelector('.cursor-outline');
+        if (cursorDot && cursorOutline && window.innerWidth > 768) {
+            let mouseX = 0, mouseY = 0;
+            let outlineX = 0, outlineY = 0;
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                cursorDot.style.transform = `translate(${mouseX - 4}px, ${mouseY - 4}px)`;
+            });
+            const animateOutline = () => {
+                outlineX += (mouseX - outlineX) * 0.1;
+                outlineY += (mouseY - outlineY) * 0.1;
+                cursorOutline.style.transform = `translate(${outlineX - 20}px, ${outlineY - 20}px)`;
+                requestAnimationFrame(animateOutline);
+            };
+            animateOutline();
+
+            const interactiveElements = document.querySelectorAll('button, a, .menu-item, .map-pin');
+            interactiveElements.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    cursorOutline.style.width = '50px';
+                    cursorOutline.style.height = '50px';
+                    cursorOutline.style.borderColor = '#3b82f6';
+                });
+                el.addEventListener('mouseleave', () => {
+                    cursorOutline.style.width = '40px';
+                    cursorOutline.style.height = '40px';
+                    cursorOutline.style.borderColor = '#a78bfa';
+                });
+            });
+        }
+
+        // Landmark Map Pin Interaction Data
+        const landmarkData = {
+            library: {
+                title: "Campus Library",
+                desc: "The central academic center, featuring study pods, computer rooms, and research archives.",
+                event: "CS-101 Study Group (3:00 PM)",
+                deal: "15% off printing at copy counter"
+            },
+            "student-center": {
+                title: "Student Activity Center",
+                desc: "The heartbeat of campus social life. Recreation halls, student government offices, and lounge zones.",
+                event: "Debate Club Showcase (5:30 PM)",
+                deal: "Buy 1 Get 1 free bubble tea at Central Cafe"
+            },
+            stadium: {
+                title: "University Arena & Field",
+                desc: "Outdoor sports complex hosting campus tournaments, track meets, and university games.",
+                event: "Intramural Football Matches (7:00 PM)",
+                deal: "Free energy drink with stadium entry ticket"
+            },
+            "food-court": {
+                title: "Campus Food Plaza",
+                desc: "A wide variety of eateries offering global cuisine options and student dining tables.",
+                event: "Vendor Showcase and Tasting Day",
+                deal: "20% off Student Lunch specials at all stalls"
+            }
+        };
+
+        const pins = document.querySelectorAll('.map-pin');
+        const infoTitle = document.getElementById('infoTitle');
+        const infoDesc = document.getElementById('infoDesc');
+        const mapInfoBox = document.getElementById('mapInfoBox');
+
+        pins.forEach(pin => {
+            pin.addEventListener('click', () => {
+                // Remove active class from all pins
+                pins.forEach(p => p.classList.remove('active'));
+
+                // Set clicked pin active
+                pin.classList.add('active');
+
+                // Get pin landmark key
+                const landmark = pin.getAttribute('data-landmark');
+                const data = landmarkData[landmark];
+
+                // Load landmark details into the Info Box
+                if (data) {
+                    infoTitle.textContent = data.title;
+                    infoDesc.textContent = data.desc;
+
+                    // Update sub event/deal display
+                    mapInfoBox.querySelector('div').innerHTML = `
+                        <span style="font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan);"><i class="fas fa-calendar-day"></i> Active Event: ${data.event}</span>
+                        <span style="font-size: 0.75rem; font-weight: 700; color: var(--accent-pink);"><i class="fas fa-tags"></i> Campus Deal: ${data.deal}</span>
+                    `;
+
+                    // Reset styling just in case
+                    mapInfoBox.style.display = 'flex';
+                }
+
+                // Simulate vibration feedback
+                if (navigator.vibrate) navigator.vibrate(30);
+            });
+        });
+    </script>
+</body>
+</html>

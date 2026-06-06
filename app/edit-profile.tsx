@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+﻿import React, { useState, useEffect } from 'react'
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   Image, ScrollView, ActivityIndicator, Alert,
@@ -35,22 +35,26 @@ export default function EditProfileScreen() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    getCurrentProfile().then(p => {
-      if (p) {
-        setProfile(p)
-        setFullName(p.full_name ?? '')
-        setBio(p.bio ?? '')
-        const dept = p.department ?? ''
-        if (dept && !DEPARTMENTS.includes(dept)) {
-          setDepartment('Other')
-          setManualDepartment(dept)
-        } else {
-          setDepartment(dept)
+    getCurrentProfile()
+      .then(p => {
+        if (p) {
+          setProfile(p)
+          setFullName(p.full_name ?? '')
+          setBio(p.bio ?? '')
+          const dept = p.department ?? ''
+          if (dept && !DEPARTMENTS.includes(dept)) {
+            setDepartment('Other')
+            setManualDepartment(dept)
+          } else {
+            setDepartment(dept)
+          }
+          setLevel(p.level ?? '')
         }
-        setLevel(p.level ?? '')
-      }
-      setLoading(false)
-    })
+      })
+      .catch(() => {
+        // Non-fatal
+      })
+      .finally(() => setLoading(false))
   }, [])
 
   const pickAvatar = async () => {
@@ -111,7 +115,7 @@ export default function EditProfileScreen() {
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {/* Header */}
         <View style={s.header}>
           <TouchableOpacity onPress={() => router.back()} style={s.closeBtn}>
@@ -303,3 +307,4 @@ const s = StyleSheet.create({
   levelText: { fontSize: 13, color: 'rgba(240,240,255,0.45)', fontFamily: typography.fontRegular },
   levelTextActive: { color: '#a78bfa', fontFamily: typography.fontSemiBold },
 })
+

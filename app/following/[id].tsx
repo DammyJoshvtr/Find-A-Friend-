@@ -29,15 +29,20 @@ export default function FollowingScreen() {
 
   const loadFollowing = async () => {
     setLoading(true)
-    const { data } = await supabase
-      .from('follows')
-      .select('following_id, profiles!follows_following_id_fkey(id, full_name, avatar_url, department)')
-      .eq('follower_id', id)
-    const profiles = (data ?? [])
-      .map((r: any) => r.profiles)
-      .filter(Boolean) as FollowingProfile[]
-    setFollowing(profiles)
-    setLoading(false)
+    try {
+      const { data } = await supabase
+        .from('follows')
+        .select('following_id, profiles!follows_following_id_fkey(id, full_name, avatar_url, department)')
+        .eq('follower_id', id)
+      const profiles = (data ?? [])
+        .map((r: any) => r.profiles)
+        .filter(Boolean) as FollowingProfile[]
+      setFollowing(profiles)
+    } catch {
+      // Non-fatal
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

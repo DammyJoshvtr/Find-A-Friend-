@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FAF | Events & RSVPs</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Canvas for 3D Background -->
+        <canvas id="bg-canvas"></canvas>
+
+        <!-- Custom Cursor -->
+        <div class="cursor-dot"></div>
+        <div class="cursor-outline"></div>
+
+        <div class="subpage-container">
+            <div class="subpage-header">
+                <a href="index.html" class="btn-back">
+                    <i class="fas fa-chevron-left"></i> Back to Grid
+                </a>
+                <h1 class="subpage-title gradient-text">Events & RSVPs</h1>
+                <div style="width: 100px;"></div> <!-- spacer -->
+            </div>
+
+            <div class="dashboard-layout">
+                <!-- Sidebar -->
+                <aside class="dash-sidebar">
+                    <h3 class="sidebar-title">FAF Hub</h3>
+                    <ul class="sidebar-menu">
+                        <a href="chat.html" class="menu-item">
+                            <i class="fas fa-comment-dots"></i> Chats
+                        </a>
+                        <a href="academic.html" class="menu-item">
+                            <i class="fas fa-book-reader"></i> Academic Hub
+                        </a>
+                        <a href="anonymous.html" class="menu-item">
+                            <i class="fas fa-mask"></i> Confessions
+                        </a>
+                        <a href="map.html" class="menu-item">
+                            <i class="fas fa-map-marked-alt"></i> Campus Map
+                        </a>
+                        <a href="events.html" class="menu-item active">
+                            <i class="fas fa-calendar-alt"></i> Events
+                        </a>
+                        <a href="vendors.html" class="menu-item">
+                            <i class="fas fa-tags"></i> Vendor Deals
+                        </a>
+                    </ul>
+                </aside>
+
+                <!-- Main Panel -->
+                <main class="dash-main">
+                    <div class="dash-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                            <h3 class="sidebar-title" style="margin-bottom: 0;">Featured Campus Events</h3>
+                            <!-- Mock Filter Tabs -->
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn-secondary filter-btn active" style="padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.8rem;" data-filter="all">All</button>
+                                <button class="btn-secondary filter-btn" style="padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.8rem;" data-filter="social">Social</button>
+                                <button class="btn-secondary filter-btn" style="padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.8rem;" data-filter="academic">Academic</button>
+                            </div>
+                        </div>
+
+                        <!-- Events list -->
+                        <div class="dash-main" id="eventsList">
+                            <!-- Event 1 -->
+                            <div class="post-card event-card-item" data-category="social">
+                                <div class="post-header">
+                                    <div class="post-avatar"><i class="fas fa-music"></i></div>
+                                    <div class="post-meta">
+                                        <span class="post-author">Karaoke Social Night</span>
+                                        <span class="post-time">Friday, May 29 · 7:00 PM at Student Lounge</span>
+                                    </div>
+                                </div>
+                                <p class="post-body">Join FAF and the campus music club for a fun-filled karaoke night! Free food, soda, and great music. Grab your friends and sync up!</p>
+                                <div class="post-actions" style="justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);"><i class="fas fa-users" style="color: var(--accent-violet);"></i> <span class="rsvp-count">124</span> students attending</span>
+                                    <button class="btn-premium rsvp-btn" style="padding: 0.5rem 1.2rem; font-size: 0.85rem;" data-count="124">
+                                        <span>RSVP</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Event 2 -->
+                            <div class="post-card event-card-item" data-category="academic">
+                                <div class="post-header">
+                                    <div class="post-avatar"><i class="fas fa-laptop-code"></i></div>
+                                    <div class="post-meta">
+                                        <span class="post-author">Developer Pitch & Panel</span>
+                                        <span class="post-time">Monday, June 1 · 4:00 PM at Auditorium Hall</span>
+                                    </div>
+                                </div>
+                                <p class="post-body">Interested in tech startups? Watch local student projects pitch to judges. We'll also discuss Supabase database integrations and deployment strategies.</p>
+                                <div class="post-actions" style="justify-content: space-between; align-items: center;">
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);"><i class="fas fa-users" style="color: var(--accent-violet);"></i> <span class="rsvp-count">48</span> students attending</span>
+                                    <button class="btn-premium rsvp-btn" style="padding: 0.5rem 1.2rem; font-size: 0.85rem;" data-count="48">
+                                        <span>RSVP</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script imports -->
+    <script type="module">
+        import * as THREE from 'https://unpkg.com/three@0.128.0/build/three.module.js';
+
+        // 3D Particles Background
+        const canvas = document.getElementById('bg-canvas');
+        if (canvas) {
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            const renderer = new THREE.WebGLRenderer({ canvas, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            const particlesGeometry = new THREE.BufferGeometry();
+            const particlesCount = 800;
+            const posArray = new Float32Array(particlesCount * 3);
+
+            for (let i = 0; i < particlesCount * 3; i += 3) {
+                posArray[i] = (Math.random() - 0.5) * 150;
+                posArray[i + 1] = (Math.random() - 0.5) * 80;
+                posArray[i + 2] = (Math.random() - 0.5) * 80 - 40;
+            }
+
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+            const particlesMaterial = new THREE.PointsMaterial({
+                color: 0xa78bfa,
+                size: 0.2,
+                transparent: true,
+                opacity: 0.5,
+                blending: THREE.AdditiveBlending
+            });
+            const particlesMesh = new THREE.Points(particlesGeometry, particlesMaterial);
+            scene.add(particlesMesh);
+            camera.position.z = 30;
+
+            const animate = () => {
+                requestAnimationFrame(animate);
+                particlesMesh.rotation.y += 0.0005;
+                particlesMesh.rotation.x += 0.0002;
+                renderer.render(scene, camera);
+            };
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // Custom Cursor
+        const cursorDot = document.querySelector('.cursor-dot');
+        const cursorOutline = document.querySelector('.cursor-outline');
+        if (cursorDot && cursorOutline && window.innerWidth > 768) {
+            let mouseX = 0, mouseY = 0;
+            let outlineX = 0, outlineY = 0;
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+                cursorDot.style.transform = `translate(${mouseX - 4}px, ${mouseY - 4}px)`;
+            });
+            const animateOutline = () => {
+                outlineX += (mouseX - outlineX) * 0.1;
+                outlineY += (mouseY - outlineY) * 0.1;
+                cursorOutline.style.transform = `translate(${outlineX - 20}px, ${outlineY - 20}px)`;
+                requestAnimationFrame(animateOutline);
+            };
+            animateOutline();
+
+            const interactiveElements = document.querySelectorAll('button, a, .menu-item, .filter-btn');
+            interactiveElements.forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    cursorOutline.style.width = '50px';
+                    cursorOutline.style.height = '50px';
+                    cursorOutline.style.borderColor = '#a78bfa';
+                });
+                el.addEventListener('mouseleave', () => {
+                    cursorOutline.style.width = '40px';
+                    cursorOutline.style.height = '40px';
+                    cursorOutline.style.borderColor = '#a78bfa';
+                });
+            });
+        }
+
+        // RSVP click handler
+        const rsvpBtns = document.querySelectorAll('.rsvp-btn');
+        rsvpBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const countSpan = btn.parentElement.querySelector('.rsvp-count');
+                const defaultCount = parseInt(btn.getAttribute('data-count'));
+                const btnSpan = btn.querySelector('span');
+
+                if (btn.classList.contains('active-rsvp')) {
+                    btn.classList.remove('active-rsvp');
+                    btn.style.background = 'var(--gradient-1)';
+                    btnSpan.textContent = 'RSVP';
+                    countSpan.textContent = defaultCount;
+                } else {
+                    btn.classList.add('active-rsvp');
+                    btn.style.background = '#10b981'; // Green confirmed
+                    btnSpan.innerHTML = '<i class="fas fa-check"></i> Going';
+                    countSpan.textContent = defaultCount + 1; // Increment count
+                }
+
+                if (navigator.vibrate) navigator.vibrate(30);
+            });
+        });
+
+        // Filter buttons
+        const filterBtns = document.querySelectorAll('.filter-btn');
+        const events = document.querySelectorAll('.event-card-item');
+
+        filterBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                filterBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                const filter = btn.getAttribute('data-filter');
+                events.forEach(event => {
+                    if (filter === 'all' || event.getAttribute('data-category') === filter) {
+                        event.style.display = 'flex';
+                    } else {
+                        event.style.display = 'none';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
