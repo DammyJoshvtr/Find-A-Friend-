@@ -412,27 +412,6 @@ const ma = StyleSheet.create({
   cancelLabel: { fontSize: 14, fontFamily: typography.fontMedium },
 })
 
-}
-
-const att = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
-  sheet: {
-    borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 34,
-    borderWidth: 0.5, borderBottomWidth: 0,
-  },
-  handle: { width: 40, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-  title: { fontSize: 16, fontFamily: typography.fontSemiBold, marginBottom: 18, textAlign: 'center' },
-  grid: { flexDirection: 'row', gap: 12, marginBottom: 20 },
-  option: { flex: 1, alignItems: 'center', gap: 8, paddingVertical: 16, borderRadius: 16, borderWidth: 0.5 },
-  iconWrap: { width: 54, height: 54, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 0.5 },
-  optionLabel: { fontSize: 11, fontFamily: typography.fontMedium },
-  cancelBtn: { paddingVertical: 14, borderRadius: 14, borderWidth: 0.5, alignItems: 'center' },
-  cancelText: { fontSize: 14, fontFamily: typography.fontMedium },
-  uploadingRow: { alignItems: 'center', gap: 12, paddingVertical: 32 },
-  uploadingText: { fontSize: 13, fontFamily: typography.fontRegular },
-})
-
 // ─── Attachment bubble ────────────────────────────────────────────────────────
 
 const SCREEN_W = Dimensions.get('window').width
