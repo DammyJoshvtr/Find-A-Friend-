@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Image,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -104,11 +105,18 @@ export default function HomeScreen() {
 
   const header = (
     <View style={[s.header, { borderBottomColor: theme.border }]}>
-      <View>
-        <Text style={s.logo}>FAF</Text>
-        {firstName && (
-          <Text style={[s.greeting, { color: theme.textMuted }]}>{getGreeting()}, {firstName} 👋</Text>
-        )}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Image 
+          source={require('../../assets/images/icon.png')} 
+          style={{ width: 32, height: 32, borderRadius: 8 }} 
+          resizeMode="cover" 
+        />
+        <View>
+          <Text style={s.logo}>FAF</Text>
+          {firstName && (
+            <Text style={[s.greeting, { color: theme.textMuted }]}>{getGreeting()}, {firstName} 👋</Text>
+          )}
+        </View>
       </View>
       <View style={s.headerRight}>
         <TouchableOpacity
