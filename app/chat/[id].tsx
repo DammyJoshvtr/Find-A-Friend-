@@ -26,6 +26,8 @@ import {
 import { ReplyPayload, parseReply, ReplyBanner, QuotedBubble } from '../../components/chat/ReplyUI'
 import { GAME_META, type GameType } from '../../lib/games'
 import { usePresenceStore } from '../../store/presenceStore'
+import { StickerPicker } from '../../components/StickerPicker'
+import { useStickerStore } from '../../store/stickerStore'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -329,13 +331,14 @@ const sib = StyleSheet.create({
 
 const REACTIONS = ['❤️', '😂', '😮', '😢', '👍', '🔥']
 
-function MessageActionsModal({ msg, mine, onClose, onEdit, onDelete, onReact, onReply }: {
+function MessageActionsModal({ msg, mine, onClose, onEdit, onDelete, onReact, onReply, onSaveSticker }: {
   msg: any; mine: boolean
   onClose: () => void
   onEdit: () => void
   onDelete: () => void
   onReact: (emoji: string) => void
   onReply: () => void
+  onSaveSticker?: () => void
 }) {
   const theme = useTheme()
   return (
@@ -362,6 +365,13 @@ function MessageActionsModal({ msg, mine, onClose, onEdit, onDelete, onReact, on
           <Ionicons name="arrow-undo-outline" size={18} color={theme.accent} />
           <Text style={[ma.actionLabel, { color: theme.text }]}>Reply</Text>
         </TouchableOpacity>
+
+        {onSaveSticker && (
+          <TouchableOpacity style={ma.actionRow} onPress={() => { onSaveSticker(); onClose() }}>
+            <Ionicons name="star-outline" size={18} color="#eab308" />
+            <Text style={[ma.actionLabel, { color: theme.text }]}>⭐ Save as Sticker</Text>
+          </TouchableOpacity>
+        )}
 
         {mine && (
           <TouchableOpacity style={ma.actionRow} onPress={() => { onEdit(); onClose() }}>
@@ -404,6 +414,7 @@ const ma = StyleSheet.create({
 // ─── Attachment sheet ─────────────────────────────────────────────────────────
 
 const SHEET_OPTIONS = [
+  { icon: 'star-outline',     label: 'Stickers',key: 'stickers' },
   { icon: 'camera-outline',   label: 'Camera',  key: 'camera'  },
   { icon: 'images-outline',   label: 'Gallery', key: 'gallery' },
   { icon: 'videocam-outline', label: 'Video',   key: 'video'   },
@@ -731,6 +742,8 @@ export default function DirectMessageScreen() {
   const [showAttachSheet, setShowAttachSheet] = useState(false)
   const [uploading, setUploading]         = useState(false)
   const [selectedMsg, setSelectedMsg]     = useState<any>(null)
+  const [showStickerPicker, setShowStickerPicker] = useState(false)
+  const { addSticker } = useStickerStore()
   const [editingId, setEditingId]         = useState<string | null>(null)
   const [replyingTo, setReplyingTo]       = useState<ReplyPayload['replyTo'] | null>(null)
   const [reactions, setReactions]         = useState<Record<string, string[]>>({})
@@ -938,6 +951,12 @@ export default function DirectMessageScreen() {
     setUploading(true)
     try {
       let attach: Attachment | null = null
+      if (key === 'stickers') {
+        setShowAttachSheet(false)
+        setShowStickerPicker(true)
+        setUploading(false)
+        return
+      }
       if (key === 'camera')  attach = await takePhoto(convId)
       if (key === 'gallery') attach = await pickMedia(convId)
       if (key === 'video')   attach = await recordVideo(convId)
@@ -986,8 +1005,36 @@ export default function DirectMessageScreen() {
           onDelete={() => deleteMessage(selectedMsg.id)}
           onReact={emoji => addReaction(selectedMsg.id, emoji)}
           onReply={() => handleReply(selectedMsg)}
+          onSaveSticker={
+            parseAttachment(selectedMsg.body)?._type === 'image' 
+              ? async () => {
+                  const url = parseAttachment(selectedMsg.body)!.url
+                  const { error } = await addSticker(url)
+                  if (error) Toast.show({ type: 'error', text1: 'Failed', text2: error.message })
+                  else Toast.show({ type: 'success', text1: 'Saved to My Stickers' })
+                }
+              : undefined
+          }
         />
       )}
+      
+      <StickerPicker 
+        visible={showStickerPicker}
+        onClose={() => setShowStickerPicker(false)}
+        onSelectSticker={(url) => {
+          setShowStickerPicker(false)
+          const attach: Attachment = { _type: 'image', url, width: 800, height: 800 }
+          const body = JSON.stringify(attach)
+          const optimistic = {
+            id: `opt_${Date.now()}`, _optimistic: true,
+            conversation_id: convId, sender_id: myId,
+            body, created_at: new Date().toISOString(), profiles: null,
+          }
+          setMessages(prev => [...prev, optimistic])
+          setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80)
+          supabase.from('messages').insert({ conversation_id: convId, sender_id: myId, body })
+        }}
+      />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}

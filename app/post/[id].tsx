@@ -20,6 +20,8 @@ import { supabase } from '../../lib/supabase'
 import { ReplyBanner } from '../../components/chat/ReplyUI'
 import { pickCommentMedia, takeCommentPhoto, recordCommentVideo } from '../../lib/feedAttachments'
 import type { FeedMedia } from '../../lib/feedAttachments'
+import { StickerPicker } from '../../components/StickerPicker'
+import { useStickerStore } from '../../store/stickerStore'
 
 function toHandle(name: string | null | undefined) {
   if (!name) return '@user'
@@ -56,6 +58,8 @@ export default function PostDetailScreen() {
   const [replyingTo, setReplyingTo] = useState<PostComment | null>(null)
   const [attachMedia, setAttachMedia] = useState<FeedMedia | null>(null)
   const [uploadingMedia, setUploadingMedia] = useState(false)
+  const [showStickerPicker, setShowStickerPicker] = useState(false)
+  const { addSticker } = useStickerStore()
   const inputRef = useRef<TextInput>(null)
 
   const {
@@ -248,6 +252,7 @@ export default function PostDetailScreen() {
 
   const handleAttach = () => {
     Alert.alert('Attach Media', undefined, [
+      { text: '✨ My Stickers', onPress: () => setShowStickerPicker(true) },
       { text: 'Take Photo', onPress: async () => {
           setUploadingMedia(true)
           try { const media = await takeCommentPhoto(); if (media) setAttachMedia(media) } 
@@ -358,16 +363,33 @@ export default function PostDetailScreen() {
     const isChild = depth > 0
 
     const handleCommentLongPress = () => {
-      Alert.alert('Options', undefined, [
-        { text: 'Reply', onPress: () => { setReplyingTo(item); inputRef.current?.focus() } },
-        item.author_id === myUserId 
-          ? { text: 'Delete', style: 'destructive', onPress: async () => {
-              await deleteComment(item.id)
-              setComments(prev => prev.filter(c => c.id !== item.id))
-            }}
-          : { text: 'Report', style: 'destructive', onPress: () => Alert.alert('Reported', 'Thanks for reporting.') },
-        { text: 'Cancel', style: 'cancel' }
-      ])
+      const options: any[] = [
+        { text: 'Reply', onPress: () => { setReplyingTo(item); inputRef.current?.focus() } }
+      ]
+
+      if (item.media_url && item.media_type !== 'video') {
+        options.push({
+          text: '⭐ Save as Sticker',
+          onPress: async () => {
+            const { error } = await addSticker(item.media_url!)
+            if (error) Toast.show({ type: 'error', text1: 'Failed', text2: error.message })
+            else Toast.show({ type: 'success', text1: 'Saved to My Stickers' })
+          }
+        })
+      }
+
+      if (item.author_id === myUserId) {
+        options.push({ text: 'Delete', style: 'destructive', onPress: async () => {
+          await deleteComment(item.id)
+          setComments(prev => prev.filter(c => c.id !== item.id))
+        }})
+      } else {
+        options.push({ text: 'Report', style: 'destructive', onPress: () => Alert.alert('Reported', 'Thanks for reporting.') })
+      }
+      
+      options.push({ text: 'Cancel', style: 'cancel' })
+
+      Alert.alert('Options', undefined, options)
     }
 
     return (
@@ -686,6 +708,15 @@ export default function PostDetailScreen() {
             </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+      
+      <StickerPicker 
+        visible={showStickerPicker} 
+        onClose={() => setShowStickerPicker(false)}
+        onSelectSticker={(url) => {
+          setAttachMedia({ url, type: 'image' })
+          setShowStickerPicker(false)
+        }}
+      />
     </SafeAreaView>
   )
 }
