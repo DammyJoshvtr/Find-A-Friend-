@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # FAF — Campus Social Feed
 
 A school social app built with Expo, React Native, TypeScript, and Supabase. Students can post to a campus feed, watch stories, discover events and clubs, find study partners, browse campus vendors, and post anonymously — all in one place.
@@ -236,6 +235,3 @@ Feed and most list queries use cursor-based pagination via `created_at` timestam
 ## License
 
 Private — all rights reserved.
-=======
-# Find-A-Friend-
->>>>>>> 023f31a937fa217ad0e422b82b0c8742502aab9d

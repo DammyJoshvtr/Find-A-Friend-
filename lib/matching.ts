@@ -12,7 +12,9 @@ export function calculateMatchScore(
     if (theirSet.has(interest)) matches++
   })
 
-  const union = new Set([...mySet, ...theirSet])
+  const union = new Set<string>()
+  mySet.forEach(i => union.add(i))
+  theirSet.forEach(i => union.add(i))
   const score = Math.round((matches / union.size) * 100)
 
   return score

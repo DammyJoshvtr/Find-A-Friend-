@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react'
+import * as React from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TextInput,
   TouchableOpacity, ActivityIndicator, KeyboardAvoidingView,
@@ -59,6 +60,13 @@ export default function PostDetailScreen() {
 
   const isLiked = post ? likedPostIds.has(post.id) : false
   const isBookmarked = post ? bookmarkedPostIds.has(post.id) : false
+
+  const isRepost = !!(post && post.repost_of && post.original_post)
+  const orig = post?.original_post
+  let quoteText = post?.body ?? ''
+  if (isRepost && quoteText.startsWith('[Repost]')) {
+    quoteText = ''
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id ?? null))
@@ -163,23 +171,23 @@ export default function PostDetailScreen() {
 
   const handleSend = async () => {
     const trimmed = commentText.trim()
-    if (!trimmed || sending || !id) return
+    if (!trimmed || sending || !post) return
     setSending(true)
-    const { data, error } = await commentOnPost(id, trimmed)
+    const { data, error } = await commentOnPost(post.id, trimmed)
     if (!error && data) {
       setComments(prev => [...prev, data])
-      incrementCommentCount(id)
+      incrementCommentCount(post.id)
       setPost(p => p ? { ...p, comments_count: p.comments_count + 1 } : p)
       setCommentText('')
     }
     setSending(false)
   }
 
-  const renderBody = (text: string | null | undefined) => {
+  const renderBody = (text: string | null | undefined, isRepostText = false) => {
     const regex = /(https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}|\b[a-zA-Z0-9.-]+\.(?:com|org|net|edu|gov|ng|io|co|me|info|biz|uk|ca|de|jp|fr|au|us|ru|ch|it|nl|se|no|es|mil)\b(?:\/[^\s]*)?|#[a-zA-Z0-9_]+|@[a-zA-Z0-9_]+)/gi
     const parts = (text || '').split(regex)
     return (
-      <Text style={[s.postBody, { color: theme.text }]}>
+      <Text style={[isRepostText ? s.repostBody : s.postBody, { color: theme.text }]}>
         {parts.map((part, i) => {
           if (part.startsWith('#'))
             return <Text key={i} style={{ color: theme.accent }} onPress={() => router.push(`/hashtag/${part.slice(1)}` as any)}>{part}</Text>
@@ -302,10 +310,25 @@ export default function PostDetailScreen() {
   const handle = isAnon ? '@anonymous' : toHandle(post.profiles?.full_name)
   const goToProfile = () => !isAnon && post.author_id && router.push(`/profile/${post.author_id}` as any)
 
+  const handleOrigPress = () => {
+    if (orig) {
+      router.push(`/post/${orig.id}` as any)
+    }
+  }
+
   const PostHeader = (
     <View>
+      {isRepost && (
+        <View style={s.repostHeaderRow}>
+          <Ionicons name="repeat-outline" size={14} color={theme.textMuted} />
+          <Text style={[s.repostHeaderText, { color: theme.textMuted }]}>
+            {displayName} reposted
+          </Text>
+        </View>
+      )}
+
       {/* ── Author row ── */}
-      <View style={[s.authorSection, { borderBottomColor: theme.border }]}>
+      <View style={[s.authorSection, { borderBottomColor: theme.border }, isRepost && { paddingTop: 6 }]}>
         <TouchableOpacity onPress={goToProfile} disabled={isAnon}
           style={[s.avatarRing, { borderColor: isAnon ? theme.border : theme.accentBorder }]}>
           {!isAnon && post.profiles?.avatar_url
@@ -330,10 +353,57 @@ export default function PostDetailScreen() {
 
       {/* ── Body ── */}
       <View style={s.bodySection}>
-        {renderBody(post.body)}
-        {post.image_url
+        {quoteText ? renderBody(quoteText) : null}
+        {post.image_url && !isRepost
           ? <Image source={{ uri: post.image_url }} style={[s.postImage, { borderColor: theme.border }]} resizeMode="cover" />
           : null}
+
+        {/* Nested original post card (X/Twitter Quote style) */}
+        {isRepost && orig ? (
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={[s.repostCard, { borderColor: theme.border, backgroundColor: 'rgba(255, 255, 255, 0.015)' }]}
+            onPress={handleOrigPress}
+          >
+            <View style={s.repostCardHeader}>
+              <View style={[s.repostAvatarRing, { borderColor: orig.is_anonymous ? theme.border : theme.accentBorder }]}>
+                {!orig.is_anonymous && orig.profiles?.avatar_url ? (
+                  <Image source={{ uri: orig.profiles.avatar_url }} style={s.repostAvatar} />
+                ) : (
+                  <View style={[s.repostAvatarFallback, { backgroundColor: theme.cardSolid }]}>
+                    {orig.is_anonymous ? (
+                      <Ionicons name="eye-off-outline" size={10} color={theme.textMuted} />
+                    ) : (
+                      <Text style={[s.repostAvatarText, { color: theme.accent }]}>
+                        {getInitials(orig.profiles?.full_name ?? 'U')}
+                      </Text>
+                    )}
+                  </View>
+                )}
+              </View>
+              <View style={s.repostMetaRow}>
+                <Text style={[s.repostAuthorName, { color: theme.text }]} numberOfLines={1}>
+                  {orig.is_anonymous ? 'Anonymous' : (orig.profiles?.full_name ?? 'User')}
+                </Text>
+                <Text style={[s.repostAuthorHandle, { color: theme.textMuted }]} numberOfLines={1}>
+                  {orig.is_anonymous ? '@anonymous' : toHandle(orig.profiles?.full_name)}
+                </Text>
+                <Text style={[s.repostAuthorHandle, { color: theme.textFaint }]}>
+                  · {getTimeAgo(orig.created_at)}
+                </Text>
+              </View>
+            </View>
+            {orig.body ? renderBody(orig.body, true) : null}
+            {orig.image_url ? (
+              <Image
+                source={{ uri: orig.image_url }}
+                style={[s.repostMedia, { borderColor: theme.border }]}
+                resizeMode="cover"
+              />
+            ) : null}
+          </TouchableOpacity>
+        ) : null}
+
         <Text style={[s.timestamp, { color: theme.textFaint }]}>{formatFullDate(post.created_at)}</Text>
       </View>
 
@@ -457,6 +527,83 @@ const s = StyleSheet.create({
   container: { flex: 1 },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   errorText: { fontSize: 14, fontFamily: typography.fontRegular },
+
+  /* Quote Repost Styles */
+  repostCard: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  repostCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 8,
+  },
+  repostAvatarRing: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 1,
+  },
+  repostAvatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
+  },
+  repostAvatarFallback: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  repostAvatarText: {
+    fontSize: 8,
+    fontFamily: typography.fontBold,
+  },
+  repostMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  repostAuthorName: {
+    fontSize: 13,
+    fontFamily: typography.fontBold,
+  },
+  repostAuthorHandle: {
+    fontSize: 12,
+    fontFamily: typography.fontRegular,
+  },
+  repostBody: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: typography.fontRegular,
+  },
+  repostMedia: {
+    width: '100%',
+    height: 160,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginTop: 6,
+  },
+  repostHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 2,
+  },
+  repostHeaderText: {
+    fontSize: 12,
+    fontFamily: typography.fontMedium,
+  },
 
   /* Header */
   header: {
