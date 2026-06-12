@@ -270,7 +270,7 @@ export default function LeaderboardScreen() {
               })}
             </View>
           </Animated.View>
-        )}}
+        )}
 
         <View style={{ height: 60 }} />
       </ScrollView>

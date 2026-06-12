@@ -75,16 +75,25 @@ export interface CreatePostPayload {
 // ---------------------------------------------------------------------------
 
 const POST_SELECT =
-  '*, profiles!author_id(id, full_name, department, level, avatar_url), post_likes(count), post_comments(count), reposts(count)'
+  '*, profiles!author_id(id, full_name, department, level, avatar_url), post_likes(count), post_comments(count), reposts(count), original_post:repost_of(*, profiles!author_id(id, full_name, department, level, avatar_url), post_likes(count), post_comments(count), reposts(count))'
 
 function toFeedPost(raw: any): FeedPost {
-  const { post_likes, post_comments, reposts, ...rest } = raw
-  return {
+  if (!raw) return raw
+  const { post_likes, post_comments, reposts, original_post, ...rest } = raw
+  const parsed = {
     ...rest,
     likes_count:     post_likes?.[0]?.count    ?? rest.likes_count    ?? 0,
     comments_count:  post_comments?.[0]?.count ?? rest.comments_count ?? 0,
     repost_count:    reposts?.[0]?.count        ?? rest.repost_count   ?? 0,
   } as FeedPost
+
+  if (original_post) {
+    const rawOrig = Array.isArray(original_post) ? original_post[0] : original_post
+    if (rawOrig) {
+      parsed.original_post = toFeedPost(rawOrig)
+    }
+  }
+  return parsed
 }
 
 // ---------------------------------------------------------------------------
@@ -330,7 +339,7 @@ export async function repostPost(
     // Insert a new post entry that references the original
     const newBody = quoteBody
       ? quoteBody
-      : `[Repost] ${original.body ?? ''}`
+      : ''
 
     const { data: newPost, error: newPostError } = await supabase
       .from('posts')
@@ -342,11 +351,11 @@ export async function repostPost(
         repost_of: postId,
         post_type: 'feed',
       })
-      .select()
+      .select(POST_SELECT)
       .single()
 
     if (newPostError) throw newPostError
-    return { data: newPost as FeedPost, error: null }
+    return { data: toFeedPost(newPost), error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }

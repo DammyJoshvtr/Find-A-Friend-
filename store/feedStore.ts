@@ -160,8 +160,13 @@ export const useFeedStore = create<FeedState>((set, get) => ({
         getMyLikedPostIds(newIds),
         getMyBookmarkedPostIds(newIds),
       ])
-      const newLikedIds = new Set([...get().likedPostIds, ...likedIds])
-      const newBookmarkedIds = new Set([...get().bookmarkedPostIds, ...bookmarkedIds])
+      const newLikedIds = new Set<string>()
+      get().likedPostIds.forEach(id => newLikedIds.add(id))
+      likedIds.forEach(id => newLikedIds.add(id))
+
+      const newBookmarkedIds = new Set<string>()
+      get().bookmarkedPostIds.forEach(id => newBookmarkedIds.add(id))
+      bookmarkedIds.forEach(id => newBookmarkedIds.add(id))
 
       set(state => ({
         posts: [...state.posts, ...newPosts.map(p => ({
