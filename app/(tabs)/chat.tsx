@@ -285,11 +285,26 @@ export default function ChatScreen() {
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <View style={s.header}>
         <Text style={[s.title, { color: theme.text }]}>Messages</Text>
-        <TouchableOpacity
-          style={[s.composeBtn, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}
-          onPress={openNewChat}>
-          <Ionicons name="create-outline" size={20} color={theme.accent} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            style={[s.composeBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
+            onPress={() => {
+              setLoading(true)
+              loadConversations()
+            }}
+            disabled={loading}>
+            {loading ? (
+              <ActivityIndicator size="small" color={theme.accent} />
+            ) : (
+              <Ionicons name="refresh" size={20} color={theme.textMuted} />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.composeBtn, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}
+            onPress={openNewChat}>
+            <Ionicons name="create-outline" size={20} color={theme.accent} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* New chat picker */}

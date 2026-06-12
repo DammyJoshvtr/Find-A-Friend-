@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react'
-import { View, ScrollView, StyleSheet, ActivityIndicator } from 'react-native'
+import { View, ScrollView, StyleSheet, ActivityIndicator, Text, TouchableOpacity } from 'react-native'
 import { router } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
 import { useStoriesStore } from '../../store/storiesStore'
 import { useAuthStore } from '../../store/authStore'
 import StoryCircle from '../stories/StoryCircle'
@@ -30,11 +31,23 @@ export default function StoriesRow() {
       <View style={[StyleSheet.absoluteFill, s.tint]} pointerEvents="none" />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.content}>
         <StoryCircle group={ownPlaceholder} isOwn onAddStory={() => router.push('/create-story' as const)} />
-        {loading && !groups.length ? (
-          <ActivityIndicator color={theme.accent} style={{ marginLeft: 10, alignSelf: 'center' }} />
-        ) : (
-          otherGroups.map(group => <StoryCircle key={group.author_id} group={group} />)
-        )}
+        {otherGroups.map(group => <StoryCircle key={group.author_id} group={group} />)}
+        
+        {/* Instant Refresh Stories button styled like a StoryCircle */}
+        <TouchableOpacity
+          style={s.refreshCircle}
+          onPress={() => loadStories()}
+          disabled={loading}
+        >
+          <View style={[s.ring, { borderColor: theme.border, backgroundColor: theme.card }]}>
+            {loading ? (
+              <ActivityIndicator size="small" color={theme.accent} />
+            ) : (
+              <Ionicons name="refresh" size={22} color={theme.accent} />
+            )}
+          </View>
+          <Text style={[s.label, { color: theme.textMuted }]}>Refresh</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   )
@@ -44,4 +57,24 @@ const s = StyleSheet.create({
   wrapper: { paddingVertical: 10, borderBottomWidth: 0.5, marginBottom: 6, overflow: 'hidden' },
   content: { paddingHorizontal: 16, gap: 2 },
   tint: { backgroundColor: 'rgba(167,139,250,0.04)' },
+  refreshCircle: {
+    alignItems: 'center',
+    width: 72,
+    marginRight: 4,
+  },
+  ring: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
+    padding: 2,
+    marginBottom: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  label: {
+    fontSize: 10,
+    textAlign: 'center',
+    maxWidth: 68,
+  },
 })

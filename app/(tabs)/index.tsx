@@ -113,6 +113,17 @@ export default function HomeScreen() {
       <View style={s.headerRight}>
         <TouchableOpacity
           style={[s.iconBtn, { backgroundColor: theme.card }]}
+          onPress={handleRefresh}
+          disabled={refreshing}>
+          {refreshing ? (
+            <ActivityIndicator size="small" color={theme.accent} />
+          ) : (
+            <Ionicons name="refresh" size={20} color={theme.text} />
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[s.iconBtn, { backgroundColor: theme.card }]}
           onPress={() => router.push('/notifications' as any)}>
           <Ionicons name="notifications-outline" size={20} color={theme.text} />
           {unreadCount > 0 && (
