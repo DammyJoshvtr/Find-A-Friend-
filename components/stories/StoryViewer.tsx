@@ -11,12 +11,12 @@ import {
   Dimensions,
   Image,
   Modal,
-  PanResponder,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 import Toast from "react-native-toast-message";
@@ -260,14 +260,6 @@ export default function StoryViewer() {
     ]);
   };
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => setPaused(true),
-      onPanResponderRelease: () => setPaused(false),
-    }),
-  ).current;
-
   if (!visible || !story || !group) return null;
 
   const storiesInGroup = group.stories.length;
@@ -300,17 +292,23 @@ export default function StoryViewer() {
         <View style={s.bottomGradient} />
 
         {/* Tap zones — rendered before header so header sits on top and receives touches */}
-        <View style={s.tapZones} {...panResponder.panHandlers}>
-          <TouchableOpacity
-            style={s.tapLeft}
+        <View style={s.tapZones}>
+          <TouchableWithoutFeedback
+            onPressIn={() => setPaused(true)}
+            onPressOut={() => setPaused(false)}
+            onLongPress={() => {}}
             onPress={handlePrev}
-            activeOpacity={1}
-          />
-          <TouchableOpacity
-            style={s.tapRight}
+          >
+            <View style={s.tapLeft} />
+          </TouchableWithoutFeedback>
+          <TouchableWithoutFeedback
+            onPressIn={() => setPaused(true)}
+            onPressOut={() => setPaused(false)}
+            onLongPress={() => {}}
             onPress={handleNext}
-            activeOpacity={1}
-          />
+          >
+            <View style={s.tapRight} />
+          </TouchableWithoutFeedback>
         </View>
 
         {/* Progress bars */}
