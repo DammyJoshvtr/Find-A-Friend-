@@ -18,7 +18,8 @@ import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import { supabase } from '../../lib/supabase'
 import { ReplyBanner } from '../../components/chat/ReplyUI'
-import { pickCommentImage, takeCommentPhoto } from '../../lib/feedAttachments'
+import { pickCommentMedia, takeCommentPhoto, recordCommentVideo } from '../../lib/feedAttachments'
+import type { FeedMedia } from '../../lib/feedAttachments'
 
 function toHandle(name: string | null | undefined) {
   if (!name) return '@user'
@@ -53,7 +54,7 @@ export default function PostDetailScreen() {
   const [sending, setSending] = useState(false)
   const [myUserId, setMyUserId] = useState<string | null>(null)
   const [replyingTo, setReplyingTo] = useState<PostComment | null>(null)
-  const [attachUrl, setAttachUrl] = useState<string | null>(null)
+  const [attachMedia, setAttachMedia] = useState<FeedMedia | null>(null)
   const [uploadingMedia, setUploadingMedia] = useState(false)
   const inputRef = useRef<TextInput>(null)
 
@@ -231,32 +232,39 @@ export default function PostDetailScreen() {
 
   const handleSend = async () => {
     const trimmed = commentText.trim()
-    if ((!trimmed && !attachUrl) || sending || !post) return
+    if ((!trimmed && !attachMedia) || sending || !post) return
     setSending(true)
-    const { data, error } = await commentOnPost(post.id, trimmed, false, replyingTo?.id, attachUrl)
+    const { data, error } = await commentOnPost(post.id, trimmed, false, replyingTo?.id, attachMedia?.url, attachMedia?.type)
     if (!error && data) {
       setComments(prev => [...prev, data])
       incrementCommentCount(post.id)
       setPost(p => p ? { ...p, comments_count: p.comments_count + 1 } : p)
       setCommentText('')
       setReplyingTo(null)
-      setAttachUrl(null)
+      setAttachMedia(null)
     }
     setSending(false)
   }
 
   const handleAttach = () => {
-    Alert.alert('Attach Photo', undefined, [
+    Alert.alert('Attach Media', undefined, [
       { text: 'Take Photo', onPress: async () => {
           setUploadingMedia(true)
-          try { const url = await takeCommentPhoto(); if (url) setAttachUrl(url) } 
+          try { const media = await takeCommentPhoto(); if (media) setAttachMedia(media) } 
+          catch (e: any) { Toast.show({ type: 'error', text1: 'Upload failed', text2: e.message }) }
+          finally { setUploadingMedia(false) }
+        }
+      },
+      { text: 'Record Video', onPress: async () => {
+          setUploadingMedia(true)
+          try { const media = await recordCommentVideo(); if (media) setAttachMedia(media) } 
           catch (e: any) { Toast.show({ type: 'error', text1: 'Upload failed', text2: e.message }) }
           finally { setUploadingMedia(false) }
         }
       },
       { text: 'Choose from Gallery', onPress: async () => {
           setUploadingMedia(true)
-          try { const url = await pickCommentImage(); if (url) setAttachUrl(url) } 
+          try { const media = await pickCommentMedia(); if (media) setAttachMedia(media) } 
           catch (e: any) { Toast.show({ type: 'error', text1: 'Upload failed', text2: e.message }) }
           finally { setUploadingMedia(false) }
         }
@@ -381,8 +389,18 @@ export default function PostDetailScreen() {
             <Text style={[s.commentTime, { color: theme.textFaint }]}>{getTimeAgo(item.created_at)}</Text>
           </View>
           {item.body ? renderCommentBody(item.body) : null}
-          {item.image_url ? (
-            <Image source={{ uri: item.image_url }} style={[s.commentMedia, { borderColor: theme.border }]} resizeMode="cover" />
+          {item.media_url ? (
+            item.media_type === 'video' ? (
+              <TouchableOpacity
+                style={{ width: '100%', height: 160, borderRadius: 6, borderWidth: 1, borderColor: theme.border, marginTop: 6, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center' }}
+                onPress={() => Linking.openURL(item.media_url!)}
+              >
+                <Ionicons name="play-circle" size={48} color="rgba(255,255,255,0.8)" />
+                <Text style={{ color: 'white', marginTop: 8, fontSize: 12 }}>Play Video</Text>
+              </TouchableOpacity>
+            ) : (
+              <Image source={{ uri: item.media_url }} style={[s.commentMedia, { borderColor: theme.border }]} resizeMode="cover" />
+            )
           ) : null}
         </View>
       </Pressable>
@@ -619,13 +637,19 @@ export default function PostDetailScreen() {
         )}
 
         {/* ── Media Attachment Preview ── */}
-        {attachUrl && (
+        {attachMedia && (
           <View style={{ backgroundColor: theme.card, paddingHorizontal: 16, paddingTop: 8, paddingBottom: 8, flexDirection: 'row' }}>
             <View style={{ position: 'relative' }}>
-              <Image source={{ uri: attachUrl }} style={{ width: 80, height: 80, borderRadius: 8, borderWidth: 1, borderColor: theme.border }} />
+              {attachMedia.type === 'video' ? (
+                <View style={{ width: 80, height: 80, borderRadius: 8, borderWidth: 1, borderColor: theme.border, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center' }}>
+                   <Ionicons name="videocam" size={24} color="white" />
+                </View>
+              ) : (
+                <Image source={{ uri: attachMedia.url }} style={{ width: 80, height: 80, borderRadius: 8, borderWidth: 1, borderColor: theme.border }} />
+              )}
               <TouchableOpacity
                 style={{ position: 'absolute', top: -8, right: -8, backgroundColor: theme.cardSolid, borderRadius: 12 }}
-                onPress={() => setAttachUrl(null)}
+                onPress={() => setAttachMedia(null)}
               >
                 <Ionicons name="close-circle" size={24} color={theme.text} />
               </TouchableOpacity>
@@ -653,9 +677,9 @@ export default function PostDetailScreen() {
             maxLength={300}
           />
             <TouchableOpacity
-              style={[s.sendBtn, { backgroundColor: theme.accent }, ((!commentText.trim() && !attachUrl) || sending) && s.sendDisabled]}
+              style={[s.sendBtn, { backgroundColor: theme.accent }, ((!commentText.trim() && !attachMedia) || sending) && s.sendDisabled]}
               onPress={handleSend}
-              disabled={(!commentText.trim() && !attachUrl) || sending}>
+              disabled={(!commentText.trim() && !attachMedia) || sending}>
               {sending
                 ? <ActivityIndicator size="small" color="#fff" />
                 : <Ionicons name="send" size={16} color="#fff" />}

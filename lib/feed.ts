@@ -52,7 +52,8 @@ export interface PostComment {
   parent_id?: string | null
   author_id: string
   body: string
-  image_url?: string | null
+  media_url?: string | null
+  media_type?: string | null
   is_anonymous: boolean
   created_at: string
   profiles?: FeedAuthor | null
@@ -251,7 +252,8 @@ export async function commentOnPost(
   body: string,
   isAnonymous = false,
   parentId: string | null = null,
-  imageUrl: string | null = null
+  mediaUrl: string | null = null,
+  mediaType: string | null = null
 ): Promise<{ data: PostComment | null; error: Error | null }> {
   try {
     const { data: { user } } = await supabase.auth.getUser()
@@ -264,7 +266,8 @@ export async function commentOnPost(
         parent_id: parentId,
         author_id: user.id,
         body: body.trim(),
-        image_url: imageUrl,
+        media_url: mediaUrl,
+        media_type: mediaType,
         is_anonymous: isAnonymous,
       })
       .select('*, profiles!author_id(id, full_name, department, level, avatar_url, role, badge_type, badge_color)')
