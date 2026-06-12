@@ -221,18 +221,17 @@ export default function ChatScreen() {
     loadConversations()
 
     let listChannel: ReturnType<typeof supabase.channel> | null = null
+    let isMounted = true
 
     // We only subscribe once we know the user's conversation IDs.
     // getUser() is cached by Supabase so this is cheap.
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
+      if (!user || !isMounted) return
 
-      // Build a filter once conversations are loaded.
-      // Re-subscribe whenever loadConversations runs (it updates state which we
-      // read via the ref below). A simpler approach: subscribe with the
-      // user_id participant filter so we only get messages from our convs.
+      // Unique channel name to prevent "cannot add postgres_changes after subscribe" error
+      // due to React 18 strict mode / hot reloads not cleaning up async channels instantly.
       listChannel = supabase
-        .channel('chat-list-updates')
+        .channel(`chat-list-updates-${Date.now()}-${Math.random()}`)
         .on(
           'postgres_changes',
           {
@@ -242,8 +241,6 @@ export default function ChatScreen() {
           },
           (payload: any) => {
             // Only refetch if this message belongs to one of the user's convs.
-            // conversations state may not be loaded yet on first run — in that
-            // case we always refresh (first message ever scenario).
             setConversations(prev => {
               const myConvIds = new Set(prev.map((c: any) => c.conversation_id))
               if (myConvIds.size === 0 || myConvIds.has(payload.new?.conversation_id)) {
@@ -258,6 +255,7 @@ export default function ChatScreen() {
     })
 
     return () => {
+      isMounted = false
       if (listChannel) supabase.removeChannel(listChannel)
     }
   }, [loadConversations])
