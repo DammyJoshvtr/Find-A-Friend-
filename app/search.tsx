@@ -13,6 +13,8 @@ import { router } from 'expo-router'
 import { searchUsers, searchPosts, searchHashtags, searchClubs } from '../lib/search'
 import { useTheme } from '../lib/theme'
 import UserCard from '../components/discover/UserCard'
+import { getConnectionStatusesBulk } from '../lib/discoverLikes'
+import type { ConnectionStatus } from '../lib/discoverLikes'
 import PostCard from '../components/feed/PostCard'
 import type { FollowProfile } from '../lib/follows'
 import type { FeedPost } from '../lib/feed'
@@ -36,12 +38,14 @@ export default function SearchScreen() {
   const [posts, setPosts] = useState<FeedPost[]>([])
   const [hashtags, setHashtags] = useState<SearchHashtag[]>([])
   const [clubs, setClubs] = useState<Club[]>([])
+  const [statuses, setStatuses] = useState<Record<string, ConnectionStatus>>({})
   const [loading, setLoading] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
       setUsers([]); setPosts([]); setHashtags([]); setClubs([])
+      setStatuses({})
       return
     }
     setLoading(true)
@@ -52,13 +56,22 @@ export default function SearchScreen() {
         searchHashtags(q),
         searchClubs(q),
       ])
-      setUsers(uRes.data ?? [])
+      const usersList = uRes.data ?? []
+      setUsers(usersList)
       setPosts(pRes.data ?? [])
       setHashtags(hRes.data ?? [])
       setClubs(cRes.data ?? [])
+
+      if (usersList.length > 0) {
+        const statusesMap = await getConnectionStatusesBulk(usersList.map(u => u.id))
+        setStatuses(statusesMap)
+      } else {
+        setStatuses({})
+      }
     } catch {
       // Non-fatal — clear results
       setUsers([]); setPosts([]); setHashtags([]); setClubs([])
+      setStatuses({})
     } finally {
       setLoading(false)
     }
@@ -89,7 +102,12 @@ export default function SearchScreen() {
           <FlatList
             data={users}
             keyExtractor={i => i.id}
-            renderItem={({ item }) => <UserCard user={item} />}
+            renderItem={({ item }) => (
+              <UserCard 
+                user={item} 
+                initialStatus={statuses[item.id] || 'none'} 
+              />
+            )}
             ListEmptyComponent={<EmptyResult query={query} type="users" />}
             scrollEnabled={false}
           />

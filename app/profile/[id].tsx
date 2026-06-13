@@ -12,6 +12,9 @@ import { useLocalSearchParams, router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { getProfileById, getUserPosts } from '../../lib/profiles'
 import { followUser, unfollowUser, getFollowStatus } from '../../lib/follows'
+import { likeUser, unlikeUser, getConnectionStatus } from '../../lib/discoverLikes'
+import type { ConnectionStatus } from '../../lib/discoverLikes'
+import { Alert } from 'react-native'
 import { likePost } from '../../lib/feed'
 import { getInitials, getTimeAgo } from '../../lib/matching'
 import { supabase } from '../../lib/supabase'
@@ -83,8 +86,8 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [isOwnProfile, setIsOwnProfile] = useState(false)
-
   const [following, setFollowing] = useState(false)
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('none')
   const [followerCount, setFollowerCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
   const [followLoading, setFollowLoading] = useState(false)
@@ -149,9 +152,9 @@ export default function ProfileScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser()
 
-      const [profileRes, statusRes, followerRes, followingRes] = await Promise.all([
+      const [profileRes, connStatus, followerRes, followingRes] = await Promise.all([
         getProfileById(id),
-        getFollowStatus(id),
+        getConnectionStatus(id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
       ])
@@ -160,7 +163,8 @@ export default function ProfileScreen() {
       setProfile(p)
       setFollowerCount(followerRes.count ?? p?.follower_count ?? 0)
       setFollowingCount(followingRes.count ?? p?.following_count ?? 0)
-      setFollowing(statusRes.data === 'following')
+      setConnectionStatus(connStatus)
+      setFollowing(connStatus === 'connected' || connStatus === 'requested_sent')
       const own = user?.id === id
       setIsOwnProfile(own)
       if (own) {
@@ -203,24 +207,86 @@ export default function ProfileScreen() {
       return
     }
     setFollowLoading(true)
-    if (following) {
-      setFollowing(false)
-      setFollowerCount(c => Math.max(0, c - 1))
-      const { error } = await unfollowUser(id)
-      if (error) {
-        setFollowing(true)
-        setFollowerCount(c => c + 1)
-      }
-    } else {
-      setFollowing(true)
-      setFollowerCount(c => c + 1)
-      const { error } = await followUser(id)
-      if (error) {
+
+    try {
+      if (connectionStatus === 'connected') {
+        // Disconnect confirmation
+        Alert.alert(
+          'Disconnect',
+          `Are you sure you want to disconnect from ${profile?.full_name ?? 'this student'}?`,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => setFollowLoading(false) },
+            {
+              text: 'Disconnect',
+              style: 'destructive',
+              onPress: async () => {
+                setFollowLoading(true)
+                try {
+                  setConnectionStatus('none')
+                  setFollowing(false)
+                  setFollowerCount(c => Math.max(0, c - 1))
+                  await unlikeUser(id)
+                  const { error } = await unfollowUser(id)
+                  if (error) {
+                    setConnectionStatus('connected')
+                    setFollowing(true)
+                    setFollowerCount(c => c + 1)
+                  }
+                } catch (e) {
+                  console.warn(e)
+                  setConnectionStatus('connected')
+                  setFollowing(true)
+                  setFollowerCount(c => c + 1)
+                } finally {
+                  setFollowLoading(false)
+                }
+              }
+            }
+          ]
+        )
+        return
+      } else if (connectionStatus === 'requested_sent') {
+        // Cancel request
+        setConnectionStatus('none')
         setFollowing(false)
         setFollowerCount(c => Math.max(0, c - 1))
+        await unlikeUser(id)
+        const { error } = await unfollowUser(id)
+        if (error) {
+          setConnectionStatus('requested_sent')
+          setFollowing(true)
+          setFollowerCount(c => c + 1)
+        }
+      } else if (connectionStatus === 'requested_received') {
+        // Accept request
+        setConnectionStatus('connected')
+        setFollowing(true)
+        setFollowerCount(c => c + 1)
+        await likeUser(id)
+        const { error } = await followUser(id)
+        if (error) {
+          setConnectionStatus('requested_received')
+          setFollowing(false)
+          setFollowerCount(c => Math.max(0, c - 1))
+        }
+      } else {
+        // Send request (none)
+        setConnectionStatus('requested_sent')
+        setFollowing(true)
+        setFollowerCount(c => c + 1)
+        await likeUser(id)
+        const { error } = await followUser(id)
+        if (error) {
+          setConnectionStatus('none')
+          setFollowing(false)
+          setFollowerCount(c => Math.max(0, c - 1))
+        }
       }
+    } catch (e) {
+      console.warn('[Profile] follow toggle error:', e)
+    } finally {
+      setFollowLoading(false)
     }
-    setFollowLoading(false)
   }
 
   const onRefresh = useCallback(() => {
@@ -334,15 +400,23 @@ export default function ProfileScreen() {
         <TouchableOpacity
           style={[
             s.followBtn,
-            following && s.followingBtn,
+            (connectionStatus === 'connected' || connectionStatus === 'requested_sent') && s.followingBtn,
             isOwnProfile && s.editProfileBtn,
           ]}
           onPress={handleFollowToggle}
           disabled={followLoading}>
           {followLoading
-            ? <ActivityIndicator size="small" color={following ? '#a78bfa' : '#fff'} />
-            : <Text style={[s.followText, following && s.followingText, isOwnProfile && s.editProfileText]}>
-                {isOwnProfile ? 'Edit Profile' : following ? 'Following' : 'Follow'}
+            ? <ActivityIndicator size="small" color={(connectionStatus === 'connected' || connectionStatus === 'requested_sent') ? '#a78bfa' : '#fff'} />
+            : <Text style={[s.followText, (connectionStatus === 'connected' || connectionStatus === 'requested_sent') && s.followingText, isOwnProfile && s.editProfileText]}>
+                {isOwnProfile 
+                  ? 'Edit Profile' 
+                  : connectionStatus === 'connected' 
+                  ? 'Connected' 
+                  : connectionStatus === 'requested_sent' 
+                  ? 'Requested' 
+                  : connectionStatus === 'requested_received' 
+                  ? 'Accept Request' 
+                  : 'Connect 👋'}
               </Text>}
         </TouchableOpacity>
         {!isOwnProfile && (

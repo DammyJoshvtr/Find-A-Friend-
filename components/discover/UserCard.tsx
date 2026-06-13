@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native'
+import React, { useState, useEffect } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Alert } from 'react-native'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { router } from 'expo-router'
 import * as Haptics from 'expo-haptics'
@@ -9,15 +9,23 @@ import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import type { FollowProfile } from '../../lib/follows'
 import VerifiedBadge from '../ui/VerifiedBadge'
+import { likeUser, unlikeUser } from '../../lib/discoverLikes'
+import type { ConnectionStatus } from '../../lib/discoverLikes'
 
 interface UserCardProps {
   user: FollowProfile
   isFollowing?: boolean
+  initialStatus?: ConnectionStatus
   isCurrentUser?: boolean
 }
 
-export default function UserCard({ user, isFollowing: initialFollowing = false, isCurrentUser }: UserCardProps) {
-  const [following, setFollowing] = useState(initialFollowing)
+export default function UserCard({ 
+  user, 
+  isFollowing = false, 
+  initialStatus, 
+  isCurrentUser 
+}: UserCardProps) {
+  const [status, setStatus] = useState<ConnectionStatus>('none')
   const [loading, setLoading] = useState(false)
   const theme = useTheme()
   const cardScale = useSharedValue(1)
@@ -25,22 +33,67 @@ export default function UserCard({ user, isFollowing: initialFollowing = false, 
   const cardStyle = useAnimatedStyle(() => ({ transform: [{ scale: cardScale.value }] }))
   const btnStyle = useAnimatedStyle(() => ({ transform: [{ scale: btnScale.value }] }))
 
+  useEffect(() => {
+    if (initialStatus) {
+      setStatus(initialStatus)
+    } else {
+      setStatus(isFollowing ? 'connected' : 'none')
+    }
+  }, [initialStatus, isFollowing])
+
   const handleFollow = async () => {
     if (isCurrentUser) return
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
     btnScale.value = withSpring(0.88, { damping: 10 })
     setTimeout(() => { btnScale.value = withSpring(1, { damping: 10 }) }, 100)
     setLoading(true)
-    if (following) {
-      setFollowing(false)
-      const { error } = await unfollowUser(user.id)
-      if (error) setFollowing(true)
-    } else {
-      setFollowing(true)
-      const { error } = await followUser(user.id)
-      if (error) setFollowing(false)
+
+    try {
+      if (status === 'connected') {
+        // Disconnect confirmation
+        Alert.alert(
+          'Disconnect',
+          `Are you sure you want to disconnect from ${user.full_name ?? 'this student'}?`,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => setLoading(false) },
+            {
+              text: 'Disconnect',
+              style: 'destructive',
+              onPress: async () => {
+                setLoading(true)
+                try {
+                  setStatus('none')
+                  await unlikeUser(user.id)
+                  await unfollowUser(user.id)
+                } catch (e) {
+                  console.warn(e)
+                  setStatus('connected')
+                } finally {
+                  setLoading(false)
+                }
+              }
+            }
+          ]
+        )
+        return
+      } else if (status === 'requested_sent') {
+        setStatus('none')
+        await unlikeUser(user.id)
+        await unfollowUser(user.id)
+      } else if (status === 'requested_received') {
+        setStatus('connected')
+        await likeUser(user.id)
+        await followUser(user.id)
+      } else {
+        setStatus('requested_sent')
+        await likeUser(user.id)
+        await followUser(user.id)
+      }
+    } catch (e) {
+      console.warn('[UserCard] follow/connection error:', e)
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   return (
@@ -53,7 +106,7 @@ export default function UserCard({ user, isFollowing: initialFollowing = false, 
         activeOpacity={1}>
 
         {/* Left accent line */}
-        <View style={[s.accentLine, { backgroundColor: following ? theme.accent : 'transparent' }]} />
+        <View style={[s.accentLine, { backgroundColor: (status === 'connected') ? theme.accent : 'transparent' }]} />
 
         <View style={[s.avatar, { backgroundColor: theme.card2 }]}>
           {user.avatar_url ? (
@@ -80,16 +133,16 @@ export default function UserCard({ user, isFollowing: initialFollowing = false, 
           <Animated.View style={[
             btnStyle,
             s.followBtn,
-            following
+            (status === 'connected' || status === 'requested_sent')
               ? { backgroundColor: theme.accentBg, borderWidth: 0.5, borderColor: theme.accentBorder }
               : { backgroundColor: theme.accent, shadowColor: theme.accent, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.4, shadowRadius: 6, elevation: 5 },
           ]}>
             <TouchableOpacity style={s.followBtnInner} onPress={handleFollow} disabled={loading}>
               {loading ? (
-                <ActivityIndicator size="small" color={following ? theme.accent : '#fff'} />
+                <ActivityIndicator size="small" color={(status === 'connected' || status === 'requested_sent') ? theme.accent : '#fff'} />
               ) : (
-                <Text style={[s.followText, following && { color: theme.accent }]}>
-                  {following ? 'Following' : 'Follow'}
+                <Text style={[s.followText, (status === 'connected' || status === 'requested_sent') && { color: theme.accent }]}>
+                  {status === 'connected' ? 'Connected' : status === 'requested_sent' ? 'Requested' : status === 'requested_received' ? 'Accept' : 'Connect'}
                 </Text>
               )}
             </TouchableOpacity>

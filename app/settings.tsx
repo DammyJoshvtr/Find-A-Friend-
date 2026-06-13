@@ -122,6 +122,10 @@ export default function SettingsScreen() {
       onPress: () => router.push('/verification' as any),
     },
     {
+      icon: '🎖️', label: 'Badges Guide', sub: 'What each badge represents',
+      onPress: () => router.push('/badges-info' as any),
+    },
+    {
       icon: '❓', label: 'Help & support', sub: 'FAQs and contact',
       onPress: () => router.push('/help' as any),
     },

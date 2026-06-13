@@ -9,7 +9,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { getSuggestedUsers } from '../../lib/follows'
 import { getTrending } from '../../lib/feed'
-import { getLikesCounts } from '../../lib/discoverLikes'
+import { getLikesCounts, getConnectionStatusesBulk } from '../../lib/discoverLikes'
+import type { ConnectionStatus } from '../../lib/discoverLikes'
 import StudentCard from '../../components/discover/StudentCard'
 import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
@@ -27,6 +28,7 @@ export default function DiscoverScreen() {
   const [trending, setTrending] = useState<TrendingHashtag[]>([])
   const [loading, setLoading] = useState(true)
   const [likesCount, setLikesCount] = useState({ received: 0, mutual: 0 })
+  const [statuses, setStatuses] = useState<Record<string, ConnectionStatus>>({})
   const [userProfile, setUserProfile] = useState<FollowProfile | null>(null)
   
   // Search and Filter State
@@ -64,11 +66,20 @@ export default function DiscoverScreen() {
     setLoading(true)
     try {
       const [usersRes, trendingRes] = await Promise.all([getSuggestedUsers(), getTrending()])
-      setDeck(usersRes.data ?? [])
+      const usersList = usersRes.data ?? []
+      setDeck(usersList)
       setTrending(trendingRes.data ?? [])
+
+      if (usersList.length > 0) {
+        const statusesMap = await getConnectionStatusesBulk(usersList.map(u => u.id))
+        setStatuses(statusesMap)
+      } else {
+        setStatuses({})
+      }
     } catch (e) {
       console.warn('[Discover] loadData error:', e)
       setDeck([])
+      setStatuses({})
     } finally {
       setLoading(false)
     }
@@ -83,8 +94,14 @@ export default function DiscoverScreen() {
   const handleConnectToggle = (userId: string, isConnecting: boolean) => {
     if (isConnecting) {
       setLiked(n => n + 1)
+      setStatuses(prev => {
+        const prevStatus = prev[userId]
+        const nextStatus = prevStatus === 'requested_received' ? 'connected' : 'requested_sent'
+        return { ...prev, [userId]: nextStatus }
+      })
     } else {
       setLiked(n => Math.max(0, n - 1))
+      setStatuses(prev => ({ ...prev, [userId]: 'none' }))
     }
     getLikesCounts().then(setLikesCount)
   }
@@ -292,6 +309,7 @@ export default function DiscoverScreen() {
           renderItem={({ item }) => (
             <StudentCard
               user={item}
+              initialStatus={statuses[item.id] || 'none'}
               onConnectToggle={handleConnectToggle}
             />
           )}
