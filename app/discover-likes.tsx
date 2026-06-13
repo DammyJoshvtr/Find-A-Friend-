@@ -8,10 +8,12 @@ import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import { useTheme } from '../lib/theme'
 import { typography } from '../lib/typography'
-import { getLikesReceived, getMutualLikes } from '../lib/discoverLikes'
+import { getLikesReceived, getMutualLikes, likeUser } from '../lib/discoverLikes'
+import { followUser } from '../lib/follows'
 import { getInitials } from '../lib/matching'
 import type { FollowProfile } from '../lib/follows'
 import { supabase } from '../lib/supabase'
+import Toast from 'react-native-toast-message'
 
 
 function Avatar({ url, name, size, theme }: {
@@ -33,37 +35,58 @@ function Avatar({ url, name, size, theme }: {
 }
 
 function ProfileRow({
-  user, theme, badge, onPress,
+  user, theme, badge, actionType, onActionPress,
 }: {
   user: FollowProfile
   theme: any
   badge?: React.ReactNode
-  onPress: () => void
+  actionType: 'matches' | 'likes'
+  onActionPress: () => void
 }) {
   return (
-    <TouchableOpacity style={s.row} activeOpacity={0.75} onPress={onPress}>
-      <View style={s.avatarWrap}>
-        <Avatar url={user.avatar_url} name={user.full_name} size={50} theme={theme} />
-        {badge}
-      </View>
-      <View style={s.rowInfo}>
-        <Text style={[s.rowName, { color: theme.text }]} numberOfLines={1}>
-          {user.full_name ?? 'Student'}
-        </Text>
-        <Text style={[s.rowSub, { color: theme.textMuted }]} numberOfLines={1}>
-          {user.department ?? 'Student'}{user.level ? ` · ${user.level}` : ''}
-        </Text>
-        <Text style={[s.rowFollowers, { color: theme.textFaint }]}>
-          {user.follower_count ?? 0} followers
-        </Text>
-      </View>
-      <TouchableOpacity
-        style={[s.chatBtn, { backgroundColor: 'rgba(167,139,250,0.12)', borderColor: 'rgba(167,139,250,0.3)' }]}
+    <View style={s.row}>
+      <TouchableOpacity 
+        style={s.rowLeft} 
+        activeOpacity={0.75} 
         onPress={() => router.push(`/profile/${user.id}` as any)}>
-        <Ionicons name="person-outline" size={14} color="#a78bfa" />
-        <Text style={s.chatBtnText}>Profile</Text>
+        <View style={s.avatarWrap}>
+          <Avatar url={user.avatar_url} name={user.full_name} size={50} theme={theme} />
+          {badge}
+        </View>
+        <View style={s.rowInfo}>
+          <Text style={[s.rowName, { color: theme.text }]} numberOfLines={1}>
+            {user.full_name ?? 'Student'}
+          </Text>
+          <Text style={[s.rowSub, { color: theme.textMuted }]} numberOfLines={1}>
+            {user.department ?? 'Student'}{user.level ? ` · ${user.level}` : ''}
+          </Text>
+          <Text style={[s.rowFollowers, { color: theme.textFaint }]}>
+            {user.follower_count ?? 0} followers
+          </Text>
+        </View>
       </TouchableOpacity>
-    </TouchableOpacity>
+      
+      <TouchableOpacity
+        style={[
+          s.chatBtn,
+          actionType === 'likes'
+            ? { backgroundColor: theme.accent, borderColor: theme.accent }
+            : { backgroundColor: 'rgba(167,139,250,0.12)', borderColor: 'rgba(167,139,250,0.3)' }
+        ]}
+        onPress={onActionPress}>
+        {actionType === 'likes' ? (
+          <>
+            <Ionicons name="checkmark-circle-outline" size={14} color="#fff" style={{ marginRight: 2 }} />
+            <Text style={[s.chatBtnText, { color: '#fff' }]}>Accept</Text>
+          </>
+        ) : (
+          <>
+            <Ionicons name="chatbubble-outline" size={14} color="#a78bfa" style={{ marginRight: 2 }} />
+            <Text style={s.chatBtnText}>Message</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
   )
 }
 
@@ -116,6 +139,25 @@ export default function DiscoverLikesScreen() {
       setMatches([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleAcceptConnection = async (userId: string) => {
+    try {
+      // 1. Establish mutual connection by liking & following back
+      await likeUser(userId)
+      const { error } = await followUser(userId)
+      if (error) {
+        Toast.show({ type: 'error', text1: 'Could not connect', text2: error.message })
+        return
+      }
+      
+      Toast.show({ type: 'success', text1: 'Connected!', text2: 'You are now mutually connected' })
+      
+      // 2. Reload data to transition user into the Mutual list
+      await load()
+    } catch (e) {
+      console.warn('[DiscoverLikes] accept connection error:', e)
     }
   }
 
@@ -213,6 +255,7 @@ export default function DiscoverLikesScreen() {
               <ProfileRow
                 user={user}
                 theme={theme}
+                actionType={tab}
                 badge={
                   tab === 'matches' ? (
                     <View style={s.matchBadge}>
@@ -224,8 +267,12 @@ export default function DiscoverLikesScreen() {
                     </View>
                   )
                 }
-                onPress={() => {
-                  router.push(`/profile/${user.id}` as any)
+                onActionPress={() => {
+                  if (tab === 'matches') {
+                    router.push(`/chat/${user.id}` as any)
+                  } else {
+                    handleAcceptConnection(user.id)
+                  }
                 }}
               />
               {i < displayed.length - 1 && (
@@ -275,7 +322,8 @@ const s = StyleSheet.create({
 
   list: { paddingHorizontal: 16 },
 
-  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12 },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, gap: 12, justifyContent: 'space-between' },
+  rowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   avatarWrap: { position: 'relative' },
   matchBadge: {
     position: 'absolute', bottom: -2, right: -2,
