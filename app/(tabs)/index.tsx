@@ -134,13 +134,6 @@ export default function HomeScreen() {
         </View>
       </View>
       <View style={s.headerRight}>
-        {hasLoaded && currentStreak > 0 && (
-          <View style={[s.streakBadge, { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
-            <Ionicons name="flame" size={16} color="#f97316" />
-            <Text style={s.streakText}>{currentStreak}</Text>
-          </View>
-        )}
-
         <TouchableOpacity
           style={[s.iconBtn, { backgroundColor: theme.card }]}
           onPress={handleRefresh}
@@ -151,6 +144,11 @@ export default function HomeScreen() {
             <Ionicons name="refresh" size={20} color={theme.text} />
           )}
         </TouchableOpacity>
+
+        <View style={[s.streakBadge, { backgroundColor: 'rgba(249, 115, 22, 0.12)', height: 44, paddingHorizontal: 12, borderRadius: 22 }]}>
+          <Ionicons name="flame" size={18} color="#f97316" />
+          <Text style={[s.streakText, { fontSize: 14 }]}>{currentStreak ?? 0}</Text>
+        </View>
 
         <TouchableOpacity
           style={[s.iconBtn, { backgroundColor: theme.card }]}
