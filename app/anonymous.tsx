@@ -5,7 +5,7 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  RefreshControl, ActivityIndicator,
+  RefreshControl, ActivityIndicator, DeviceEventEmitter
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -29,7 +29,11 @@ export default function AnonymousScreen() {
 
   useEffect(() => {
     loadPosts()
-  }, [])
+    const sub = DeviceEventEmitter.addListener('refresh_anonymous_feed', () => {
+      onRefresh()
+    })
+    return () => sub.remove()
+  }, [onRefresh])
 
   const loadPosts = async () => {
     setLoading(true)

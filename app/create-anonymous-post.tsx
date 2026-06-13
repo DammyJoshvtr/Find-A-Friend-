@@ -1,4 +1,4 @@
-﻿/**
+/**
  * app/create-anonymous-post.tsx
  * Create an anonymous post with disclaimer checkbox.
  */
@@ -7,6 +7,7 @@ import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
   ScrollView,
+  DeviceEventEmitter,
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
@@ -28,6 +29,7 @@ export default function CreateAnonPostScreen() {
     try {
       const { error } = await createAnonymousPost(body.trim())
       if (error) throw error
+      DeviceEventEmitter.emit('refresh_anonymous_feed')
       router.back()
     } catch {
       Alert.alert('Error', 'Could not post. Please try again.')

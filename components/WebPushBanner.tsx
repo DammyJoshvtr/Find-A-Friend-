@@ -9,7 +9,7 @@
  */
 import React, { useEffect, useState } from 'react'
 import { Platform, Pressable, StyleSheet, Text, View, Animated } from 'react-native'
-import { subscribeToWebPush } from '../app/_layout'
+import { subscribeToWebPush } from '../lib/notifications'
 
 interface Props {
   userId: string

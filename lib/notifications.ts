@@ -271,3 +271,87 @@ export async function sendLocalNotification(
     console.log('Could not send notification:', error)
   }
 }
+
+// ---------------------------------------------------------------------------
+// Web Push Notifications
+// ---------------------------------------------------------------------------
+
+export async function subscribeToWebPush(userId: string) {
+  try {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      console.log('[WebPush] Service Worker or PushManager not supported')
+      return
+    }
+
+    // iOS Safari requires the service worker to be fully active before subscribing
+    const reg = await navigator.serviceWorker.ready
+    if (!reg.active) {
+      console.log('[WebPush] Service worker not yet active, skipping')
+      return
+    }
+
+    // Check existing permission without prompting (prompting must come from a user gesture on iOS)
+    const existingPermission = Notification.permission
+    if (existingPermission === 'denied') {
+      console.log('[WebPush] Notification permission denied')
+      return
+    }
+
+    // Only request permission if not already granted.
+    // On iOS, this call MUST originate from a user gesture (tap).
+    // When called from useEffect (auto), iOS silently ignores it.
+    // We still try here for Android/desktop; iOS users must tap a prompt.
+    if (existingPermission !== 'granted') {
+      const granted = await Notification.requestPermission()
+      if (granted !== 'granted') {
+        console.log('[WebPush] Permission not granted:', granted)
+        return
+      }
+    }
+
+    // VAPID public key — hardcoded as fallback because process.env values
+    // are statically inlined at Metro build time; they resolve to undefined
+    // when accessed dynamically at runtime on the web target.
+    const vapidKey =
+      process.env.EXPO_PUBLIC_VAPID_PUBLIC_KEY ||
+      'BMW-cNs21tNNic2idPQjGlKXCMPtk_sgzd-K5zbrlM6ftDQlBJJB7FJcBx_lsE8fj7VMde6qYHHvYLiPB6JWke4'
+
+    // Convert base64url VAPID key to Uint8Array
+    const key = vapidKey.replace(/-/g, "+").replace(/_/g, "/");
+    const raw = atob(key);
+    const applicationServerKey = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++)
+      applicationServerKey[i] = raw.charCodeAt(i);
+
+    // Check if already subscribed to avoid redundant re-subscription
+    let sub = await reg.pushManager.getSubscription()
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey })
+    }
+
+    const json = sub.toJSON()
+    const p256dh = json.keys?.p256dh
+    const auth = json.keys?.auth
+    if (!p256dh || !auth) {
+      console.log('[WebPush] Missing subscription keys')
+      return
+    }
+
+    console.log('[WebPush] Saving subscription for user:', userId, 'endpoint:', sub.endpoint.slice(0, 60) + '...')
+
+    const { supabase } = await import('./supabase')
+    const { error } = await supabase.from('web_push_subscriptions').upsert({
+      user_id: userId,
+      endpoint: sub.endpoint,
+      p256dh,
+      auth,
+    }, { onConflict: 'user_id' })
+    if (error) {
+      console.error('[WebPush] Failed to save subscription:', error.message)
+    } else {
+      console.log('[WebPush] Subscription saved successfully')
+    }
+  } catch (err) {
+    console.error('[WebPush] subscribeToWebPush error:', err)
+  }
+}
