@@ -126,7 +126,12 @@ export default function HomeScreen() {
     <View style={[s.header, { borderBottomColor: theme.border }]}>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
         <View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Image 
+              source={require('../../assets/images/logo.png')} 
+              style={{ width: 26, height: 26 }} 
+              resizeMode="contain" 
+            />
             <Text style={s.logo}>FAF</Text>
           </View>
           {firstName && (
