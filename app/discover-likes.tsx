@@ -131,12 +131,12 @@ export default function DiscoverLikesScreen() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={[s.title, { color: theme.text }]}>
-            {tab === 'matches' ? '💞 Matches' : '❤️ Liked You'}
+            {tab === 'matches' ? 'Mutual Connections' : 'Connection Requests'}
           </Text>
           <Text style={[s.subtitle, { color: theme.textFaint }]}>
             {tab === 'matches'
-              ? 'You both swiped right on each other'
-              : 'People who swiped right on you'}
+              ? 'Students who you both connected with'
+              : 'Students who requested to connect with you'}
           </Text>
         </View>
       </View>
@@ -147,7 +147,7 @@ export default function DiscoverLikesScreen() {
           style={[s.tabItem, tab === 'matches' && { backgroundColor: theme.accent, borderRadius: 12 }]}
           onPress={() => setTab('matches')}>
           <Text style={[s.tabText, { color: tab === 'matches' ? '#fff' : theme.textMuted }]}>
-            💞 Matches
+            🤝 Mutual
           </Text>
           <View style={[s.countBadge, {
             backgroundColor: tab === 'matches' ? 'rgba(255,255,255,0.2)' : theme.card2,
@@ -159,15 +159,15 @@ export default function DiscoverLikesScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[s.tabItem, tab === 'likes' && { backgroundColor: '#f472b6', borderRadius: 12 }]}
+          style={[s.tabItem, tab === 'likes' && { backgroundColor: theme.accent, borderRadius: 12 }]}
           onPress={() => setTab('likes')}>
           <Text style={[s.tabText, { color: tab === 'likes' ? '#fff' : theme.textMuted }]}>
-            ❤️ Liked You
+            📥 Requests
           </Text>
           <View style={[s.countBadge, {
             backgroundColor: tab === 'likes' ? 'rgba(255,255,255,0.2)' : theme.card2,
           }]}>
-            <Text style={[s.countText, { color: tab === 'likes' ? '#fff' : '#f472b6' }]}>
+            <Text style={[s.countText, { color: tab === 'likes' ? '#fff' : theme.accent }]}>
               {likedYou.length}
             </Text>
           </View>
@@ -177,9 +177,9 @@ export default function DiscoverLikesScreen() {
       {/* Matches explainer */}
       {tab === 'matches' && (
         <View style={[s.explainer, { backgroundColor: 'rgba(167,139,250,0.08)', borderColor: 'rgba(167,139,250,0.2)' }]}>
-          <Ionicons name="heart-circle" size={16} color={theme.accent} />
+          <Ionicons name="people-outline" size={16} color={theme.accent} />
           <Text style={[s.explainerText, { color: theme.textMuted }]}>
-            A match means you both liked each other in Discover. Start a conversation!
+            Mutual connections are students who both followed each other. Send them a message!
           </Text>
         </View>
       )}
@@ -191,14 +191,14 @@ export default function DiscoverLikesScreen() {
         </View>
       ) : displayed.length === 0 ? (
         <View style={s.center}>
-          <Text style={{ fontSize: 48 }}>{tab === 'matches' ? '💞' : '❤️'}</Text>
+          <Text style={{ fontSize: 48 }}>{tab === 'matches' ? '🤝' : '📥'}</Text>
           <Text style={[s.emptyTitle, { color: theme.text }]}>
-            {tab === 'matches' ? 'No matches yet' : 'No likes yet'}
+            {tab === 'matches' ? 'No mutual connections yet' : 'No requests yet'}
           </Text>
           <Text style={[s.emptyText, { color: theme.textMuted }]}>
             {tab === 'matches'
-              ? 'Keep swiping — when someone likes you back, they show up here'
-              : 'People who swipe right on you appear here'}
+              ? "Connect with students in Discover — once they follow back, they'll appear here!"
+              : 'When other students connect with you, they will appear here.'}
           </Text>
           <TouchableOpacity
             style={[s.discoverBtn, { backgroundColor: theme.accent }]}
@@ -216,11 +216,11 @@ export default function DiscoverLikesScreen() {
                 badge={
                   tab === 'matches' ? (
                     <View style={s.matchBadge}>
-                      <Text style={{ fontSize: 10 }}>💞</Text>
+                      <Text style={{ fontSize: 10 }}>🤝</Text>
                     </View>
                   ) : (
                     <View style={s.likeBadge}>
-                      <Text style={{ fontSize: 10 }}>❤️</Text>
+                      <Text style={{ fontSize: 10 }}>👋</Text>
                     </View>
                   )
                 }

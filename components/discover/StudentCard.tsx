@@ -9,6 +9,7 @@ import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import type { FollowProfile } from '../../lib/follows'
 import VerifiedBadge from '../ui/VerifiedBadge'
+import { likeUser } from '../../lib/discoverLikes'
 
 interface StudentCardProps {
   user: FollowProfile
@@ -44,6 +45,8 @@ export default function StudentCard({ user, isFollowing: initialFollowing = fals
         }
       } else {
         setFollowing(true)
+        // Run both likeUser and followUser to establish connection/match
+        await likeUser(user.id)
         const { error } = await followUser(user.id)
         if (error) {
           setFollowing(false)
@@ -92,7 +95,7 @@ export default function StudentCard({ user, isFollowing: initialFollowing = fals
             {user.department ?? 'Campus Member'}
           </Text>
           {user.level ? (
-            <Text style={[s.level, { color: theme.textFaint }]} numberOfLines={1}>
+            <Text style={[s.level, { color: theme.textMuted }]} numberOfLines={1}>
               {user.level}
             </Text>
           ) : null}

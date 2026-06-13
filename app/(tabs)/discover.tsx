@@ -129,7 +129,8 @@ export default function DiscoverScreen() {
         u.level && (
           u.level.toLowerCase().includes('freshman') || 
           u.level.toLowerCase().includes('first year') || 
-          u.level.toLowerCase().includes('1st year')
+          u.level.toLowerCase().includes('1st year') ||
+          u.level.toLowerCase().includes('lvl')
         )
       )
     }
@@ -164,10 +165,11 @@ export default function DiscoverScreen() {
           </Text>
         </View>
         <View style={s.headerBtns}>
+          {/* Connections / Requests button */}
           <TouchableOpacity
             style={[s.headerBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={() => router.push('/discover-likes' as any)}>
-            <Ionicons name="heart" size={18} color="#f472b6" />
+            <Ionicons name="person-add-outline" size={18} color={theme.accent} />
             {(likesCount.received > 0 || likesCount.mutual > 0) && (
               <View style={s.badge}>
                 <Text style={s.badgeText}>

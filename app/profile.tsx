@@ -23,7 +23,7 @@ import PostCard from '../components/feed/PostCard'
 import VerifiedBadge, { BADGE_COLORS, BADGE_LABELS } from '../components/ui/VerifiedBadge'
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name']
-type ProfileTab = 'posts' | 'bookmarks'
+type ProfileTab = 'posts' | 'bookmarks' | 'badge'
 
 const ALL_INTERESTS = [
   'Music', 'Tech', 'Art', 'Sports', 'Gaming', 'Photography',
@@ -151,7 +151,7 @@ export default function ProfileScreen() {
     return <ScreenLoader message="Loading profile..." />
   }
 
-  const tabData = activeTab === 'posts' ? userPosts : bookmarks
+  const tabData = activeTab === 'posts' ? userPosts : activeTab === 'bookmarks' ? bookmarks : []
 
   // ── Header ──────────────────────────────────────────────────────────────────
   const ListHeader = (
@@ -299,27 +299,27 @@ export default function ProfileScreen() {
 
       {/* Tab bar */}
       <View style={[s.tabBar, { borderBottomColor: theme.border }]}>
-        {(['posts', 'bookmarks'] as ProfileTab[]).map(tab => (
+        {(['posts', 'bookmarks', 'badge'] as ProfileTab[]).map(tab => (
           <TouchableOpacity key={tab} style={s.tabItem} onPress={() => setActiveTab(tab)}>
             {activeTab === tab
               ? <View style={[s.tabPill, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}>
                   <Ionicons
-                    name={tab === 'posts' ? 'grid-outline' : 'bookmark-outline'}
+                    name={(tab === 'posts' ? 'grid-outline' : tab === 'bookmarks' ? 'bookmark-outline' : 'award-outline') as any}
                     size={13} color={theme.accent}
                     style={{ marginRight: 5 }}
                   />
                   <Text style={[s.tabText, { color: theme.accent, fontWeight: '700' }]}>
-                    {tab === 'posts' ? 'Posts' : 'Bookmarks'}
+                    {tab === 'posts' ? 'Posts' : tab === 'bookmarks' ? 'Bookmarks' : 'Badge'}
                   </Text>
                 </View>
               : <View style={s.tabInactive}>
                   <Ionicons
-                    name={tab === 'posts' ? 'grid-outline' : 'bookmark-outline'}
+                    name={(tab === 'posts' ? 'grid-outline' : tab === 'bookmarks' ? 'bookmark-outline' : 'award-outline') as any}
                     size={13} color={theme.textMuted}
                     style={{ marginRight: 5 }}
                   />
                   <Text style={[s.tabText, { color: theme.textMuted }]}>
-                    {tab === 'posts' ? 'Posts' : 'Bookmarks'}
+                    {tab === 'posts' ? 'Posts' : tab === 'bookmarks' ? 'Bookmarks' : 'Badge'}
                   </Text>
                 </View>}
           </TouchableOpacity>
@@ -363,7 +363,35 @@ export default function ProfileScreen() {
   )
 
   // ── Empty state ─────────────────────────────────────────────────────────────
-  const EmptyState = (
+  const EmptyState = activeTab === 'badge' ? (
+    <View style={{ paddingHorizontal: 16, paddingVertical: 20, gap: 14 }}>
+      <Text style={{ fontSize: 15, fontFamily: typography.fontSemiBold, color: theme.text, marginBottom: 4 }}>
+        Platform Badges
+      </Text>
+      <Text style={{ fontSize: 13, fontFamily: typography.fontRegular, color: theme.textMuted, lineHeight: 18, marginBottom: 10 }}>
+        Badges help verify identity and build trust within the FAF campus community. Here is what each badge represents:
+      </Text>
+      {[
+        { emoji: '✓', label: 'Verified Student', color: '#3b82f6', desc: 'Verified student identity. Automatically granted to accounts signed up with official university email domains.' },
+        { emoji: '🏪', label: 'Campus Vendor', color: '#f97316', desc: 'Approved campus vendors, local shops, food spots, or student entrepreneurs.' },
+        { emoji: '★', label: 'Official Account', color: '#f59e0b', desc: 'Official institution, university departments, student government, or club administration accounts.' },
+        { emoji: '🛡', label: 'Community Moderator', color: '#a78bfa', desc: 'Community moderators who help moderate the social feed, posts, and campus clubs.' },
+        { emoji: '💼', label: 'University Staff', color: '#10b981', desc: 'University faculty, lecturers, staff, or department administrators.' },
+        { emoji: '🎓', label: 'FAF Alumni', color: '#94a3b8', desc: 'FAF alumni who have graduated but remain connected to the campus community.' },
+        { emoji: '✓', label: 'Guest Visitor', color: '#ec4899', desc: 'External speakers, prospective students, or campus guests.' },
+      ].map(badge => (
+        <View key={badge.label} style={{ flexDirection: 'row', gap: 12, backgroundColor: theme.card2 || 'rgba(255,255,255,0.02)', padding: 12, borderRadius: 16, borderWidth: 0.5, borderColor: theme.border }}>
+          <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: badge.color + '18', alignItems: 'center', justifyContent: 'center', borderWidth: 0.5, borderColor: badge.color + '30' }}>
+            <Text style={{ fontSize: 15, color: badge.color, fontWeight: '700' }}>{badge.emoji}</Text>
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={{ fontSize: 13, fontFamily: typography.fontSemiBold, color: badge.color }}>{badge.label}</Text>
+            <Text style={{ fontSize: 12, fontFamily: typography.fontRegular, color: theme.textMuted, lineHeight: 17 }}>{badge.desc}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  ) : (
     <View style={s.emptyWrap}>
       <Ionicons
         name={activeTab === 'posts' ? 'create-outline' : 'bookmark-outline'}
