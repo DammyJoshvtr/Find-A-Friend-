@@ -5,7 +5,6 @@ import {
   TouchableOpacity, ActivityIndicator, KeyboardAvoidingView,
   Platform, Image, Alert, Share, Pressable, Linking,
 } from 'react-native'
-import { Video, ResizeMode } from 'expo-av'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -512,12 +511,13 @@ export default function PostDetailScreen() {
         {post.image_url && !isRepost
           ? (
               post.image_url.match(/\.(mp4|mov|webm)$/i) ? (
-                <Video
-                  source={{ uri: post.image_url }}
-                  style={[s.postImage, { borderColor: theme.border }]}
-                  resizeMode={ResizeMode.COVER}
-                  useNativeControls
-                />
+                <TouchableOpacity
+                  style={[s.postImage, { borderColor: theme.border, height: 200, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center', borderRadius: 12 }]}
+                  onPress={() => Linking.openURL(post.image_url!)}
+                >
+                  <Ionicons name="play-circle-outline" size={64} color="rgba(255,255,255,0.85)" />
+                  <Text style={{ color: 'white', marginTop: 8, fontSize: 13, fontFamily: typography.fontMedium }}>Play Video in Browser</Text>
+                </TouchableOpacity>
               ) : (
                 <Image source={{ uri: post.image_url }} style={[s.postImage, { borderColor: theme.border }]} resizeMode="cover" />
               )
@@ -562,12 +562,13 @@ export default function PostDetailScreen() {
             {orig.body ? renderBody(orig.body, true) : null}
             {orig.image_url ? (
               orig.image_url.match(/\.(mp4|mov|webm)$/i) ? (
-                <Video
-                  source={{ uri: orig.image_url }}
-                  style={[s.repostMedia, { borderColor: theme.border }]}
-                  resizeMode={ResizeMode.COVER}
-                  useNativeControls
-                />
+                <TouchableOpacity
+                  style={[s.repostMedia, { borderColor: theme.border, height: 160, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center', borderRadius: 8 }]}
+                  onPress={() => Linking.openURL(orig.image_url!)}
+                >
+                  <Ionicons name="play-circle-outline" size={48} color="rgba(255,255,255,0.8)" />
+                  <Text style={{ color: 'white', marginTop: 6, fontSize: 12, fontFamily: typography.fontMedium }}>Play Video in Browser</Text>
+                </TouchableOpacity>
               ) : (
                 <Image
                   source={{ uri: orig.image_url }}

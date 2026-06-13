@@ -26,7 +26,6 @@ import { supabase } from '../lib/supabase'
 import { uploadFile } from '../lib/upload'
 import type { Club } from '../lib/clubs'
 import { useTheme } from '../lib/theme'
-import { Video, ResizeMode } from 'expo-av'
 import { useFeedStore } from '../store/feedStore'
 
 const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://vcbtvhociaioeyhhsczh.supabase.co'
@@ -243,14 +242,10 @@ export default function CreatePostScreen() {
           {imageUri && (
             <View style={s.imagePreview}>
               {mediaType === 'video' ? (
-                <Video
-                  source={{ uri: imageUri }}
-                  style={s.previewImg}
-                  resizeMode={ResizeMode.COVER}
-                  useNativeControls
-                  shouldPlay
-                  isLooping
-                />
+                <View style={[s.previewImg, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#000', borderRadius: 12 }]}>
+                  <Ionicons name="videocam-outline" size={48} color="#fff" />
+                  <Text style={{ color: '#fff', marginTop: 8, fontSize: 12, textAlign: 'center' }}>Video selected (Preview not supported)</Text>
+                </View>
               ) : (
                 <Image source={{ uri: imageUri }} style={s.previewImg} resizeMode="cover" />
               )}
