@@ -232,19 +232,24 @@ export async function applyAsVendor(payload: VendorApplicationPayload): Promise<
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
+    const insertData: any = {
+      owner_id: user.id,
+      name: payload.name,
+      category: payload.category,
+      description: payload.description ?? null,
+      icon: payload.icon ?? null,
+      location_text: payload.locationText,
+      map_location_id: payload.mapLocationId ?? null,
+      is_approved: false,
+    }
+
+    if (payload.cover_url !== undefined) {
+      insertData.cover_url = payload.cover_url
+    }
+
     const { data, error } = await supabase
       .from('vendors')
-      .insert({
-        owner_id: user.id,
-        name: payload.name,
-        category: payload.category,
-        description: payload.description ?? null,
-        icon: payload.icon ?? null,
-        location_text: payload.locationText,
-        map_location_id: payload.mapLocationId ?? null,
-        cover_url: payload.cover_url ?? null,
-        is_approved: false,
-      })
+      .insert(insertData)
       .select()
       .single()
 
