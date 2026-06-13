@@ -1,21 +1,16 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ActivityIndicator, ScrollView,
+  ScrollView, TextInput, FlatList,
 } from 'react-native'
-import Animated, {
-  useSharedValue, useAnimatedStyle, withSpring,
-} from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
-import Toast from 'react-native-toast-message'
-import { getSuggestedUsers, followUser } from '../../lib/follows'
+import { getSuggestedUsers } from '../../lib/follows'
 import { getTrending } from '../../lib/feed'
-import { likeUser, getLikesCounts } from '../../lib/discoverLikes'
-import SwipeCard, { CARD_HEIGHT } from '../../components/discover/SwipeCard'
-import type { SwipeCardRef } from '../../components/discover/SwipeCard'
+import { getLikesCounts } from '../../lib/discoverLikes'
+import StudentCard from '../../components/discover/StudentCard'
 import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import { showTabBar } from '../../lib/tabBarAnim'
@@ -26,45 +21,19 @@ import ScreenLoader from '../../components/ScreenLoader'
 import { supabase } from '../../lib/supabase'
 import { useBadgesStore } from '../../store/badgesStore'
 
-// ─── Action button ────────────────────────────────────────────────────────────
-function ActionBtn({ icon, color, bg, onPress, large }: {
-  icon: string; color: string; bg: string; onPress: () => void; large?: boolean
-}) {
-  const scale = useSharedValue(1)
-  const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
-  const size = large ? 66 : 54
-  return (
-    <Animated.View style={[
-      animStyle,
-      {
-        width: size, height: size, borderRadius: size / 2,
-        backgroundColor: bg, borderWidth: 1.5, borderColor: `${color}40`,
-        alignItems: 'center', justifyContent: 'center',
-        shadowColor: color, shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.4, shadowRadius: 14, elevation: 8,
-      },
-    ]}>
-      <TouchableOpacity
-        style={{ width: '100%', height: '100%', alignItems: 'center', justifyContent: 'center' }}
-        onPressIn={() => { scale.value = withSpring(0.86, { damping: 10 }) }}
-        onPressOut={() => { scale.value = withSpring(1, { damping: 10 }) }}
-        onPress={onPress}
-        activeOpacity={1}>
-        <Ionicons name={icon as any} size={large ? 30 : 23} color={color} />
-      </TouchableOpacity>
-    </Animated.View>
-  )
-}
-
-// ─── Main screen ──────────────────────────────────────────────────────────────
 export default function DiscoverScreen() {
   const [deck, setDeck] = useState<FollowProfile[]>([])
   const [liked, setLiked] = useState(0)
   const [trending, setTrending] = useState<TrendingHashtag[]>([])
   const [loading, setLoading] = useState(true)
   const [likesCount, setLikesCount] = useState({ received: 0, mutual: 0 })
+  const [userProfile, setUserProfile] = useState<FollowProfile | null>(null)
+  
+  // Search and Filter State
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<'All' | 'Same Major' | 'Hobbies' | 'Newbies'>('All')
+
   const theme = useTheme()
-  const topCardRef = useRef<SwipeCardRef>(null)
   const markSeen = useBadgesStore(s => s.markSeen)
 
   useFocusEffect(
@@ -77,47 +46,18 @@ export default function DiscoverScreen() {
     loadData()
     getLikesCounts().then(setLikesCount)
 
-    let channel: any = null
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-      channel = supabase
-        .channel('discover-likes-realtime')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'discover_likes',
-        }, (payload: any) => {
-          const r = payload.new || payload.old
-          if (r && (r.liked_id === user.id || r.liker_id === user.id)) {
-            getLikesCounts().then(setLikesCount)
-          }
+      
+      supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setUserProfile(data)
         })
-        .subscribe()
     })
-
-    // Subscribe to public profile updates to update follower counts in real time
-    const profilesChannel = supabase
-      .channel('discover-profiles-realtime')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'profiles',
-      }, (payload: any) => {
-        const updated = payload.new as FollowProfile
-        if (updated && updated.id) {
-          setDeck(prev => prev.map(u =>
-            u.id === updated.id
-              ? { ...u, follower_count: updated.follower_count }
-              : u
-          ))
-        }
-      })
-      .subscribe()
-
-    return () => {
-      if (channel) supabase.removeChannel(channel)
-      supabase.removeChannel(profilesChannel)
-    }
   }, [])
 
   const loadData = async () => {
@@ -140,32 +80,72 @@ export default function DiscoverScreen() {
     }
   }, [loading])
 
-  const handleSwipeRight = useCallback(async () => {
-    const top = deck[0]
-    if (!top) return
-    setDeck(prev => prev.slice(1))
-    setLiked(n => n + 1)
-    await likeUser(top.id)
-    const { error: followErr } = await followUser(top.id)
-    if (followErr) {
-      Toast.show({ type: 'error', text1: 'Could not follow', text2: followErr.message })
+  const handleConnectToggle = (userId: string, isConnecting: boolean) => {
+    if (isConnecting) {
+      setLiked(n => n + 1)
+    } else {
+      setLiked(n => Math.max(0, n - 1))
     }
-    // Refresh likes count
     getLikesCounts().then(setLikesCount)
-  }, [deck])
-
-  const handleSwipeLeft = useCallback(() => {
-    setDeck(prev => prev.slice(1))
-  }, [])
+  }
 
   const handleReload = () => {
     setLiked(0)
+    setSearchQuery('')
+    setSelectedCategory('All')
     loadData()
   }
 
-  const remaining = deck.length
-  const visible = deck.slice(0, 3)
-  const visibleReversed = [...visible].reverse()
+  // Filter and Search logic
+  const getFilteredDeck = () => {
+    let filtered = deck
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      filtered = filtered.filter(u => 
+        (u.full_name && u.full_name.toLowerCase().includes(q)) ||
+        (u.department && u.department.toLowerCase().includes(q)) ||
+        (u.interests && u.interests.some(i => i.toLowerCase().includes(q)))
+      )
+    }
+
+    if (selectedCategory === 'Same Major') {
+      if (userProfile?.department) {
+        filtered = filtered.filter(u => u.department === userProfile.department)
+      } else {
+        filtered = []
+      }
+    } else if (selectedCategory === 'Hobbies') {
+      if (userProfile?.interests && userProfile.interests.length > 0) {
+        const myInterests = userProfile.interests.map(i => i.toLowerCase())
+        filtered = filtered.filter(u => 
+          u.interests && u.interests.some(i => myInterests.includes(i.toLowerCase()))
+        )
+      } else {
+        filtered = filtered.filter(u => u.interests && u.interests.length > 0)
+      }
+    } else if (selectedCategory === 'Newbies') {
+      filtered = filtered.filter(u => 
+        u.level && (
+          u.level.toLowerCase().includes('freshman') || 
+          u.level.toLowerCase().includes('first year') || 
+          u.level.toLowerCase().includes('1st year')
+        )
+      )
+    }
+
+    return filtered
+  }
+
+  const filteredDeck = getFilteredDeck()
+  const remaining = filteredDeck.length
+
+  const categories = [
+    { id: 'All', label: 'All Students', icon: 'people-outline' },
+    { id: 'Same Major', label: 'Same Major', icon: 'school-outline' },
+    { id: 'Hobbies', label: 'Mutual Hobbies', icon: 'ribbon-outline' },
+    { id: 'Newbies', label: 'Newbies', icon: 'sparkles-outline' },
+  ]
 
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
@@ -177,14 +157,13 @@ export default function DiscoverScreen() {
           <Text style={[s.title, { color: theme.text }]}>Discover</Text>
           <Text style={[s.subtitle, { color: theme.textFaint }]}>
             {liked > 0
-              ? `${liked} connected · ${remaining} left`
+              ? `${liked} connections made today`
               : remaining > 0
-              ? `${remaining} students nearby`
+              ? `${remaining} students found`
               : 'Find your people'}
           </Text>
         </View>
         <View style={s.headerBtns}>
-          {/* Likes / Matches button */}
           <TouchableOpacity
             style={[s.headerBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={() => router.push('/discover-likes' as any)}>
@@ -199,105 +178,124 @@ export default function DiscoverScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[s.headerBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
-            onPress={() => router.push('/search' as any)}>
-            <Ionicons name="search-outline" size={18} color={theme.text} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[s.headerBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={handleReload}>
             <Ionicons name="refresh-outline" size={18} color={theme.text} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Trending chips */}
-      {trending.length > 0 && (
+      {/* Search Bar */}
+      <View style={[s.searchBarContainer, { backgroundColor: theme.card, borderColor: theme.border }]}>
+        <Ionicons name="search" size={18} color={theme.textMuted} />
+        <TextInput
+          style={[s.searchInput, { color: theme.text }]}
+          placeholder="Search by name, major, or hobbies..."
+          placeholderTextColor={theme.textFaint}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={18} color={theme.textMuted} />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Category Tabs */}
+      <View style={{ height: 38 }}>
         <ScrollView
-          horizontal showsHorizontalScrollIndicator={false}
-          contentContainerStyle={s.trendRow}>
-          {trending.slice(0, 12).map(item => (
-            <TouchableOpacity
-              key={item.hashtag_id}
-              style={[s.trendPill, { backgroundColor: theme.card, borderColor: theme.accentBorder }]}
-              onPress={() => router.push(`/hashtag/${item.hashtags?.tag}` as any)}>
-              <Text style={[s.trendText, { color: theme.accent }]}>#{item.hashtags?.tag}</Text>
-              <Text style={[s.trendCount, { color: theme.textFaint, backgroundColor: theme.card2 }]}>
-                {item.post_count}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={s.categoriesContainer}
+        >
+          {categories.map(cat => {
+            const isActive = selectedCategory === cat.id
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                style={[
+                  s.categoryPill,
+                  isActive
+                    ? { backgroundColor: theme.accent, borderColor: theme.accent }
+                    : { backgroundColor: theme.card, borderColor: theme.border }
+                ]}
+                onPress={() => setSelectedCategory(cat.id as any)}
+              >
+                <Ionicons
+                  name={cat.icon as any}
+                  size={13}
+                  color={isActive ? '#fff' : theme.textMuted}
+                />
+                <Text style={[
+                  s.categoryText,
+                  { color: isActive ? '#fff' : theme.text }
+                ]}>
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            )
+          })}
         </ScrollView>
+      </View>
+
+      {/* Trending chips */}
+      {trending.length > 0 && selectedCategory === 'All' && !searchQuery && (
+        <View style={{ height: 42, marginTop: 4 }}>
+          <ScrollView
+            horizontal showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.trendRow}>
+            {trending.slice(0, 10).map(item => (
+              <TouchableOpacity
+                key={item.hashtag_id}
+                style={[s.trendPill, { backgroundColor: theme.card, borderColor: theme.accentBorder }]}
+                onPress={() => router.push(`/hashtag/${item.hashtags?.tag}` as any)}>
+                <Text style={[s.trendText, { color: theme.accent }]}>#{item.hashtags?.tag}</Text>
+                <Text style={[s.trendCount, { color: theme.textFaint, backgroundColor: theme.card2 }]}>
+                  {item.post_count}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       )}
 
-      {/* Card area */}
+      {/* Student Directory Grid */}
       {loading ? (
-        <ScreenLoader message="Scanning student profiles..." />
-      ) : deck.length === 0 ? (
+        <ScreenLoader message="Loading campus directory..." />
+      ) : remaining === 0 ? (
         <View style={s.center}>
-          <Text style={s.doneEmoji}>🎉</Text>
-          <Text style={[s.emptyTitle, { color: theme.text }]}>You've seen everyone!</Text>
+          <Text style={s.doneEmoji}>🔍</Text>
+          <Text style={[s.emptyTitle, { color: theme.text }]}>No students found</Text>
           <Text style={[s.emptyText, { color: theme.textMuted }]}>
-            {liked > 0 ? `You connected with ${liked} people` : 'Check back later for new students'}
+            {selectedCategory === 'Same Major' && !userProfile?.department
+              ? "Fill out your profile department to connect with classmates!"
+              : selectedCategory === 'Hobbies' && (!userProfile?.interests || userProfile.interests.length === 0)
+              ? "Add interests to your profile to find like-minded people!"
+              : "Try adjusting your search query or categories."}
           </Text>
           <TouchableOpacity
             style={[s.reloadBtn, { backgroundColor: theme.accent }]}
             onPress={handleReload}>
-            <Text style={s.reloadBtnText}>Start over</Text>
+            <Text style={s.reloadBtnText}>Reset search</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <>
-          {/* Stack — back-to-front so front card renders on top */}
-          <View style={[s.stack, { height: CARD_HEIGHT + 48 }]}>
-            {visibleReversed.map((user, revIdx) => {
-              const stackIndex = (Math.min(visible.length, 3) - 1) - revIdx
-              const isTop = stackIndex === 0
-              return (
-                <SwipeCard
-                  key={user.id}
-                  ref={isTop ? topCardRef : undefined}
-                  user={user}
-                  stackIndex={stackIndex}
-                  isTop={isTop}
-                  onSwipeLeft={handleSwipeLeft}
-                  onSwipeRight={handleSwipeRight}
-                />
-              )
-            })}
-          </View>
-
-          {/* Hint text */}
-          <Text style={[s.hint, { color: theme.textFaint }]}>
-            Swipe right to follow · left to skip
-          </Text>
-
-          {/* Action buttons */}
-          <View style={s.actions}>
-            <ActionBtn
-              icon="close"
-              color="#f87171"
-              bg="rgba(28,28,46,0.95)"
-              onPress={() => topCardRef.current?.swipeLeft()}
-              large
+        <FlatList
+          data={filteredDeck}
+          keyExtractor={item => item.id}
+          numColumns={2}
+          key={`grid-2`}
+          renderItem={({ item }) => (
+            <StudentCard
+              user={item}
+              onConnectToggle={handleConnectToggle}
             />
-            <ActionBtn
-              icon="star"
-              color="#60a5fa"
-              bg="rgba(28,28,46,0.95)"
-              onPress={() => {
-                // Super like — follow and special toast
-                topCardRef.current?.swipeRight()
-              }}
-            />
-            <ActionBtn
-              icon="heart"
-              color="#4ade80"
-              bg="rgba(28,28,46,0.95)"
-              onPress={() => topCardRef.current?.swipeRight()}
-              large
-            />
-          </View>
-        </>
+          )}
+          contentContainerStyle={s.listContent}
+          showsVerticalScrollIndicator={false}
+        />
       )}
     </SafeAreaView>
   )
@@ -316,48 +314,52 @@ const s = StyleSheet.create({
     width: 40, height: 40, borderRadius: 20,
     alignItems: 'center', justifyContent: 'center', borderWidth: 0.5,
   },
-
-  trendRow: { paddingHorizontal: 16, paddingBottom: 14, gap: 8 },
-  trendPill: {
+  searchBarContainer: {
+    flexDirection: 'row', alignItems: 'center',
+    marginHorizontal: 16, marginVertical: 6,
+    borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8,
+    borderWidth: 0.5, gap: 8,
+  },
+  searchInput: {
+    flex: 1, fontSize: 13, fontFamily: typography.fontRegular,
+    padding: 0,
+  },
+  categoriesContainer: {
+    paddingHorizontal: 16, paddingBottom: 6, gap: 8,
+  },
+  categoryPill: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 16, paddingHorizontal: 12, height: 32,
     borderWidth: 0.5,
   },
-  trendText: { fontSize: 12, fontFamily: typography.fontMedium },
-  trendCount: {
-    fontSize: 10, fontFamily: typography.fontRegular,
-    borderRadius: 10, paddingHorizontal: 5, paddingVertical: 1,
+  categoryText: { fontSize: 11, fontFamily: typography.fontMedium },
+  trendRow: { paddingHorizontal: 16, paddingBottom: 10, gap: 8 },
+  trendPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 0.5,
   },
-
+  trendText: { fontSize: 11, fontFamily: typography.fontMedium },
+  trendCount: {
+    fontSize: 9, fontFamily: typography.fontRegular,
+    borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1,
+  },
+  listContent: {
+    paddingHorizontal: 10,
+    paddingTop: 8,
+    paddingBottom: 132,
+  },
   center: {
     flex: 1, alignItems: 'center', justifyContent: 'center',
-    gap: 12, paddingHorizontal: 32,
+    gap: 12, paddingHorizontal: 32, paddingVertical: 60,
   },
-  centerText: { fontSize: 13, fontFamily: typography.fontRegular },
-  doneEmoji: { fontSize: 64 },
-  emptyTitle: { fontSize: 20, fontFamily: typography.fontSemiBold, textAlign: 'center' },
+  doneEmoji: { fontSize: 54 },
+  emptyTitle: { fontSize: 18, fontFamily: typography.fontSemiBold, textAlign: 'center' },
   emptyText: { fontSize: 13, fontFamily: typography.fontRegular, textAlign: 'center', lineHeight: 20 },
   reloadBtn: {
-    borderRadius: 24, paddingHorizontal: 28, paddingVertical: 12, marginTop: 8,
+    borderRadius: 20, paddingHorizontal: 24, paddingVertical: 10, marginTop: 8,
   },
-  reloadBtnText: { fontSize: 14, fontFamily: typography.fontSemiBold, color: '#fff' },
-
-  stack: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    marginTop: 8,
-  },
-  hint: {
-    textAlign: 'center', fontSize: 11,
-    fontFamily: typography.fontRegular,
-    marginTop: 14, marginBottom: 4,
-  },
-  actions: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 28,
-    paddingTop: 16, paddingBottom: 8,
-  },
-
+  reloadBtnText: { fontSize: 13, fontFamily: typography.fontSemiBold, color: '#fff' },
   badge: {
     position: 'absolute', top: -4, right: -4,
     minWidth: 16, height: 16, borderRadius: 8,
