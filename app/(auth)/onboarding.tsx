@@ -4,8 +4,7 @@ import { useState } from 'react'
 import { router } from 'expo-router'
 import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../lib/theme'
-import { registerForPushNotifications, savePushToken } from '../../lib/notifications'
-import { subscribeToWebPush } from '../_layout'
+import { registerForPushNotifications, savePushToken, subscribeToWebPush } from '../../lib/notifications'
 
 const allInterests = [
   'Music', 'Tech', 'Art', 'Sports', 'Gaming', 'Photography',

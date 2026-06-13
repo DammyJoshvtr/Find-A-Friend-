@@ -36,14 +36,6 @@ export default function AnonymousScreen() {
     }, [markSeen])
   )
 
-  useEffect(() => {
-    loadPosts()
-    const sub = DeviceEventEmitter.addListener('refresh_anonymous_feed', () => {
-      onRefresh()
-    })
-    return () => sub.remove()
-  }, [onRefresh])
-
   const loadPosts = async () => {
     setLoading(true)
     try {
@@ -68,6 +60,14 @@ export default function AnonymousScreen() {
     setHasMore(results.length === 20)
     setRefreshing(false)
   }, [])
+
+  useEffect(() => {
+    loadPosts()
+    const sub = DeviceEventEmitter.addListener('refresh_anonymous_feed', () => {
+      onRefresh()
+    })
+    return () => sub.remove()
+  }, [onRefresh])
 
   const loadMore = async () => {
     if (loadingMore || !hasMore || !cursor) return
