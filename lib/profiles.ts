@@ -181,7 +181,11 @@ export async function uploadAvatar(uri: string): Promise<{
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
-    const ext = uri.split('.').pop() ?? 'jpg'
+    const cleanUri = uri.split('?')[0].split('#')[0]
+    let ext = cleanUri.split('.').pop()?.toLowerCase() ?? 'jpg'
+    if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
+      ext = 'jpg'
+    }
     const path = `${user.id}/${user.id}.${ext}`
     const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
 
@@ -207,7 +211,11 @@ export async function uploadCover(uri: string): Promise<{
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) throw new Error('Not authenticated')
 
-    const ext = uri.split('.').pop()?.split('?')[0] ?? 'jpg'
+    const cleanUri = uri.split('?')[0].split('#')[0]
+    let ext = cleanUri.split('.').pop()?.toLowerCase() ?? 'jpg'
+    if (!['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(ext)) {
+      ext = 'jpg'
+    }
     const path = `${user.id}/cover-${Date.now()}.${ext}`
     const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
 

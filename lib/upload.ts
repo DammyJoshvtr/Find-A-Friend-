@@ -33,24 +33,16 @@ export async function uploadFile(
   const ext = mimeType.split('/')[1]?.split(';')[0] ?? uri.split('.').pop() ?? 'bin'
 
   if (Platform.OS === 'web') {
-    const formData = new FormData()
     const resBlob = await fetch(uri)
     const blob = await resBlob.blob()
-    formData.append('file', blob, `upload.${ext}`)
 
-    const method = upsert ? 'PUT' : 'POST'
-    const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${bucket}/${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'x-upsert': upsert ? 'true' : 'false',
-      },
-      body: formData,
+    const { error } = await supabase.storage.from(bucket).upload(path, blob, {
+      contentType: mimeType,
+      upsert,
     })
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => res.status.toString())
-      throw new Error(`Upload to ${bucket} failed: ${text}`)
+    if (error) {
+      throw new Error(`Upload to ${bucket} failed: ${error.message}`)
     }
   } else {
     // React Native: Read as base64 and upload using base64-arraybuffer
