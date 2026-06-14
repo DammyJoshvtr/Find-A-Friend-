@@ -20,8 +20,8 @@ export function calculateMatchScore(
   return score
 }
 
-export function getInitials(name: string): string {
-  if (!name) return '??'
+export function getInitials(name: any): string {
+  if (!name || typeof name !== 'string') return '??'
   return (
     name
       .split(' ')

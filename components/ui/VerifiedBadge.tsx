@@ -29,7 +29,7 @@ export const BADGE_LABELS: Record<string, string> = {
 
 export default function VerifiedBadge({ type, customColor, size = 16 }: VerifiedBadgeProps) {
   if (!type || type === 'none') return null;
-  const cleanType = type.toLowerCase().trim();
+  const cleanType = String(type).toLowerCase().trim();
   const color = customColor || BADGE_COLORS[cleanType] || '#3b82f6';
   return <MaterialCommunityIcons name="check-decagram" size={size} color={color} />;
 }

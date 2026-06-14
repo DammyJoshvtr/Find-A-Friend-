@@ -58,7 +58,8 @@
     "@types/react": "~19.1.0",
     "expo-dev-client": "~6.0.21",
     "react-test-renderer": "19.1.0",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vercel": "^54.14.0"
   },
   "private": true
 }

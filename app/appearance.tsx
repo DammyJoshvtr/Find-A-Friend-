@@ -50,9 +50,9 @@ export default function AppearanceScreen() {
               { backgroundColor: theme.card, borderColor: t.active ? theme.accent : theme.border },
             ]}
             onPress={t.onPress}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: t.active }}
-            accessibilityLabel={t.label}>
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`${t.label} theme`}>
             <View style={s.themeLeft}>
               <Text style={s.themeIcon}>{t.icon}</Text>
               <View style={{ flex: 1, gap: 2 }}>

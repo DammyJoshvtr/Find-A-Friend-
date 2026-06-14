@@ -16,20 +16,18 @@ import { useTabBarScroll } from '../../lib/useTabBarScroll'
 import { showTabBar } from '../../lib/tabBarAnim'
 import VerifiedBadge from '../../components/ui/VerifiedBadge'
 import { useBadgesStore } from '../../store/badgesStore'
-import { MapPin, BookOpen, Building2, Gamepad2, Ghost, MessageSquare, Store, User as UserIcon } from 'lucide-react-native'
-
 const features: Array<{
-  IconComponent: any; title: string; subtitle: string
+  iconName: any; title: string; subtitle: string
   color: string; bg: string; border: string; route: string
 }> = [
-  { IconComponent: MapPin, title: 'Campus map',      subtitle: 'Events & friends nearby',        color: '#34d399', bg: 'rgba(52,211,153,0.12)',  border: 'rgba(52,211,153,0.25)',  route: '/map' },
-  { IconComponent: BookOpen, title: 'Academic hub',    subtitle: 'Courses, study groups & notes',  color: '#60a5fa', bg: 'rgba(96,165,250,0.12)',  border: 'rgba(96,165,250,0.25)',  route: '/academic' },
-  { IconComponent: Building2, title: 'Clubs',           subtitle: 'Join clubs & announcements',     color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)', route: '/clubs' },
-  { IconComponent: Gamepad2, title: 'Games',           subtitle: 'Pool · Trivia · Word Duel',      color: '#f472b6', bg: 'rgba(244,114,182,0.12)', border: 'rgba(244,114,182,0.25)', route: '/games' },
-  { IconComponent: Ghost, title: 'Confession board',subtitle: 'Anonymous campus posts',         color: '#fb923c', bg: 'rgba(251,146,60,0.12)',  border: 'rgba(251,146,60,0.25)',  route: '/anonymous' },
-  { IconComponent: MessageSquare, title: 'Feedback',         subtitle: 'Report issues & suggestions',    color: '#34d399', bg: 'rgba(52,211,153,0.12)',  border: 'rgba(52,211,153,0.25)',  route: '/feedback' },
-  { IconComponent: Store, title: 'Campus deals',    subtitle: 'Student-only discounts',         color: '#fbbf24', bg: 'rgba(251,191,36,0.12)',  border: 'rgba(251,191,36,0.25)',  route: '/vendors' },
-  { IconComponent: UserIcon, title: 'Edit profile',    subtitle: 'Bio, photo & interests',         color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)', route: '/edit-profile' },
+  { iconName: 'map-outline', title: 'Campus map',      subtitle: 'Events & friends nearby',        color: '#34d399', bg: 'rgba(52,211,153,0.12)',  border: 'rgba(52,211,153,0.25)',  route: '/map' },
+  { iconName: 'book-outline', title: 'Academic hub',    subtitle: 'Courses, study groups & notes',  color: '#60a5fa', bg: 'rgba(96,165,250,0.12)',  border: 'rgba(96,165,250,0.25)',  route: '/academic' },
+  { iconName: 'people-outline', title: 'Clubs',           subtitle: 'Join clubs & announcements',     color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)', route: '/clubs' },
+  { iconName: 'game-controller-outline', title: 'Games',           subtitle: 'Pool · Trivia · Word Duel',      color: '#f472b6', bg: 'rgba(244,114,182,0.12)', border: 'rgba(244,114,182,0.25)', route: '/games' },
+  { iconName: 'megaphone-outline', title: 'Confession board',subtitle: 'Anonymous campus posts',         color: '#fb923c', bg: 'rgba(251,146,60,0.12)',  border: 'rgba(251,146,60,0.25)',  route: '/anonymous' },
+  { iconName: 'chatbubble-ellipses-outline', title: 'Feedback',         subtitle: 'Report issues & suggestions',    color: '#34d399', bg: 'rgba(52,211,153,0.12)',  border: 'rgba(52,211,153,0.25)',  route: '/feedback' },
+  { iconName: 'pricetag-outline', title: 'Campus deals',    subtitle: 'Student-only discounts',         color: '#fbbf24', bg: 'rgba(251,191,36,0.12)',  border: 'rgba(251,191,36,0.25)',  route: '/vendors' },
+  { iconName: 'person-outline', title: 'Edit profile',    subtitle: 'Bio, photo & interests',         color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.25)', route: '/edit-profile' },
 ]
 
 export default function MoreScreen() {
@@ -153,7 +151,7 @@ export default function MoreScreen() {
                 ]}
                 onPress={() => router.push(feature.route as any)}>
                 <View style={[s.featureIconWrap, { backgroundColor: feature.bg, borderColor: feature.border }]}>
-                  <feature.IconComponent size={20} color={feature.color} />
+                  <Ionicons name={feature.iconName} size={20} color={feature.color} />
                 </View>
                 <View style={s.featureTextWrap}>
                   <Text style={[s.featureTitle, { color: theme.text }]}>{feature.title}</Text>
