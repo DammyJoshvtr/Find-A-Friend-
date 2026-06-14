@@ -204,12 +204,12 @@ export async function getSuggestedUsers(): Promise<{
     let candidateQuery = supabase
       .from('profiles')
       .select('id, full_name, department, level, avatar_url, follower_count, following_count, interests, role, badge_type, badge_color')
-      .limit(50)
-      .neq('id', user.id)  // always exclude self
+      .limit(500)         // fetch up to 500 so all users are visible
+      .neq('id', user.id) // always exclude self
       .neq('full_name', '')
       .not('full_name', 'is', null)
 
-    // Exclude already-followed users one-by-one (safer than .not+in for small lists)
+    // Exclude already-followed users one-by-one
     for (const id of alreadyFollowingIds) {
       candidateQuery = candidateQuery.neq('id', id)
     }
@@ -228,7 +228,8 @@ export async function getSuggestedUsers(): Promise<{
       (a: any, b: any) => (b.follower_count ?? 0) - (a.follower_count ?? 0)
     )
 
-    return { data: sorted.slice(0, 20) as FollowProfile[], error: null }
+    // Return all users (no artificial 20-user cap) so everyone is visible on discover
+    return { data: sorted as FollowProfile[], error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }

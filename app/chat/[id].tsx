@@ -1045,7 +1045,8 @@ export default function DirectMessageScreen() {
   const [replyingTo, setReplyingTo] = useState<ReplyPayload["replyTo"] | null>(
     null,
   );
-  const [reactions, setReactions] = useState<Record<string, string[]>>({});
+  const [reactions, setReactions] = useState<Record<string, string[]>>({})
+  const [chatStreak, setChatStreak] = useState({ streak_count: 0, at_risk: false, increased: false })
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
   const theme = useTheme();
@@ -1106,6 +1107,20 @@ export default function DirectMessageScreen() {
         .eq("conversation_id", cid)
         .neq("sender_id", user.id)
         .eq("is_read", false);
+
+      // Load existing chat streak
+      if (otherUserId) {
+        const { data: streakData } = await supabase.rpc('get_chat_streak', {
+          other_user_id: otherUserId,
+        })
+        if (streakData) {
+          setChatStreak({
+            streak_count: streakData.streak_count ?? 0,
+            at_risk: streakData.at_risk ?? false,
+            increased: false,
+          })
+        }
+      }
     } catch (err) {
       console.error("Init error:", err);
       setLoading(false);
@@ -1333,6 +1348,26 @@ export default function DirectMessageScreen() {
         text1: "Message not sent",
         text2: sendError.message,
       });
+    } else {
+      // Record for streak tracking
+      const today = new Date()
+      const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
+        .toISOString().split('T')[0]
+      if (otherUserId) {
+        supabase.rpc('record_chat_message', {
+          other_user_id: otherUserId,
+          client_date: localDate,
+        }).then(({ data }) => {
+          if (data) {
+            const prev = chatStreak.streak_count
+            const next = data.streak_count ?? 0
+            setChatStreak({ streak_count: next, at_risk: data.at_risk ?? false, increased: next > prev })
+            if (next > prev && next > 1) {
+              Toast.show({ type: 'success', text1: `🔥 ${next} day streak!`, text2: 'Keep it going!' })
+            }
+          }
+        })
+      }
     }
   };
 
@@ -1543,12 +1578,26 @@ export default function DirectMessageScreen() {
 
             {/* Name + status text */}
             <View style={{ flex: 1 }}>
-              <Text
-                style={[s.headerName, { color: theme.text }]}
-                numberOfLines={1}
-              >
-                {otherName}
-              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text
+                  style={[s.headerName, { color: theme.text }]}
+                  numberOfLines={1}
+                >
+                  {otherName}
+                </Text>
+                {chatStreak.streak_count > 0 && (
+                  <View style={[
+                    s.streakChip,
+                    chatStreak.at_risk
+                      ? { backgroundColor: 'rgba(251,191,36,0.15)', borderColor: 'rgba(251,191,36,0.35)' }
+                      : { backgroundColor: 'rgba(249,115,22,0.15)', borderColor: 'rgba(249,115,22,0.35)' },
+                  ]}>
+                    <Text style={s.streakChipText}>
+                      {chatStreak.at_risk ? '⌛' : '🔥'} {chatStreak.streak_count}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text
                 style={[
                   s.headerStatus,
@@ -2034,6 +2083,16 @@ const s = StyleSheet.create({
     marginTop: 1,
     lineHeight: 14,
   },
+  streakChip: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 7, paddingVertical: 2,
+    borderRadius: 10, borderWidth: 0.5,
+  },
+  streakChipText: {
+    fontSize: 11, fontFamily: typography.fontBold,
+    color: '#f97316',
+  },
+
   headerActions: {
     flexDirection: "row",
     alignItems: "center",

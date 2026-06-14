@@ -69,8 +69,9 @@ function formatMessagePreview(body: string, isMe: boolean): string {
 }
 
 // ─── Recent friend bubble (Snapchat top row) ─────────────────────────────────
-function FriendBubble({ conv, myId, isOnline, onPress }: {
+function FriendBubble({ conv, myId, isOnline, onPress, streak }: {
   conv: any; myId: string; isOnline: (id: string) => boolean; onPress: () => void
+  streak?: { streak_count: number; at_risk: boolean }
 }) {
   const theme = useTheme()
   const scale = useSharedValue(1)
@@ -117,6 +118,11 @@ function FriendBubble({ conv, myId, isOnline, onPress }: {
           )}
         </View>
         <Text style={[fb.name, { color: theme.text }]} numberOfLines={1}>{displayName}</Text>
+        {streak && streak.streak_count > 0 && (
+          <Text style={[fb.streakLabel, streak.at_risk ? { color: '#fbbf24' } : { color: '#f97316' }]}>
+            {streak.at_risk ? '⌛' : '🔥'} {streak.streak_count}
+          </Text>
+        )}
       </TouchableOpacity>
     </Animated.View>
   )
@@ -147,11 +153,13 @@ const fb = StyleSheet.create({
   },
   unreadBadgeText: { color: '#fff', fontSize: 9, fontFamily: typography.fontBold },
   name: { fontSize: 11, fontFamily: typography.fontMedium, maxWidth: 64, textAlign: 'center' },
+  streakLabel: { fontSize: 10, fontFamily: typography.fontBold, textAlign: 'center' },
 })
 
 // ─── DM row (below the friends row) ──────────────────────────────────────────
-function DmRow({ conv, myId, isOnline, onPress }: {
+function DmRow({ conv, myId, isOnline, onPress, streak }: {
   conv: any; myId: string; isOnline: (id: string) => boolean; onPress: () => void
+  streak?: { streak_count: number; at_risk: boolean }
 }) {
   const theme = useTheme()
   const scale = useSharedValue(1)
@@ -212,9 +220,17 @@ function DmRow({ conv, myId, isOnline, onPress }: {
           </Text>
         </View>
 
-        {/* Unread indicator */}
+        {/* Unread indicator / streak */}
         {hasUnread ? (
           <View style={[dmr.unreadDot, { backgroundColor: theme.accent }]} />
+        ) : streak && streak.streak_count > 0 ? (
+          <View style={[dmr.streakBadge,
+            streak.at_risk
+              ? { backgroundColor: 'rgba(251,191,36,0.12)', borderColor: 'rgba(251,191,36,0.3)' }
+              : { backgroundColor: 'rgba(249,115,22,0.12)', borderColor: 'rgba(249,115,22,0.3)' }
+          ]}>
+            <Text style={dmr.streakText}>{streak.at_risk ? '⌛' : '🔥'} {streak.streak_count}</Text>
+          </View>
         ) : (
           <Ionicons name="chevron-forward" size={14} color={theme.textFaint} />
         )}
@@ -246,6 +262,12 @@ const dmr = StyleSheet.create({
   time: { fontSize: 11, fontFamily: typography.fontRegular, marginLeft: 8 },
   preview: { fontSize: 13, fontFamily: typography.fontRegular },
   unreadDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
+  streakBadge: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 7, paddingVertical: 3,
+    borderRadius: 10, borderWidth: 0.5,
+  },
+  streakText: { fontSize: 11, fontFamily: typography.fontBold, color: '#f97316' },
 })
 
 // ─── Main screen ─────────────────────────────────────────────────────────────
@@ -258,6 +280,7 @@ export default function ChatScreen() {
   const [allUsers, setAllUsers] = useState<any[]>([])
   const [userSearch, setUserSearch] = useState('')
   const [convSearch, setConvSearch] = useState('')
+  const [streakMap, setStreakMap] = useState<Record<string, { streak_count: number; at_risk: boolean }>>({})
   const theme = useTheme()
   const { onScroll, scrollEventThrottle } = useTabBarScroll()
   const markSeen = useBadgesStore(s => s.markSeen)
@@ -316,6 +339,31 @@ export default function ChatScreen() {
         })
 
       setConversations(enriched)
+
+      // Load chat streaks for all conversations in one query
+      const { data: streaks } = await supabase
+        .from('chat_streaks')
+        .select('user1_id, user2_id, streak_count, user1_sent_date, user2_sent_date, last_streak_date')
+        .or(`user1_id.eq.${authUser.id},user2_id.eq.${authUser.id}`)
+
+      if (streaks?.length) {
+        const today = new Date()
+        const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
+          .toISOString().split('T')[0]
+        const map: Record<string, { streak_count: number; at_risk: boolean }> = {}
+        streaks.forEach((sr: any) => {
+          const otherId = sr.user1_id === authUser.id ? sr.user2_id : sr.user1_id
+          const mySentDate = sr.user1_id === authUser.id ? sr.user1_sent_date : sr.user2_sent_date
+          const theirSentDate = sr.user1_id === authUser.id ? sr.user2_sent_date : sr.user1_sent_date
+          const atRisk = (mySentDate === localDate || theirSentDate === localDate) &&
+            !(mySentDate === localDate && theirSentDate === localDate)
+          // Reset if broken
+          const broken = sr.last_streak_date && sr.last_streak_date < localDate &&
+            mySentDate !== localDate && theirSentDate !== localDate
+          map[otherId] = { streak_count: broken ? 0 : (sr.streak_count ?? 0), at_risk: atRisk }
+        })
+        setStreakMap(map)
+      }
     } catch (error) {
       console.log('Chat error:', error)
     } finally {
@@ -530,29 +578,37 @@ export default function ChatScreen() {
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={s.bubblesRow}
                       style={[s.bubblesScroll, { borderBottomColor: theme.border }]}>
-                      {recentConvs.map((c, i) => (
-                        <FriendBubble
-                          key={c.conversation_id ?? i}
-                          conv={c}
-                          myId={myId}
-                          isOnline={isOnline}
-                          onPress={() => openConversation(c)}
-                        />
-                      ))}
+                      {recentConvs.map((c, i) => {
+                        const other = (c.conversations?.conversation_participants ?? []).find((p: any) => p.user_id !== myId)
+                        return (
+                          <FriendBubble
+                            key={c.conversation_id ?? i}
+                            conv={c}
+                            myId={myId}
+                            isOnline={isOnline}
+                            onPress={() => openConversation(c)}
+                            streak={other?.user_id ? streakMap[other.user_id] : undefined}
+                          />
+                        )
+                      })}
                     </ScrollView>
                     {/* Section label */}
                     <Text style={[s.sectionLabel, { color: theme.textMuted }]}>All messages</Text>
                   </View>
                 ) : null
               }
-              renderItem={({ item: c }) => (
-                <DmRow
-                  conv={c}
-                  myId={myId}
-                  isOnline={isOnline}
-                  onPress={() => openConversation(c)}
-                />
-              )}
+              renderItem={({ item: c }) => {
+                const other = (c.conversations?.conversation_participants ?? []).find((p: any) => p.user_id !== myId)
+                return (
+                  <DmRow
+                    conv={c}
+                    myId={myId}
+                    isOnline={isOnline}
+                    onPress={() => openConversation(c)}
+                    streak={other?.user_id ? streakMap[other.user_id] : undefined}
+                  />
+                )
+              }}
               ItemSeparatorComponent={() => (
                 <View style={[s.separator, { backgroundColor: theme.border, marginLeft: 80 }]} />
               )}
