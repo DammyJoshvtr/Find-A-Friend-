@@ -30,6 +30,7 @@ function getNotificationIcon(type: NotificationType): { name: IconName; color: s
     case 'story_view':         return { name: 'eye',            color: '#c084fc' }
     case 'mention':            return { name: 'at',             color: '#60a5fa' }
     case 'new_message':        return { name: 'chatbubbles',    color: '#34d399' }
+    case 'comment_reply':      return { name: 'chatbubble-ellipses', color: '#60a5fa' }
     default:                   return { name: 'notifications',  color: '#a78bfa' }
   }
 }
@@ -48,6 +49,7 @@ function getNotificationBody(notif: AppNotification): string {
     case 'story_view':         return `${actor} viewed your story`
     case 'mention':            return `${actor} mentioned you in a post`
     case 'new_message':        return `${actor} sent you a message`
+    case 'comment_reply':      return `${actor} replied to your comment`
     default:                   return 'You have a new notification'
   }
 }

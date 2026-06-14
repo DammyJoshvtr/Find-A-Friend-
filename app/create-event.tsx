@@ -10,7 +10,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { createEvent, uploadEventCover } from '../lib/events'
 import { useTheme } from '../lib/theme'
@@ -38,6 +38,7 @@ function toInputString(d: Date | null): string {
 
 export default function CreateEventScreen() {
   const theme = useTheme()
+  const { clubId } = useLocalSearchParams<{ clubId?: string }>()
 
   const [title, setTitle]           = useState('')
   const [description, setDescription] = useState('')
@@ -101,6 +102,7 @@ export default function CreateEventScreen() {
         endsAt:       endsAtDate ? endsAtDate.toISOString() : undefined,
         category:     category || undefined,
         coverImageUrl,
+        clubId:       clubId || undefined,
       })
       if (error) throw error
       router.back()

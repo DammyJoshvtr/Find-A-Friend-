@@ -271,7 +271,17 @@ export default function PostCard({ post }: PostCardProps) {
                   <View style={s.badge}><Text style={s.badgeText}>Academic</Text></View>
                 )}
                 {post.post_type === 'club' && (
-                  <View style={[s.badge, s.badgeClub]}><Text style={[s.badgeText, { color: theme.accent }]}>Club</Text></View>
+                  <TouchableOpacity
+                    style={[s.badge, s.badgeClub, { flexDirection: 'row', alignItems: 'center' }]}
+                    onPress={() => {
+                      if (post.club_id) {
+                        router.push(`/club/${post.club_id}` as any)
+                      }
+                    }}>
+                    <Text style={[s.badgeText, { color: theme.accent }]}>
+                      ♣ {post.clubs?.name || 'Club'}
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </View>
               <Text style={[s.meta, { color: theme.textMuted }]} numberOfLines={1}>

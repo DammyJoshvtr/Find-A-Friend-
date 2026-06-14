@@ -5,13 +5,14 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Image, ActivityIndicator, Alert,
+  Image, ActivityIndicator, Alert, Modal, TextInput, ScrollView
 } from 'react-native'
 import Toast from 'react-native-toast-message'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { getVendorDetail, toggleSaveDeal, getMySavedDealIds } from '../../lib/vendors'
+import { getVendorDetail, toggleSaveDeal, getMySavedDealIds, createVendorOrder, getVendorOrders, updateOrderStatus, getDealReviews, createDealReview, getMyOrders } from '../../lib/vendors'
+import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import type { VendorWithDeals, VendorDeal } from '../../lib/vendors'
@@ -35,9 +36,11 @@ interface DealCardProps {
   deal: VendorDeal
   saved: boolean
   onToggleSave: (id: string) => void
+  onOrderPress: (deal: VendorDeal) => void
+  onReviewsPress: (deal: VendorDeal) => void
 }
 
-function DealCard({ deal, saved, onToggleSave }: DealCardProps) {
+function DealCard({ deal, saved, onToggleSave, onOrderPress, onReviewsPress }: DealCardProps) {
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
@@ -67,24 +70,40 @@ function DealCard({ deal, saved, onToggleSave }: DealCardProps) {
           <Ionicons name="information-circle-outline" size={11} color="rgba(240,240,255,0.35)" />
           <Text style={s.redeemText}>{deal.how_to_redeem}</Text>
         </View>
+
+        <TouchableOpacity style={s.reviewsTrigger} onPress={() => onReviewsPress(deal)}>
+          <Ionicons name="star" size={11} color="#fbbf24" style={{ marginRight: 4 }} />
+          <Text style={s.reviewsTriggerText}>Reviews & Ratings</Text>
+        </TouchableOpacity>
+
         {deal.valid_until && (
-          <Text style={[s.validUntil, isExpired && s.expired]}>
+          <Text style={[s.validUntil, isExpired && s.expired, { marginTop: 6 }]}>
             {isExpired ? 'Expired' : `Valid until ${new Date(deal.valid_until).toLocaleDateString()}`}
           </Text>
         )}
       </View>
-      <TouchableOpacity
-        style={s.saveBtn}
-        onPress={handleSave}
-        disabled={saving}>
-        {saving
-          ? <ActivityIndicator size="small" color="#fbbf24" />
-          : <Ionicons
-              name={saved ? 'bookmark' : 'bookmark-outline'}
-              size={20}
-              color={saved ? '#fbbf24' : 'rgba(240,240,255,0.4)'}
-            />}
-      </TouchableOpacity>
+      <View style={{ gap: 8, alignItems: 'center', alignSelf: 'stretch', justifyContent: 'space-between' }}>
+        <TouchableOpacity
+          style={s.saveBtn}
+          onPress={handleSave}
+          disabled={saving}>
+          {saving
+            ? <ActivityIndicator size="small" color="#fbbf24" />
+            : <Ionicons
+                name={saved ? 'bookmark' : 'bookmark-outline'}
+                size={20}
+                color={saved ? '#fbbf24' : 'rgba(240,240,255,0.4)'}
+              />}
+        </TouchableOpacity>
+
+        {!isExpired && (
+          <TouchableOpacity
+            style={s.orderBtn}
+            onPress={() => onOrderPress(deal)}>
+            <Ionicons name="cart-outline" size={18} color="#000" />
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   )
 }
@@ -99,6 +118,28 @@ export default function VendorDetailScreen() {
   const [vendor, setVendor] = useState<VendorWithDeals | null>(null)
   const [loading, setLoading] = useState(true)
   const [savedDealIds, setSavedDealIds] = useState<Set<string>>(new Set())
+  const [myUserId, setMyUserId] = useState<string | null>(null)
+
+  // Order state
+  const [showOrderModal, setShowOrderModal] = useState(false)
+  const [selectedDealForOrder, setSelectedDealForOrder] = useState<VendorDeal | null>(null)
+  const [orderQuantity, setOrderQuantity] = useState('1')
+  const [orderNotes, setOrderNotes] = useState('')
+  const [ordering, setOrdering] = useState(false)
+
+  // Reviews state
+  const [showReviewsModal, setShowReviewsModal] = useState(false)
+  const [selectedDealForReviews, setSelectedDealForReviews] = useState<VendorDeal | null>(null)
+  const [reviewsList, setReviewsList] = useState<any[]>([])
+  const [reviewRating, setReviewRating] = useState(5)
+  const [reviewComment, setReviewComment] = useState('')
+  const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [submittingReview, setSubmittingReview] = useState(false)
+
+  // Orders Dashboard (Owner) state
+  const [showOrdersDashboard, setShowOrdersDashboard] = useState(false)
+  const [vendorOrders, setVendorOrders] = useState<any[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
 
   useEffect(() => {
     if (id) loadVendor()
@@ -107,12 +148,16 @@ export default function VendorDetailScreen() {
   const loadVendor = async () => {
     setLoading(true)
     try {
-      const [vendorRes, savedIds] = await Promise.all([
+      const [vendorRes, savedIds, authUserRes] = await Promise.all([
         getVendorDetail(id),
         getMySavedDealIds(),
+        supabase.auth.getUser(),
       ])
       setVendor(vendorRes.data)
       setSavedDealIds(savedIds)
+      if (authUserRes.data?.user) {
+        setMyUserId(authUserRes.data.user.id)
+      }
     } catch {
       // Non-fatal
     } finally {
@@ -127,6 +172,110 @@ export default function VendorDetailScreen() {
       else next.add(dealId)
       return next
     })
+  }
+
+  const handleOrderPress = (deal: VendorDeal) => {
+    setSelectedDealForOrder(deal)
+    setOrderQuantity('1')
+    setOrderNotes('')
+    setShowOrderModal(true)
+  }
+
+  const handlePlaceOrder = async () => {
+    if (!vendor || !selectedDealForOrder) return
+    const qty = parseInt(orderQuantity)
+    if (isNaN(qty) || qty < 1) {
+      Toast.show({ type: 'error', text1: 'Invalid quantity' })
+      return
+    }
+
+    setOrdering(true)
+    const { data, error } = await createVendorOrder({
+      vendorId: vendor.id,
+      dealId: selectedDealForOrder.id,
+      quantity: qty,
+      notes: orderNotes.trim() || undefined,
+    })
+    setOrdering(false)
+
+    if (error) {
+      Toast.show({ type: 'error', text1: 'Order failed', text2: error.message })
+    } else {
+      Toast.show({ type: 'success', text1: 'Order placed successfully!' })
+      setShowOrderModal(false)
+    }
+  }
+
+  const handleReviewsPress = async (deal: VendorDeal) => {
+    setSelectedDealForReviews(deal)
+    setReviewRating(5)
+    setReviewComment('')
+    setShowReviewsModal(true)
+    loadReviews(deal.id)
+  }
+
+  const loadReviews = async (dealId: string) => {
+    setReviewsLoading(true)
+    const { data, error } = await getDealReviews(dealId)
+    if (data) setReviewsList(data)
+    setReviewsLoading(false)
+  }
+
+  const handleSubmitReview = async () => {
+    if (!selectedDealForReviews) return
+    if (reviewRating < 1 || reviewRating > 5) {
+      Toast.show({ type: 'error', text1: 'Rating must be between 1 and 5' })
+      return
+    }
+
+    setSubmittingReview(true)
+    const { data, error } = await createDealReview({
+      dealId: selectedDealForReviews.id,
+      rating: reviewRating,
+      comment: reviewComment.trim() || undefined,
+    })
+    setSubmittingReview(false)
+
+    if (error) {
+      Toast.show({ type: 'error', text1: 'Review failed', text2: error.message })
+    } else {
+      Toast.show({ type: 'success', text1: 'Review submitted successfully!' })
+      setReviewComment('')
+      loadReviews(selectedDealForReviews.id)
+    }
+  }
+
+  const handleOpenOrdersDashboard = () => {
+    if (!vendor) return
+    setShowOrdersDashboard(true)
+    loadVendorOrders()
+  }
+
+  const loadVendorOrders = async () => {
+    if (!vendor) return
+    setOrdersLoading(true)
+    const isOwner = vendor.owner_id === myUserId
+    if (isOwner) {
+      const { data } = await getVendorOrders(vendor.id)
+      if (data) setVendorOrders(data)
+    } else {
+      const { data } = await getMyOrders()
+      if (data) {
+        const filtered = data.filter((o: any) => o.vendor_id === vendor.id)
+        setVendorOrders(filtered)
+      }
+    }
+    setOrdersLoading(false)
+  }
+
+  const handleUpdateOrderStatus = async (orderId: string, status: 'pending' | 'accepted' | 'completed' | 'cancelled') => {
+    const { error } = await updateOrderStatus(orderId, status)
+    if (error) {
+      Toast.show({ type: 'error', text1: 'Update failed', text2: error.message })
+    } else {
+      Toast.show({ type: 'success', text1: `Order ${status}` })
+      loadVendorOrders()
+    }
   }
 
   if (loading) {
@@ -165,6 +314,8 @@ export default function VendorDetailScreen() {
             deal={item}
             saved={savedDealIds.has(item.id)}
             onToggleSave={handleToggleSave}
+            onOrderPress={handleOrderPress}
+            onReviewsPress={handleReviewsPress}
           />
         )}
         ListHeaderComponent={
@@ -212,6 +363,37 @@ export default function VendorDetailScreen() {
               {vendor.description && (
                 <Text style={s.description}>{vendor.description}</Text>
               )}
+
+              {/* Interaction Buttons Row */}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                {vendor.owner_id && vendor.owner_id !== myUserId && (
+                  <TouchableOpacity
+                    style={[s.interactionBtn, { borderColor: theme.border, borderWidth: 1 }]}
+                    onPress={() => router.push(`/chat/${vendor.owner_id}` as any)}>
+                    <Ionicons name="chatbubble-ellipses-outline" size={16} color={theme.text} style={{ marginRight: 6 }} />
+                    <Text style={[s.interactionBtnText, { color: theme.text }]}>Chat with Vendor</Text>
+                  </TouchableOpacity>
+                )}
+
+                {vendor.owner_id === myUserId ? (
+                  <TouchableOpacity
+                    style={[s.interactionBtn, { backgroundColor: 'rgba(251,191,36,0.15)', borderColor: '#fbbf24', borderWidth: 0.5 }]}
+                    onPress={handleOpenOrdersDashboard}>
+                    <Ionicons name="receipt-outline" size={16} color="#fbbf24" style={{ marginRight: 6 }} />
+                    <Text style={[s.interactionBtnText, { color: '#fbbf24' }]}>Orders Dashboard</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={[s.interactionBtn, { borderColor: theme.border, borderWidth: 1 }]}
+                    onPress={() => {
+                      setShowOrdersDashboard(true)
+                      loadVendorOrders()
+                    }}>
+                    <Ionicons name="receipt-outline" size={16} color={theme.text} style={{ marginRight: 6 }} />
+                    <Text style={[s.interactionBtnText, { color: theme.text }]}>My Orders</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
 
             <Text style={s.sectionTitle}>Active Deals</Text>
@@ -227,6 +409,228 @@ export default function VendorDetailScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
         showsVerticalScrollIndicator={false}
       />
+
+      {/* ── Place Order Modal ── */}
+      <Modal visible={showOrderModal} transparent animationType="slide" onRequestClose={() => setShowOrderModal(false)}>
+        <View style={s.modalContainer}>
+          <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setShowOrderModal(false)} />
+          <View style={[s.modalSheet, { backgroundColor: theme.cardSolid || theme.card2, borderColor: theme.border }]}>
+            <View style={[s.modalHandle, { backgroundColor: theme.border2 }]} />
+            <Text style={[s.modalTitle, { color: theme.text }]}>Place Order</Text>
+            {selectedDealForOrder && (
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ color: theme.text, fontSize: 16, fontFamily: typography.fontBold }}>{selectedDealForOrder.title}</Text>
+                <Text style={{ color: '#fbbf24', fontSize: 14, fontFamily: typography.fontSemiBold, marginTop: 4 }}>{selectedDealForOrder.discount} Off</Text>
+              </View>
+            )}
+
+            <Text style={{ color: theme.textMuted, fontSize: 12, fontFamily: typography.fontBold, textTransform: 'uppercase', marginBottom: 8 }}>Quantity</Text>
+            <TextInput
+              style={[s.editInput, { backgroundColor: theme.card2, borderColor: theme.border, color: theme.text }]}
+              keyboardType="numeric"
+              value={orderQuantity}
+              onChangeText={setOrderQuantity}
+              placeholder="1"
+              placeholderTextColor={theme.textFaint}
+            />
+
+            <Text style={{ color: theme.textMuted, fontSize: 12, fontFamily: typography.fontBold, textTransform: 'uppercase', marginBottom: 8, marginTop: 8 }}>Notes / Preferences</Text>
+            <TextInput
+              style={[s.editInput, { backgroundColor: theme.card2, borderColor: theme.border, color: theme.text, height: 80 }]}
+              multiline
+              numberOfLines={3}
+              value={orderNotes}
+              onChangeText={setOrderNotes}
+              placeholder="e.g. No onions, extra cheese, pick up at 5 PM..."
+              placeholderTextColor={theme.textFaint}
+            />
+
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+              <TouchableOpacity
+                style={{ flex: 1, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: theme.border, alignItems: 'center' }}
+                onPress={() => setShowOrderModal(false)}>
+                <Text style={{ color: theme.text, fontFamily: typography.fontBold }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: '#fbbf24', alignItems: 'center', justifyContent: 'center' }}
+                onPress={handlePlaceOrder}
+                disabled={ordering}>
+                {ordering ? <ActivityIndicator size="small" color="#000" /> : <Text style={{ color: '#000', fontFamily: typography.fontBold }}>Confirm Order</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Reviews Modal ── */}
+      <Modal visible={showReviewsModal} transparent animationType="slide" onRequestClose={() => setShowReviewsModal(false)}>
+        <View style={s.modalContainer}>
+          <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setShowReviewsModal(false)} />
+          <View style={[s.modalSheet, { backgroundColor: theme.cardSolid || theme.card2, borderColor: theme.border, maxHeight: '85%' }]}>
+            <View style={[s.modalHandle, { backgroundColor: theme.border2 }]} />
+            <Text style={[s.modalTitle, { color: theme.text, marginBottom: 8 }]}>Reviews & Ratings</Text>
+
+            {reviewsLoading ? (
+              <ActivityIndicator color="#fbbf24" style={{ marginVertical: 32 }} />
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                {/* Write Review Form (Only for non-owners) */}
+                {vendor.owner_id !== myUserId && (
+                  <View style={{ borderBottomWidth: 0.5, borderColor: theme.border, paddingBottom: 16, marginBottom: 16 }}>
+                    <Text style={{ color: theme.text, fontSize: 13, fontFamily: typography.fontSemiBold, marginBottom: 8 }}>Write a Review</Text>
+                    <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <TouchableOpacity key={star} onPress={() => setReviewRating(star)}>
+                          <Ionicons
+                            name={star <= reviewRating ? 'star' : 'star-outline'}
+                            size={24}
+                            color="#fbbf24"
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <TextInput
+                      style={[s.editInput, { backgroundColor: theme.card2, borderColor: theme.border, color: theme.text, height: 60 }]}
+                      multiline
+                      value={reviewComment}
+                      onChangeText={setReviewComment}
+                      placeholder="Share your experience..."
+                      placeholderTextColor={theme.textFaint}
+                    />
+                    <TouchableOpacity
+                      style={{ backgroundColor: '#fbbf24', borderRadius: 10, paddingVertical: 10, alignItems: 'center', justifyContent: 'center', marginTop: 4 }}
+                      onPress={handleSubmitReview}
+                      disabled={submittingReview}>
+                      {submittingReview ? <ActivityIndicator size="small" color="#000" /> : <Text style={{ color: '#000', fontFamily: typography.fontBold, fontSize: 12 }}>Submit Review</Text>}
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Reviews List */}
+                <Text style={{ color: theme.textMuted, fontSize: 11, fontFamily: typography.fontBold, textTransform: 'uppercase', marginBottom: 12 }}>Student Reviews ({reviewsList.length})</Text>
+                {reviewsList.length === 0 ? (
+                  <Text style={{ color: theme.textFaint, fontSize: 13, textAlign: 'center', marginVertical: 16 }}>No reviews yet. Be the first to review!</Text>
+                ) : (
+                  reviewsList.map(item => (
+                    <View key={item.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottomWidth: 0.5, borderColor: theme.border }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                        <Text style={{ color: theme.text, fontSize: 13, fontFamily: typography.fontBold }}>{item.profiles?.full_name || 'Anonymous'}</Text>
+                        <Text style={{ color: theme.textFaint, fontSize: 10 }}>{new Date(item.created_at).toLocaleDateString()}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 2, marginBottom: 4 }}>
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <Ionicons
+                            key={star}
+                            name={star <= item.rating ? 'star' : 'star-outline'}
+                            size={10}
+                            color="#fbbf24"
+                          />
+                        ))}
+                      </View>
+                      {item.comment && (
+                        <Text style={{ color: theme.textMuted, fontSize: 12, lineHeight: 16 }}>{item.comment}</Text>
+                      )}
+                    </View>
+                  ))
+                )}
+              </ScrollView>
+            )}
+
+            <TouchableOpacity style={[s.closeBtn, { marginTop: 16 }]} onPress={() => setShowReviewsModal(false)}>
+              <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Orders Dashboard Modal ── */}
+      <Modal visible={showOrdersDashboard} transparent animationType="slide" onRequestClose={() => setShowOrdersDashboard(false)}>
+        <View style={s.modalContainer}>
+          <TouchableOpacity style={s.modalBackdrop} activeOpacity={1} onPress={() => setShowOrdersDashboard(false)} />
+          <View style={[s.modalSheet, { backgroundColor: theme.cardSolid || theme.card2, borderColor: theme.border, maxHeight: '85%' }]}>
+            <View style={[s.modalHandle, { backgroundColor: theme.border2 }]} />
+            <Text style={[s.modalTitle, { color: theme.text, marginBottom: 12 }]}>
+              {vendor.owner_id === myUserId ? 'Orders Dashboard' : 'My Orders'}
+            </Text>
+
+            {ordersLoading ? (
+              <ActivityIndicator color="#fbbf24" style={{ marginVertical: 32 }} />
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {vendorOrders.length === 0 ? (
+                  <Text style={{ color: theme.textFaint, fontSize: 13, textAlign: 'center', marginVertical: 32 }}>No orders placed yet.</Text>
+                ) : (
+                  vendorOrders.map(item => {
+                    const statusColors = {
+                      pending: '#fbbf24',
+                      accepted: '#60a5fa',
+                      completed: '#4ade80',
+                      cancelled: '#f87171',
+                    }
+                    const statusColor = statusColors[item.status as keyof typeof statusColors] || '#64748b'
+                    const isMerchant = vendor.owner_id === myUserId
+
+                    return (
+                      <View key={item.id} style={{ marginBottom: 12, padding: 12, borderRadius: 12, borderWidth: 0.5, borderColor: theme.border, backgroundColor: theme.card2 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                          <Text style={{ color: theme.text, fontSize: 13, fontFamily: typography.fontBold }}>
+                            {item.vendor_deals?.title || 'Custom Order'}
+                          </Text>
+                          <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, backgroundColor: statusColor + '15', borderWidth: 0.5, borderColor: statusColor + '30' }}>
+                            <Text style={{ color: statusColor, fontSize: 9, fontFamily: typography.fontBold, textTransform: 'uppercase' }}>{item.status}</Text>
+                          </View>
+                        </View>
+                        <Text style={{ color: theme.textMuted, fontSize: 11, marginBottom: 4 }}>
+                          Quantity: {item.quantity} · Placed {getTimeAgo(item.created_at)}
+                        </Text>
+                        {isMerchant && (
+                          <Text style={{ color: theme.textMuted, fontSize: 11, marginBottom: 4 }}>
+                            Customer: {item.profiles?.full_name || 'Student'}
+                          </Text>
+                        )}
+                        {item.notes && (
+                          <Text style={{ color: theme.textFaint, fontSize: 11, fontStyle: 'italic', backgroundColor: theme.card, padding: 6, borderRadius: 6, marginTop: 4 }}>
+                            Note: {item.notes}
+                          </Text>
+                        )}
+
+                        {/* Status Action Buttons (Only for Merchant) */}
+                        {isMerchant && item.status !== 'completed' && item.status !== 'cancelled' && (
+                          <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                            {item.status === 'pending' && (
+                              <TouchableOpacity
+                                style={{ flex: 1, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(96,165,250,0.15)', borderWidth: 0.5, borderColor: '#60a5fa', alignItems: 'center' }}
+                                onPress={() => handleUpdateOrderStatus(item.id, 'accepted')}>
+                                <Text style={{ color: '#60a5fa', fontSize: 11, fontFamily: typography.fontBold }}>Accept</Text>
+                              </TouchableOpacity>
+                            )}
+                            {item.status === 'accepted' && (
+                              <TouchableOpacity
+                                style={{ flex: 1, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(74,222,128,0.15)', borderWidth: 0.5, borderColor: '#4ade80', alignItems: 'center' }}
+                                onPress={() => handleUpdateOrderStatus(item.id, 'completed')}>
+                                <Text style={{ color: '#4ade80', fontSize: 11, fontFamily: typography.fontBold }}>Complete</Text>
+                              </TouchableOpacity>
+                            )}
+                            <TouchableOpacity
+                              style={{ flex: 1, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(248,113,113,0.15)', borderWidth: 0.5, borderColor: '#f87171', alignItems: 'center' }}
+                              onPress={() => handleUpdateOrderStatus(item.id, 'cancelled')}>
+                              <Text style={{ color: '#f87171', fontSize: 11, fontFamily: typography.fontBold }}>Cancel</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    )
+                  })
+                )}
+              </ScrollView>
+            )}
+
+            <TouchableOpacity style={[s.closeBtn, { marginTop: 16 }]} onPress={() => setShowOrdersDashboard(false)}>
+              <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
@@ -294,4 +698,87 @@ const s = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: 40, gap: 8 },
   emptyText: { fontSize: 14, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontRegular },
   emptySub: { fontSize: 12, color: 'rgba(240,240,255,0.25)', fontFamily: typography.fontRegular },
+  reviewsTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  reviewsTriggerText: {
+    fontSize: 12,
+    fontFamily: typography.fontMedium,
+    color: '#fbbf24',
+    marginLeft: 4,
+    textDecorationLine: 'underline',
+  },
+  orderBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fbbf24',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  interactionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  interactionBtnText: {
+    fontSize: 12,
+    fontFamily: typography.fontSemiBold,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalBackdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 40,
+    borderWidth: 0.5,
+    borderBottomWidth: 0,
+    maxHeight: '85%',
+    width: '100%',
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: typography.fontBold,
+    marginBottom: 18,
+  },
+  closeBtn: {
+    backgroundColor: 'rgba(240,240,255,0.08)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editInput: {
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    fontFamily: typography.fontRegular,
+    borderWidth: 0.5,
+  },
 })

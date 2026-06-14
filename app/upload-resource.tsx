@@ -6,8 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
-import { getResources, getMyEnrolledCourses } from '../lib/academic'
-import { uploadFile } from '../lib/upload'
+import * as DocumentPicker from 'expo-document-picker'
+import { getResources, getMyEnrolledCourses, uploadResource } from '../lib/academic'
 import type { AcademicResource, Course } from '../lib/academic'
 import { useTheme } from '../lib/theme'
 import { typography } from '../lib/typography'
@@ -30,22 +30,50 @@ export default function UploadResourceScreen() {
   }, [])
 
   const pickFile = async () => {
-    // Placeholder: in real app use expo-document-picker
-    Toast.show({ type: 'info', text1: 'File picker not implemented in this mock' })
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      })
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selected = result.assets[0]
+        setFile({
+          uri: selected.uri,
+          name: selected.name,
+          type: selected.mimeType || 'application/octet-stream',
+          size: selected.size,
+        } as any)
+      }
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Error picking file', text2: err.message })
+    }
   }
 
   const handleUpload = async () => {
-    if (!title.trim() || !file) {
-      Toast.show({ type: 'error', text1: 'Title and file required' })
+    if (!title.trim()) {
+      Toast.show({ type: 'error', text1: 'Title required' })
+      return
+    }
+    if (!file) {
+      Toast.show({ type: 'error', text1: 'Please select a file' })
       return
     }
     setLoading(true)
     try {
-      const timestamp = Date.now()
-      const path = `${file.name.split('.').slice(0, -1).join('.')}_${timestamp}.${file.name.split('.').pop()}`
-      const publicUrl = await uploadFile('academic-resources', path, file.uri, file.type)
-      // Here you would call an API to create the resource entry (omitted for brevity)
-      Toast.show({ type: 'success', text1: 'Resource uploaded' })
+      const fileSizeKb = (file as any).size ? Math.round((file as any).size / 1024) : undefined
+      const { data, error } = await uploadResource({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        courseId: courseId || undefined,
+        resourceType,
+        fileUri: file.uri,
+        fileName: file.name,
+        mimeType: file.type,
+        fileSizeKb,
+      })
+      if (error) throw error
+
+      Toast.show({ type: 'success', text1: 'Resource uploaded successfully' })
       router.back()
     } catch (e: any) {
       Toast.show({ type: 'error', text1: 'Upload failed', text2: e.message })
@@ -105,6 +133,27 @@ export default function UploadResourceScreen() {
                   onPress={() => setCourseId(c.id)}
                 >
                   <Text style={[s.courseChipText, courseId === c.id && { color: '#fff' }]}>{c.code}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <View style={s.field}>
+            <Text style={[s.label, { color: theme.text }]}>Resource Type *</Text>
+            <View style={s.courseList}>
+              {[
+                { label: 'Note', value: 'note' },
+                { label: 'Past Question', value: 'past_question' },
+                { label: 'Textbook', value: 'textbook' },
+                { label: 'Slide', value: 'slide' },
+                { label: 'Other', value: 'other' }
+              ].map(type => (
+                <TouchableOpacity
+                  key={type.value}
+                  style={[s.courseChip, resourceType === type.value && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                  onPress={() => setResourceType(type.value as any)}
+                >
+                  <Text style={[s.courseChipText, resourceType === type.value && { color: '#fff' }]}>{type.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>

@@ -118,6 +118,7 @@ export async function getEvents(
       .from('events')
       .select(`
         *,
+        clubs(id, name, color),
         profiles!organizer_id(id, full_name, avatar_url)
       `)
       .eq('is_public', true)
@@ -169,6 +170,7 @@ export async function getEventDetail(eventId: string): Promise<{
       .from('events')
       .select(`
         *,
+        clubs(id, name, color),
         profiles!organizer_id(id, full_name, avatar_url)
       `)
       .eq('id', eventId)

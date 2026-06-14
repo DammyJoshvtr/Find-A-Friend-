@@ -2,7 +2,7 @@
  * app/create-post.tsx
  * Create post screen — text, image picker, hashtag detection, post type selector.
  */
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import {
   View,
   Text,
@@ -18,7 +18,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
-import { router } from 'expo-router'
+import { router, useLocalSearchParams } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { createPost } from '../lib/feed'
 import { getClubs } from '../lib/clubs'
@@ -41,6 +41,7 @@ const POST_TYPES: { label: string; value: PostType; icon: string }[] = [
 
 export default function CreatePostScreen() {
   const theme = useTheme()
+  const { clubId } = useLocalSearchParams<{ clubId?: string }>()
   const [body, setBody] = useState('')
   const [imageUris, setImageUris] = useState<string[]>([])
   const [postType, setPostType] = useState<PostType>('feed')
@@ -49,6 +50,21 @@ export default function CreatePostScreen() {
   const [loadingClubs, setLoadingClubs] = useState(false)
   const [posting, setPosting] = useState(false)
   const inputRef = useRef<TextInput>(null)
+
+  useEffect(() => {
+    if (clubId) {
+      setPostType('club')
+      setLoadingClubs(true)
+      getClubs().then(({ data }) => {
+        if (data) {
+          setClubs(data)
+          const target = data.find(c => c.id === clubId)
+          if (target) setSelectedClub(target)
+        }
+        setLoadingClubs(false)
+      })
+    }
+  }, [clubId])
 
   const handleTypeChange = async (type: PostType) => {
     setPostType(type)

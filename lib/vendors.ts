@@ -503,3 +503,151 @@ export async function uploadVendorCover(uri: string): Promise<{
     return { data: null, error: err as Error }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Vendor Orders & Deal Reviews
+// ---------------------------------------------------------------------------
+
+export interface VendorOrder {
+  id: string
+  vendor_id: string
+  user_id: string
+  deal_id: string | null
+  quantity: number
+  notes: string | null
+  status: 'pending' | 'accepted' | 'completed' | 'cancelled'
+  created_at: string
+  updated_at: string
+  vendor_deals?: { title: string; discount: string } | null
+  vendors?: { name: string; icon: string | null; logo_url: string | null } | null
+  profiles?: { full_name: string | null; avatar_url: string | null } | null
+}
+
+export interface DealReview {
+  id: string
+  deal_id: string
+  user_id: string
+  rating: number
+  comment: string | null
+  created_at: string
+  profiles?: { full_name: string | null; avatar_url: string | null } | null
+}
+
+export async function createVendorOrder(payload: {
+  vendorId: string
+  dealId?: string
+  quantity: number
+  notes?: string
+}): Promise<{ data: VendorOrder | null; error: Error | null }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data, error } = await supabase
+      .from('vendor_orders')
+      .insert({
+        vendor_id: payload.vendorId,
+        user_id: user.id,
+        deal_id: payload.dealId ?? null,
+        quantity: payload.quantity,
+        notes: payload.notes ?? null,
+        status: 'pending',
+      })
+      .select('*, vendor_deals(title, discount), vendors(name, icon, logo_url)')
+      .single()
+
+    if (error) throw error
+    return { data: data as any, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function getMyOrders(): Promise<{ data: VendorOrder[] | null; error: Error | null }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data, error } = await supabase
+      .from('vendor_orders')
+      .select('*, vendor_deals(title, discount), vendors(name, icon, logo_url)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return { data: data as any[], error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function getVendorOrders(vendorId: string): Promise<{ data: VendorOrder[] | null; error: Error | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('vendor_orders')
+      .select('*, vendor_deals(title, discount), profiles!user_id(full_name, avatar_url)')
+      .eq('vendor_id', vendorId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return { data: data as any[], error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function updateOrderStatus(orderId: string, status: 'pending' | 'accepted' | 'completed' | 'cancelled'): Promise<{ error: Error | null }> {
+  try {
+    const { error } = await supabase
+      .from('vendor_orders')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', orderId)
+
+    if (error) throw error
+    return { error: null }
+  } catch (err) {
+    return { error: err as Error }
+  }
+}
+
+export async function getDealReviews(dealId: string): Promise<{ data: DealReview[] | null; error: Error | null }> {
+  try {
+    const { data, error } = await supabase
+      .from('deal_reviews')
+      .select('*, profiles!user_id(full_name, avatar_url)')
+      .eq('deal_id', dealId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return { data: data as any[], error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function createDealReview(payload: {
+  dealId: string
+  rating: number
+  comment?: string
+}): Promise<{ data: DealReview | null; error: Error | null }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data, error } = await supabase
+      .from('deal_reviews')
+      .insert({
+        deal_id: payload.dealId,
+        user_id: user.id,
+        rating: payload.rating,
+        comment: payload.comment ?? null,
+      })
+      .select('*, profiles!user_id(full_name, avatar_url)')
+      .single()
+
+    if (error) throw error
+    return { data: data as any, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}

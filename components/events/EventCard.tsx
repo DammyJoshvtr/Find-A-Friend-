@@ -110,6 +110,13 @@ export default function EventCard({ event, onRsvpChange }: EventCardProps) {
                   <Text style={[s.catText, { color: catColor }]}>{event.category}</Text>
                 </View>
               ) : null}
+              {event.clubs && (
+                <TouchableOpacity
+                  style={[s.catBadge, { backgroundColor: 'rgba(167,139,250,0.1)', borderColor: 'rgba(167,139,250,0.3)' }]}
+                  onPress={() => router.push(`/club/${event.club_id}` as any)}>
+                  <Text style={[s.catText, { color: theme.accent }]}>♣ {event.clubs.name}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 

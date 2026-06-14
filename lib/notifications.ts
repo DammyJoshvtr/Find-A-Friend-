@@ -29,6 +29,7 @@ export type NotificationType =
   | 'new_message'
   | 'feedback_comment'
   | 'feedback_upvote'
+  | 'comment_reply'
 
 export type NotificationEntityType = 'post' | 'event' | 'club' | 'story' | 'feedback' | null
 

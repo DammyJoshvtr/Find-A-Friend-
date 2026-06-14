@@ -374,10 +374,16 @@ export default function AcademicScreen() {
       </ScrollView>
 
       {/* FAB */}
-      {activeTab === 'groups' && (
+      {(activeTab === 'groups' || activeTab === 'resources') && (
         <TouchableOpacity
           style={s.fab}
-          onPress={() => router.push('/create-study-group' as any)}>
+          onPress={() => {
+            if (activeTab === 'groups') {
+              router.push('/create-study-group' as any)
+            } else {
+              router.push('/upload-resource' as any)
+            }
+          }}>
           <Ionicons name="add" size={26} color="#fff" />
         </TouchableOpacity>
       )}

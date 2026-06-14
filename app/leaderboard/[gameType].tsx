@@ -126,9 +126,7 @@ export default function LeaderboardScreen() {
     }
   }
 
-  if (!meta) return null
-
-  if (loading) {
+  if (loading || !meta) {
     return <ScreenLoader message="Loading rankings…" />
   }
 

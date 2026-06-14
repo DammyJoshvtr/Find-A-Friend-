@@ -328,6 +328,21 @@ export default function ClubDetailScreen() {
       case 'feed':
         return (
           <View style={{ paddingBottom: 20 }}>
+            {role && (
+              <TouchableOpacity
+                style={[s.createPostBar, { backgroundColor: theme.card, borderColor: theme.border }]}
+                onPress={() => router.push(`/create-post?clubId=${id}` as any)}>
+                <View style={[s.createPostAvatar, { backgroundColor: theme.card2 }]}>
+                  <Text style={[s.createPostInitials, { color: theme.textMuted }]}>
+                    {getInitials(club?.name ?? '')}
+                  </Text>
+                </View>
+                <Text style={[s.createPostPlaceholder, { color: theme.textMuted }]}>
+                  Write something to the club...
+                </Text>
+                <Ionicons name="image-outline" size={20} color={theme.textMuted} />
+              </TouchableOpacity>
+            )}
             {posts.length === 0 ? (
               <EmptyTab message="No posts yet" />
             ) : (
@@ -398,6 +413,14 @@ export default function ClubDetailScreen() {
       case 'events':
         return (
           <View style={{ paddingBottom: 20 }}>
+            {(role === 'admin' || role === 'moderator') && (
+              <TouchableOpacity
+                style={[s.createEventBtn, { backgroundColor: theme.accent }]}
+                onPress={() => router.push(`/create-event?clubId=${id}` as any)}>
+                <Ionicons name="calendar-outline" size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={s.createEventBtnText}>Schedule New Event</Text>
+              </TouchableOpacity>
+            )}
             {events.length === 0 ? (
               <EmptyTab message="No events scheduled" />
             ) : (
@@ -1001,4 +1024,27 @@ const s = StyleSheet.create({
     marginTop: 10,
   },
   editSaveBtnText: { fontSize: 15, fontFamily: typography.fontBold, color: '#fff' },
+  createPostBar: {
+    flexDirection: 'row', alignItems: 'center',
+    padding: 12, marginHorizontal: 16, marginTop: 12, marginBottom: 8,
+    borderRadius: 14, borderWidth: 0.5,
+  },
+  createPostAvatar: {
+    width: 32, height: 32, borderRadius: 16,
+    alignItems: 'center', justifyContent: 'center', marginRight: 10,
+  },
+  createPostInitials: {
+    fontSize: 12, fontFamily: typography.fontBold,
+  },
+  createPostPlaceholder: {
+    flex: 1, fontSize: 13, fontFamily: typography.fontRegular,
+  },
+  createEventBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    padding: 14, marginHorizontal: 16, marginTop: 12, marginBottom: 8,
+    borderRadius: 14, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2,
+  },
+  createEventBtnText: {
+    color: '#fff', fontSize: 14, fontFamily: typography.fontBold,
+  },
 })

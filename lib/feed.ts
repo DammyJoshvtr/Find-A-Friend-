@@ -39,6 +39,7 @@ export interface FeedPost {
   author_id: string | null  // null when is_anonymous = true
   created_at: string
   profiles?: FeedAuthor | null
+  clubs?: { id: string; name: string } | null
   // Client-side derived fields
   is_liked?: boolean
   is_bookmarked?: boolean
@@ -81,7 +82,7 @@ export interface CreatePostPayload {
 // ---------------------------------------------------------------------------
 
 const POST_SELECT =
-  '*, profiles!author_id(id, full_name, department, level, avatar_url, role, badge_type, badge_color), post_likes(count), post_comments(count), reposts(count), original_post:repost_of(*, profiles!author_id(id, full_name, department, level, avatar_url, role, badge_type, badge_color), post_likes(count), post_comments(count), reposts(count))'
+  '*, clubs(id, name), profiles!author_id(id, full_name, department, level, avatar_url, role, badge_type, badge_color), post_likes(count), post_comments(count), reposts(count), original_post:repost_of(*, clubs(id, name), profiles!author_id(id, full_name, department, level, avatar_url, role, badge_type, badge_color), post_likes(count), post_comments(count), reposts(count))'
 
 function toFeedPost(raw: any): FeedPost {
   if (!raw) return raw
