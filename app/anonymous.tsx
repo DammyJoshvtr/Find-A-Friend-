@@ -138,6 +138,7 @@ export default function AnonymousScreen() {
         postId={commentPostId ?? ''}
         visible={!!commentPostId}
         onClose={() => setCommentPostId(null)}
+        isAnonymousPost={true}
       />
     </SafeAreaView>
   )

@@ -128,6 +128,10 @@ export default function LeaderboardScreen() {
 
   if (!meta) return null
 
+  if (loading) {
+    return <ScreenLoader message="Loading rankings…" />
+  }
+
   const top3 = entries.slice(0, 3)
   const rest  = entries.slice(3)
 
@@ -155,9 +159,7 @@ export default function LeaderboardScreen() {
           </TouchableOpacity>
         </View>
 
-        {loading ? (
-          <ScreenLoader message="Loading rankings…" />
-        ) : entries.length === 0 ? (
+        {entries.length === 0 ? (
           <View style={[s.listCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <View style={{ padding: 24, alignItems: 'center', gap: 8 }}>
               <Text style={{ fontSize: 32 }}>🏆</Text>

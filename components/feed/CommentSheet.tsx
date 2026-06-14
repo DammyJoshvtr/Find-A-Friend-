@@ -30,9 +30,10 @@ interface CommentSheetProps {
   postId: string
   visible: boolean
   onClose: () => void
+  isAnonymousPost?: boolean
 }
 
-export default function CommentSheet({ postId, visible, onClose }: CommentSheetProps) {
+export default function CommentSheet({ postId, visible, onClose, isAnonymousPost = false }: CommentSheetProps) {
   const [comments, setComments] = useState<PostComment[]>([])
   const [loading, setLoading] = useState(false)
   const [text, setText] = useState('')
@@ -66,14 +67,19 @@ export default function CommentSheet({ postId, visible, onClose }: CommentSheetP
         table: 'post_comments',
         filter: `post_id=eq.${postId}`,
       }, async (payload: any) => {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url')
-          .eq('id', payload.new.author_id)
-          .single()
+        let profile = null
+        if (!payload.new.is_anonymous) {
+          const { data: p } = await supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url')
+            .eq('id', payload.new.author_id)
+            .single()
+          profile = p
+        }
 
         const newComment: PostComment = {
           ...payload.new,
+          author_id: payload.new.is_anonymous ? null : payload.new.author_id,
           profiles: profile,
         }
 
@@ -109,7 +115,7 @@ export default function CommentSheet({ postId, visible, onClose }: CommentSheetP
     const trimmed = text.trim()
     if (!trimmed || sending) return
     setSending(true)
-    const { data, error } = await commentOnPost(postId, trimmed)
+    const { data, error } = await commentOnPost(postId, trimmed, isAnonymousPost)
     setSending(false)
     if (error) {
       Toast.show({ type: 'error', text1: 'Comment failed', text2: error.message ?? 'Please try again.' })

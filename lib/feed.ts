@@ -274,7 +274,14 @@ export async function commentOnPost(
       .single()
 
     if (error) throw error
-    return { data: data as PostComment, error: null }
+
+    const comment = data as any
+    if (comment && comment.is_anonymous) {
+      comment.author_id = null
+      comment.profiles = null
+    }
+
+    return { data: comment as PostComment, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -292,7 +299,15 @@ export async function getComments(postId: string): Promise<{
       .order('created_at', { ascending: true })
 
     if (error) throw error
-    return { data: data as PostComment[], error: null }
+
+    const sanitized = (data ?? []).map((c: any) => {
+      if (c.is_anonymous) {
+        return { ...c, author_id: null, profiles: null }
+      }
+      return c
+    })
+
+    return { data: sanitized as PostComment[], error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }

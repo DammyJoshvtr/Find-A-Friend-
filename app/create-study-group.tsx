@@ -127,28 +127,27 @@ export default function CreateStudyGroupScreen() {
             />
           </View>
 
-          <View style={s.row}>
-            <View style={[s.field, { flex: 1 }]}>
-              <Text style={[s.label, { color: theme.text }]}>Meet Time</Text>
-              <TextInput
-                style={[s.input, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
-                placeholder="e.g. Saturdays 4PM"
-                placeholderTextColor={theme.textMuted}
-                value={meetTime}
-                onChangeText={setMeetTime}
-              />
-            </View>
-            <View style={[s.field, { flex: 1 }]}>
-              <Text style={[s.label, { color: theme.text }]}>Max Members</Text>
-              <TextInput
-                style={[s.input, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
-                placeholder="Unlimited"
-                placeholderTextColor={theme.textMuted}
-                keyboardType="numeric"
-                value={maxMembers}
-                onChangeText={setMaxMembers}
-              />
-            </View>
+          <View style={s.field}>
+            <Text style={[s.label, { color: theme.text }]}>Meet Time</Text>
+            <TextInput
+              style={[s.input, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
+              placeholder="e.g. Saturdays 4PM"
+              placeholderTextColor={theme.textMuted}
+              value={meetTime}
+              onChangeText={setMeetTime}
+            />
+          </View>
+
+          <View style={s.field}>
+            <Text style={[s.label, { color: theme.text }]}>Max Members</Text>
+            <TextInput
+              style={[s.input, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
+              placeholder="Unlimited"
+              placeholderTextColor={theme.textMuted}
+              keyboardType="numeric"
+              value={maxMembers}
+              onChangeText={setMaxMembers}
+            />
           </View>
 
           <View style={s.switchRow}>

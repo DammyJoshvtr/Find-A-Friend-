@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useState } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Image, Modal, Share, Pressable, Alert, Platform, Linking,
+  Image, Modal, Share, Pressable, Alert, Platform, Linking, ScrollView,
 } from 'react-native'
 import Toast from 'react-native-toast-message'
 import { Ionicons } from '@expo/vector-icons'
@@ -29,13 +29,43 @@ function toHandle(name: string | null | undefined): string {
 
 export default function PostCard({ post }: PostCardProps) {
   const { toggleLike, toggleBookmark, repostPost, deletePost } = useFeedStore()
-  const [imageOpen, setImageOpen] = useState(false)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
   const [myUserId, setMyUserId] = useState<string | null>(null)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [containerWidth, setContainerWidth] = useState(0)
   const theme = useTheme()
 
   React.useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id ?? null))
   }, [])
+
+  const handleScroll = (event: any) => {
+    const slideSize = event.nativeEvent.layoutMeasurement.width
+    if (slideSize <= 0) return
+    const index = event.nativeEvent.contentOffset.x / slideSize
+    const roundIndex = Math.round(index)
+    if (roundIndex !== activeIndex) {
+      setActiveIndex(roundIndex)
+    }
+  }
+
+  const onContainerLayout = (event: any) => {
+    const { width } = event.nativeEvent.layout;
+    setContainerWidth(width);
+  }
+
+  let images: string[] = []
+  if (post.image_url) {
+    if (post.image_url.startsWith('[')) {
+      try {
+        images = JSON.parse(post.image_url)
+      } catch {
+        images = [post.image_url]
+      }
+    } else {
+      images = [post.image_url]
+    }
+  }
 
   const isAnon = post.is_anonymous
   const displayName = isAnon ? 'Anonymous' : (post.profiles?.full_name ?? 'User')
@@ -256,23 +286,82 @@ export default function PostCard({ post }: PostCardProps) {
           {quoteText ? renderBody(quoteText) : null}
 
           {/* Media with accent border */}
-          {post.image_url && !isRepost ? (
-            post.image_url.match(/\.(mp4|mov|webm)$/i) ? (
-              <TouchableOpacity
-                style={[s.media, { borderColor: theme.border, height: 180, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center', borderRadius: 12 }]}
-                onPress={() => Linking.openURL(post.image_url!)}
-              >
-                <Ionicons name="play-circle-outline" size={54} color="rgba(255,255,255,0.8)" />
-                <Text style={{ color: 'white', marginTop: 6, fontSize: 12, fontFamily: typography.fontMedium }}>Play Video</Text>
-              </TouchableOpacity>
+          {images.length > 0 && !isRepost ? (
+            images.length === 1 ? (
+              images[0].match(/\.(mp4|mov|webm)$/i) ? (
+                <TouchableOpacity
+                  style={[s.media, { borderColor: theme.border, height: 180, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center', borderRadius: 12 }]}
+                  onPress={() => Linking.openURL(images[0])}
+                >
+                  <Ionicons name="play-circle-outline" size={54} color="rgba(255,255,255,0.8)" />
+                  <Text style={{ color: 'white', marginTop: 6, fontSize: 12, fontFamily: typography.fontMedium }}>Play Video</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity onPress={() => setSelectedImage(images[0])} activeOpacity={0.95}>
+                  <Image
+                    source={{ uri: images[0] }}
+                    style={[s.media, { borderColor: theme.border }]}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
+              )
             ) : (
-              <TouchableOpacity onPress={() => setImageOpen(true)} activeOpacity={0.95}>
-                <Image
-                  source={{ uri: post.image_url }}
-                  style={[s.media, { borderColor: theme.border }]}
-                  resizeMode="cover"
-                />
-              </TouchableOpacity>
+              <View style={{ marginBottom: 10 }}>
+                <View 
+                  onLayout={onContainerLayout}
+                  style={{ position: 'relative', width: '100%', height: 240, borderRadius: 12, overflow: 'hidden', borderWidth: 0.5, borderColor: theme.border }}>
+                  <ScrollView
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    onScroll={handleScroll}
+                    scrollEventThrottle={16}
+                    style={{ width: '100%', height: '100%' }}
+                  >
+                    {images.map((imgUrl, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        activeOpacity={0.95}
+                        onPress={() => setSelectedImage(imgUrl)}
+                        style={{ width: containerWidth || 300, height: '100%' }}
+                      >
+                        <Image
+                          source={{ uri: imgUrl }}
+                          style={{ width: '100%', height: '100%' }}
+                          resizeMode="cover"
+                        />
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                  
+                  {/* Page Indicator (e.g. 1/3) */}
+                  <View style={{
+                    position: 'absolute', top: 12, right: 12,
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    paddingHorizontal: 8, paddingVertical: 4,
+                    borderRadius: 12,
+                  }}>
+                    <Text style={{ color: '#fff', fontSize: 11, fontFamily: typography.fontMedium }}>
+                      {activeIndex + 1}/{images.length}
+                    </Text>
+                  </View>
+                </View>
+                
+                {/* Dots Indicator */}
+                <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 8, gap: 5 }}>
+                  {images.map((_, idx) => (
+                    <View
+                      key={idx}
+                      style={{
+                        width: activeIndex === idx ? 6 : 4,
+                        height: activeIndex === idx ? 6 : 4,
+                        borderRadius: 3,
+                        backgroundColor: activeIndex === idx ? theme.accent : theme.textFaint,
+                      }}
+                    />
+                  ))}
+                </View>
+              </View>
             )
           ) : null}
 
@@ -343,10 +432,10 @@ export default function PostCard({ post }: PostCardProps) {
         </View>
       </View>
 
-      {post.image_url && !post.image_url.match(/\.(mp4|mov|webm)$/i) ? (
-        <Modal visible={imageOpen} transparent animationType="fade">
-          <Pressable style={s.imgModal} onPress={() => setImageOpen(false)}>
-            <Image source={{ uri: post.image_url }} style={s.imgModalImg} resizeMode="contain" />
+      {selectedImage ? (
+        <Modal visible={!!selectedImage} transparent animationType="fade">
+          <Pressable style={s.imgModal} onPress={() => setSelectedImage(null)}>
+            <Image source={{ uri: selectedImage }} style={s.imgModalImg} resizeMode="contain" />
           </Pressable>
         </Modal>
       ) : null}

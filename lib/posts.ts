@@ -105,17 +105,23 @@ export async function getConfessionPosts() {
 // Comments (thin wrappers — full implementation in lib/feed.ts)
 // ---------------------------------------------------------------------------
 
-export async function addComment(postId: string, body: string) {
+export async function addComment(postId: string, body: string, isAnonymous = false) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Not logged in' }
 
   const { data, error } = await supabase
     .from('post_comments')
-    .insert({ post_id: postId, author_id: user.id, body })
-    .select()
+    .insert({ post_id: postId, author_id: user.id, body, is_anonymous: isAnonymous })
+    .select('*, profiles!author_id(id, full_name, department, level, avatar_url)')
     .single()
 
-  return { data, error }
+  const comment = data as any
+  if (comment && comment.is_anonymous) {
+    comment.author_id = null
+    comment.profiles = null
+  }
+
+  return { data: comment, error }
 }
 
 export async function getComments(postId: string) {
@@ -125,5 +131,12 @@ export async function getComments(postId: string) {
     .eq('post_id', postId)
     .order('created_at', { ascending: true })
 
-  return { data: data ?? [], error }
+  const sanitized = (data ?? []).map((c: any) => {
+    if (c.is_anonymous) {
+      return { ...c, author_id: null, profiles: null }
+    }
+    return c
+  })
+
+  return { data: sanitized, error }
 }

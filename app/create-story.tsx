@@ -93,7 +93,17 @@ export default function CreateStoryScreen() {
       {/* Preview */}
       {mediaUri ? (
         <View style={s.previewWrap}>
-          <Image source={{ uri: mediaUri }} style={s.preview} resizeMode="cover" />
+          {mediaType === 'video' ? (
+            <View style={[s.preview, s.videoPlaceholder]}>
+              <Ionicons name="videocam-outline" size={48} color="rgba(240,240,255,0.4)" />
+              <Text style={s.videoPlaceholderText}>Video Selected</Text>
+              <Text style={s.videoPlaceholderSub}>
+                A preview is not available, but the video will be uploaded and optimized for your story.
+              </Text>
+            </View>
+          ) : (
+            <Image source={{ uri: mediaUri }} style={s.preview} resizeMode="cover" />
+          )}
           <TouchableOpacity
             style={s.changeBtn}
             onPress={pickMedia}>

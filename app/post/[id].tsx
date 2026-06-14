@@ -3,7 +3,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import {
   View, Text, StyleSheet, FlatList, TextInput,
   TouchableOpacity, ActivityIndicator, KeyboardAvoidingView,
-  Platform, Image, Alert, Share, Pressable, Linking,
+  Platform, Image, Alert, Share, Pressable, Linking, ScrollView, Modal,
 } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
@@ -52,6 +52,24 @@ export default function PostDetailScreen() {
 
   const [post, setPost] = useState<FeedPost | null>(null)
   const [comments, setComments] = useState<PostComment[]>([])
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [containerWidth, setContainerWidth] = useState(0)
+  const [selectedImage, setSelectedImage] = useState<string | null>(null)
+
+  const handleScroll = (event: any) => {
+    const slideSize = event.nativeEvent.layoutMeasurement.width
+    if (slideSize <= 0) return
+    const index = event.nativeEvent.contentOffset.x / slideSize
+    const roundIndex = Math.round(index)
+    if (roundIndex !== activeIndex) {
+      setActiveIndex(roundIndex)
+    }
+  }
+
+  const onContainerLayout = (event: any) => {
+    const { width } = event.nativeEvent.layout;
+    setContainerWidth(width);
+  }
   const [loading, setLoading] = useState(true)
   const [commentText, setCommentText] = useState('')
   const [sending, setSending] = useState(false)
@@ -78,6 +96,19 @@ export default function PostDetailScreen() {
   let quoteText = post?.body ?? ''
   if (isRepost && quoteText.startsWith('[Repost]')) {
     quoteText = ''
+  }
+
+  let images: string[] = []
+  if (post && post.image_url) {
+    if (post.image_url.startsWith('[')) {
+      try {
+        images = JSON.parse(post.image_url)
+      } catch {
+        images = [post.image_url]
+      }
+    } else {
+      images = [post.image_url]
+    }
   }
 
   function flattenComments(parentId: string | null, depth = 0): (PostComment & { depth: number })[] {
@@ -107,14 +138,19 @@ export default function PostDetailScreen() {
         table: 'post_comments',
         filter: `post_id=eq.${id}`,
       }, async (payload: any) => {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id, full_name, department, level, avatar_url, role, badge_type, badge_color')
-          .eq('id', payload.new.author_id)
-          .single()
+        let profile = null
+        if (!payload.new.is_anonymous) {
+          const { data: p } = await supabase
+            .from('profiles')
+            .select('id, full_name, department, level, avatar_url, role, badge_type, badge_color')
+            .eq('id', payload.new.author_id)
+            .single()
+          profile = p
+        }
 
         const newComment: PostComment = {
           ...payload.new,
+          author_id: payload.new.is_anonymous ? null : payload.new.author_id,
           profiles: profile,
         }
 
@@ -240,7 +276,7 @@ export default function PostDetailScreen() {
     const trimmed = commentText.trim()
     if ((!trimmed && !attachMedia) || sending || !post) return
     setSending(true)
-    const { data, error } = await commentOnPost(post.id, trimmed, false, replyingTo?.id, attachMedia?.url, attachMedia?.type)
+    const { data, error } = await commentOnPost(post.id, trimmed, post.is_anonymous, replyingTo?.id, attachMedia?.url, attachMedia?.type)
     if (!error && data) {
       setComments(prev => [...prev, data])
       incrementCommentCount(post.id)
@@ -508,21 +544,80 @@ export default function PostDetailScreen() {
       {/* ── Body ── */}
       <View style={s.bodySection}>
         {quoteText ? renderBody(quoteText) : null}
-        {post.image_url && !isRepost
-          ? (
-              post.image_url.match(/\.(mp4|mov|webm)$/i) ? (
-                <TouchableOpacity
-                  style={[s.postImage, { borderColor: theme.border, height: 200, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center', borderRadius: 12 }]}
-                  onPress={() => Linking.openURL(post.image_url!)}
-                >
-                  <Ionicons name="play-circle-outline" size={64} color="rgba(255,255,255,0.85)" />
-                  <Text style={{ color: 'white', marginTop: 8, fontSize: 13, fontFamily: typography.fontMedium }}>Play Video in Browser</Text>
-                </TouchableOpacity>
-              ) : (
-                <Image source={{ uri: post.image_url }} style={[s.postImage, { borderColor: theme.border }]} resizeMode="cover" />
-              )
+        {images.length > 0 && !isRepost ? (
+          images.length === 1 ? (
+            images[0].match(/\.(mp4|mov|webm)$/i) ? (
+              <TouchableOpacity
+                style={[s.postImage, { borderColor: theme.border, height: 200, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center', borderRadius: 12 }]}
+                onPress={() => Linking.openURL(images[0])}
+              >
+                <Ionicons name="play-circle-outline" size={64} color="rgba(255,255,255,0.85)" />
+                <Text style={{ color: 'white', marginTop: 8, fontSize: 13, fontFamily: typography.fontMedium }}>Play Video in Browser</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => setSelectedImage(images[0])} activeOpacity={0.95}>
+                <Image source={{ uri: images[0] }} style={[s.postImage, { borderColor: theme.border }]} resizeMode="cover" />
+              </TouchableOpacity>
             )
-          : null}
+          ) : (
+            <View style={{ marginBottom: 16 }}>
+              <View 
+                onLayout={onContainerLayout}
+                style={{ position: 'relative', width: '100%', height: 260, borderRadius: 12, overflow: 'hidden', borderWidth: 0.5, borderColor: theme.border }}>
+                <ScrollView
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onScroll={handleScroll}
+                  scrollEventThrottle={16}
+                  style={{ width: '100%', height: '100%' }}
+                >
+                  {images.map((imgUrl, idx) => (
+                    <TouchableOpacity
+                      key={idx}
+                      activeOpacity={0.95}
+                      onPress={() => setSelectedImage(imgUrl)}
+                      style={{ width: containerWidth || 300, height: '100%' }}
+                    >
+                      <Image
+                        source={{ uri: imgUrl }}
+                        style={{ width: '100%', height: '100%' }}
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                
+                {/* Page Indicator */}
+                <View style={{
+                  position: 'absolute', top: 12, right: 12,
+                  backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                  paddingHorizontal: 8, paddingVertical: 4,
+                  borderRadius: 12,
+                }}>
+                  <Text style={{ color: '#fff', fontSize: 11, fontFamily: typography.fontMedium }}>
+                    {activeIndex + 1}/{images.length}
+                  </Text>
+                </View>
+              </View>
+              
+              {/* Dots Indicator */}
+              <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 8, gap: 5 }}>
+                {images.map((_, idx) => (
+                  <View
+                    key={idx}
+                    style={{
+                      width: activeIndex === idx ? 6 : 4,
+                      height: activeIndex === idx ? 6 : 4,
+                      borderRadius: 3,
+                      backgroundColor: activeIndex === idx ? theme.accent : theme.textFaint,
+                    }}
+                  />
+                ))}
+              </View>
+            </View>
+          )
+        ) : null}
 
         {/* Nested original post card (X/Twitter Quote style) */}
         {isRepost && orig ? (
@@ -753,6 +848,15 @@ export default function PostDetailScreen() {
           setShowStickerPicker(false)
         }}
       />
+      {selectedImage ? (
+        <Modal visible={!!selectedImage} transparent animationType="fade">
+          <Pressable 
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' }} 
+            onPress={() => setSelectedImage(null)}>
+            <Image source={{ uri: selectedImage }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
+          </Pressable>
+        </Modal>
+      ) : null}
     </SafeAreaView>
   )
 }

@@ -73,6 +73,7 @@ export default function MoreScreen() {
     { label: 'Followers', value: stats?.followers ?? 0 },
     { label: 'Following', value: stats?.following ?? 0 },
     { label: 'Clubs',     value: stats?.clubs ?? 0 },
+    { label: 'Streak',    value: `🔥 ${Math.max(1, profile?.current_streak ?? 1)}` },
   ]
 
   return (

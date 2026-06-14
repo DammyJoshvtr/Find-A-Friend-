@@ -271,6 +271,7 @@ export default function ProfileScreen() {
           { label: 'Posts',      value: stats.posts, route: null },
           { label: 'Followers',  value: stats.followers, route: `/followers/${profile?.id}` },
           { label: 'Following',  value: stats.following, route: `/following/${profile?.id}` },
+          { label: 'Streak',     value: `🔥 ${Math.max(1, profile?.current_streak ?? 1)}`, route: null },
         ].map(stat => (
           <TouchableOpacity 
             key={stat.label} 
