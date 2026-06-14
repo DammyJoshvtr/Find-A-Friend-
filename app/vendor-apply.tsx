@@ -14,6 +14,7 @@ import { router } from 'expo-router'
 import { applyAsVendor, uploadVendorCover } from '../lib/vendors'
 import { useTheme } from '../lib/theme'
 import * as ImagePicker from 'expo-image-picker'
+import { friendlyErrorMessage } from '../lib/errorUtils'
 
 const CATEGORIES = ['Food', 'Fashion', 'Tech', 'Beauty', 'Books', 'Health', 'Services']
 
@@ -69,8 +70,7 @@ export default function VendorApplyScreen() {
         [{ text: 'OK', onPress: () => router.back() }]
       )
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Please try again.'
-      Alert.alert('Error', `Could not submit application. ${message}`)
+      Alert.alert('Application failed', friendlyErrorMessage(err))
     } finally {
       setSubmitting(false)
     }

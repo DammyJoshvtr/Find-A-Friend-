@@ -14,6 +14,7 @@ import * as ImagePicker from 'expo-image-picker'
 import { createStory, uploadStoryMedia } from '../lib/stories'
 import { useStoriesStore } from '../store/storiesStore'
 import { useTheme } from '../lib/theme'
+import { friendlyErrorMessage } from '../lib/errorUtils'
 
 export default function CreateStoryScreen() {
   const theme = useTheme()
@@ -64,9 +65,8 @@ export default function CreateStoryScreen() {
       if (createError) throw createError
       await loadStories()
       router.back()
-    } catch (err: any) {
-      const msg = err?.message ?? JSON.stringify(err) ?? 'Unknown error'
-      Alert.alert('Error', msg)
+    } catch (err: unknown) {
+      Alert.alert('Story failed', friendlyErrorMessage(err))
     } finally {
       setUploading(false)
     }

@@ -42,7 +42,8 @@ export async function uploadFile(
     })
 
     if (error) {
-      throw new Error(`Upload to ${bucket} failed: ${error.message}`)
+      const msg = (error as any)?.message ?? String(error)
+      throw new Error(`Upload failed: ${msg}`)
     }
   } else {
     // Uses FormData to bypass fetch() Network request failed issues on RN Android
@@ -58,7 +59,8 @@ export async function uploadFile(
     })
 
     if (error) {
-      throw new Error(`Upload to ${bucket} failed: ${error.message}`)
+      const msg = (error as any)?.message ?? String(error)
+      throw new Error(`Upload failed: ${msg}`)
     }
   }
 

@@ -14,6 +14,7 @@ import { router } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { createEvent, uploadEventCover } from '../lib/events'
 import { useTheme } from '../lib/theme'
+import { friendlyErrorMessage } from '../lib/errorUtils'
 
 const CATEGORIES = [
   'Technology', 'Sports', 'Culture', 'Academic',
@@ -103,8 +104,8 @@ export default function CreateEventScreen() {
       })
       if (error) throw error
       router.back()
-    } catch (err: any) {
-      Alert.alert('Error', err?.message ?? 'Could not create event.')
+    } catch (err: unknown) {
+      Alert.alert('Event creation failed', friendlyErrorMessage(err))
     } finally {
       setSubmitting(false)
     }
