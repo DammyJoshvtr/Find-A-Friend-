@@ -45,17 +45,15 @@ export async function uploadFile(
       throw new Error(`Upload to ${bucket} failed: ${error.message}`)
     }
   } else {
-    // React Native: Read as base64 and upload using base64-arraybuffer
-    const FileSystem = await import('expo-file-system')
-    const { decode } = await import('base64-arraybuffer')
+    // Uses FormData to bypass fetch() Network request failed issues on RN Android
+    const formData = new FormData()
+    formData.append('file', {
+      uri,
+      name: path.split('/').pop() || 'upload',
+      type: mimeType,
+    } as any)
 
-    const base64Str = await FileSystem.readAsStringAsync(uri, {
-      encoding: 'base64' as any,
-    })
-    
-    const arrayBuffer = decode(base64Str)
-    const { error } = await supabase.storage.from(bucket).upload(path, arrayBuffer, {
-      contentType: mimeType,
+    const { error } = await supabase.storage.from(bucket).upload(path, formData, {
       upsert,
     })
 
