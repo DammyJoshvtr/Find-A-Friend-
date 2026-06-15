@@ -27,6 +27,7 @@ export default function UserCard({
 }: UserCardProps) {
   const [status, setStatus] = useState<ConnectionStatus>('none')
   const [loading, setLoading] = useState(false)
+  const [followerCount, setFollowerCount] = useState(user.follower_count)
   const theme = useTheme()
   const cardScale = useSharedValue(1)
   const btnScale = useSharedValue(1)
@@ -40,6 +41,10 @@ export default function UserCard({
       setStatus(isFollowing ? 'connected' : 'none')
     }
   }, [initialStatus, isFollowing])
+
+  useEffect(() => {
+    setFollowerCount(user.follower_count)
+  }, [user.follower_count])
 
   const handleFollow = async () => {
     if (isCurrentUser) return
@@ -63,11 +68,13 @@ export default function UserCard({
                 setLoading(true)
                 try {
                   setStatus('none')
+                  setFollowerCount(c => Math.max(0, c - 1))
                   await unlikeUser(user.id)
                   await unfollowUser(user.id)
                 } catch (e) {
                   console.warn(e)
                   setStatus('connected')
+                  setFollowerCount(c => c + 1)
                 } finally {
                   setLoading(false)
                 }
@@ -78,14 +85,17 @@ export default function UserCard({
         return
       } else if (status === 'requested_sent') {
         setStatus('none')
+        setFollowerCount(c => Math.max(0, c - 1))
         await unlikeUser(user.id)
         await unfollowUser(user.id)
       } else if (status === 'requested_received') {
         setStatus('connected')
+        setFollowerCount(c => c + 1)
         await likeUser(user.id)
         await followUser(user.id)
       } else {
         setStatus('requested_sent')
+        setFollowerCount(c => c + 1)
         await likeUser(user.id)
         await followUser(user.id)
       }
@@ -126,7 +136,7 @@ export default function UserCard({
               {user.department}{user.level ? ` · ${user.level}` : ''}
             </Text>
           ) : null}
-          <Text style={[s.followers, { color: theme.textFaint }]}>{user.follower_count ?? 0} followers</Text>
+          <Text style={[s.followers, { color: theme.textFaint }]}>{followerCount ?? 0} followers</Text>
         </View>
 
         {!isCurrentUser && (

@@ -156,6 +156,57 @@ export default function DiscoverScreen() {
     });
   }, []);
 
+  useEffect(() => {
+    const followsChannel = supabase
+      .channel("follows-realtime-discover")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "follows" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newFollow = payload.new;
+            const targetId = newFollow.following_id;
+            setDeck((prev) =>
+              prev.map((u) =>
+                u.id === targetId
+                  ? { ...u, follower_count: (u.follower_count ?? 0) + 1 }
+                  : u
+              )
+            );
+            setTopFollowed((prev) =>
+              prev.map((u) =>
+                u.id === targetId
+                  ? { ...u, follower_count: (u.follower_count ?? 0) + 1 }
+                  : u
+              )
+            );
+          } else if (payload.eventType === "DELETE") {
+            const oldFollow = payload.old;
+            const targetId = oldFollow.following_id;
+            setDeck((prev) =>
+              prev.map((u) =>
+                u.id === targetId
+                  ? { ...u, follower_count: Math.max(0, (u.follower_count ?? 0) - 1) }
+                  : u
+              )
+            );
+            setTopFollowed((prev) =>
+              prev.map((u) =>
+                u.id === targetId
+                  ? { ...u, follower_count: Math.max(0, (u.follower_count ?? 0) - 1) }
+                  : u
+              )
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(followsChannel);
+    };
+  }, []);
+
   const loadData = async () => {
     setLoading(true);
 

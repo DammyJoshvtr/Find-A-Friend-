@@ -28,6 +28,49 @@ export default function EventDetailScreen() {
     if (id) loadData()
   }, [id])
 
+  useEffect(() => {
+    if (!id) return;
+
+    const eventChannel = supabase
+      .channel(`event-detail-realtime-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "events",
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          const updated = payload.new as Event;
+          setEvent((e) => (e ? { ...e, rsvp_count: updated.rsvp_count } : e));
+        }
+      )
+      .subscribe();
+
+    const rsvpsChannel = supabase
+      .channel(`event-rsvps-realtime-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "event_rsvps",
+          filter: `event_id=eq.${id}`,
+        },
+        async () => {
+          const attendeesRes = await getEventAttendees(id, "going");
+          setAttendees(attendeesRes.data ?? []);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(eventChannel);
+      supabase.removeChannel(rsvpsChannel);
+    };
+  }, [id]);
+
   const loadData = async () => {
     setLoading(true)
     try {

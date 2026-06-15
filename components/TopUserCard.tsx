@@ -40,10 +40,15 @@ export default function TopUserCard({
   const [status, setStatus] = useState<ConnectionStatus>("none");
   const [loading, setLoading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [followerCount, setFollowerCount] = useState(user.follower_count);
 
   useEffect(() => {
     setStatus(initialStatus);
   }, [initialStatus]);
+
+  useEffect(() => {
+    setFollowerCount(user.follower_count);
+  }, [user.follower_count]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user: authUser } }) => {
@@ -62,11 +67,7 @@ export default function TopUserCard({
           "Disconnect",
           `Are you sure you want to disconnect from ${user.full_name ?? "this student"}?`,
           [
-            {
-              text: "Cancel",
-              style: "cancel",
-              onPress: () => setLoading(false),
-            },
+            { text: "Cancel", style: "cancel", onPress: () => setLoading(false) },
             {
               text: "Disconnect",
               style: "destructive",
@@ -74,48 +75,57 @@ export default function TopUserCard({
                 setLoading(true);
                 try {
                   setStatus("none");
+                  setFollowerCount(c => Math.max(0, c - 1));
                   await unlikeUser(user.id);
                   const { error } = await unfollowUser(user.id);
                   if (error) {
                     setStatus("connected");
+                    setFollowerCount(c => c + 1);
                   } else if (onConnectToggle) {
                     onConnectToggle(user.id, false);
                   }
                 } catch (e) {
                   console.warn(e);
                   setStatus("connected");
+                  setFollowerCount(c => c + 1);
                 } finally {
                   setLoading(false);
                 }
               },
             },
-          ],
+          ]
         );
         return;
       } else if (status === "requested_sent") {
         setStatus("none");
+        setFollowerCount(c => Math.max(0, c - 1));
         await unlikeUser(user.id);
         const { error } = await unfollowUser(user.id);
         if (error) {
           setStatus("requested_sent");
+          setFollowerCount(c => c + 1);
         } else if (onConnectToggle) {
           onConnectToggle(user.id, false);
         }
       } else if (status === "requested_received") {
         setStatus("connected");
+        setFollowerCount(c => c + 1);
         await likeUser(user.id);
         const { error } = await followUser(user.id);
         if (error) {
           setStatus("requested_received");
+          setFollowerCount(c => Math.max(0, c - 1));
         } else if (onConnectToggle) {
           onConnectToggle(user.id, true);
         }
       } else {
         setStatus("requested_sent");
+        setFollowerCount(c => c + 1);
         await likeUser(user.id);
         const { error } = await followUser(user.id);
         if (error) {
           setStatus("none");
+          setFollowerCount(c => Math.max(0, c - 1));
         } else if (onConnectToggle) {
           onConnectToggle(user.id, true);
         }
@@ -209,7 +219,7 @@ export default function TopUserCard({
           </View>
 
           <View style={styles.c}>
-            <Text style={styles.d}>Followers: {user.follower_count}</Text>
+            <Text style={styles.d}>Follower: {followerCount}</Text>
             <Text style={{ color: "white" }}>•</Text>
             <Text style={styles.d}>Following: {user.following_count}</Text>
           </View>

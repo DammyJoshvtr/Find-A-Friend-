@@ -1926,18 +1926,30 @@ export default function DirectMessageScreen() {
           >
             {/* Attach icon — hidden while editing to match WhatsApp behavior */}
             {!editingId && (
-              <TouchableOpacity
-                style={s.attachIconBtn}
-                onPress={() => setShowAttachSheet(true)}
-                hitSlop={8}
-              >
-                {/* Paperclip / attach icon */}
-                <Ionicons
-                  name="attach-outline"
-                  size={24}
-                  color={theme.textMuted}
-                />
-              </TouchableOpacity>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <TouchableOpacity
+                  style={s.attachIconBtn}
+                  onPress={() => setShowAttachSheet(true)}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name="attach-outline"
+                    size={24}
+                    color={theme.textMuted}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={{ padding: 6, marginRight: 2 }}
+                  onPress={() => setShowStickerPicker(true)}
+                  hitSlop={8}
+                >
+                  <Ionicons
+                    name="happy-outline"
+                    size={24}
+                    color={theme.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
             )}
 
             {/* Pill-shaped text input */}

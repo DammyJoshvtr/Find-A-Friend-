@@ -16,6 +16,7 @@ import { useTabBarScroll } from '../../lib/useTabBarScroll'
 import { showTabBar } from '../../lib/tabBarAnim'
 import { useBadgesStore } from '../../store/badgesStore'
 import type { Event } from '../../lib/events'
+import { supabase } from '../../lib/supabase'
 
 type Tab = 'upcoming' | 'rsvps' | 'past'
 
@@ -89,6 +90,69 @@ export default function EventsScreen() {
     setSelectedDay(null)
     loadTab(activeTab)
   }, [activeTab])
+
+  useEffect(() => {
+    const eventChannel = supabase
+      .channel("events-list-realtime")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "events" },
+        (payload) => {
+          const updated = payload.new as Event;
+          setEvents((prev) =>
+            prev.map((e) =>
+              e.id === updated.id
+                ? { ...e, rsvp_count: updated.rsvp_count }
+                : e
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    let rsvpChannel: any;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      rsvpChannel = supabase
+        .channel("my-rsvps-realtime")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "event_rsvps",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            if (payload.eventType === "INSERT" || payload.eventType === "UPDATE") {
+              const newRsvp = payload.new;
+              setEvents((prev) =>
+                prev.map((e) =>
+                  e.id === newRsvp.event_id
+                    ? { ...e, user_rsvp_status: newRsvp.status }
+                    : e
+                )
+              );
+            } else if (payload.eventType === "DELETE") {
+              const oldRsvp = payload.old;
+              setEvents((prev) =>
+                prev.map((e) =>
+                  e.id === oldRsvp.event_id
+                    ? { ...e, user_rsvp_status: null }
+                    : e
+                )
+              );
+            }
+          }
+        )
+        .subscribe();
+    });
+
+    return () => {
+      supabase.removeChannel(eventChannel);
+      if (rsvpChannel) supabase.removeChannel(rsvpChannel);
+    };
+  }, []);
 
   const loadTab = async (tab: Tab) => {
     setLoading(true)

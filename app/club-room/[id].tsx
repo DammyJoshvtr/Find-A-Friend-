@@ -31,6 +31,8 @@ import { getInitials, getTimeAgo } from '../../lib/matching'
 import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import { ReplyPayload, parseReply, ReplyBanner, QuotedBubble } from '../../components/chat/ReplyUI'
+import { StickerPicker } from '../../components/StickerPicker'
+import { parseAttachment } from '../../lib/chatAttachments'
 
 interface RoomMessage {
   id: string
@@ -60,6 +62,7 @@ export default function ClubRoomScreen() {
   const [isMember, setIsMember] = useState(false)
   const [role, setRole] = useState<'member' | 'moderator' | 'admin' | null>(null)
   const [sendSettings, setSendSettings] = useState<'all' | 'admins'>('all')
+  const [showStickerPicker, setShowStickerPicker] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -190,12 +193,40 @@ export default function ClubRoomScreen() {
     }
   }
 
+  const handleSelectSticker = async (url: string, type: 'image' | 'video') => {
+    setShowStickerPicker(false)
+    const attach = { _type: type, url, width: 800, height: 800 }
+    const body = JSON.stringify(attach)
+    setInput('')
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+
+    const optimistic: RoomMessage = {
+      id: `opt_${Date.now()}`, _optimistic: true,
+      club_id: clubId, sender_id: myId,
+      body, created_at: new Date().toISOString(), profiles: null,
+    }
+    setMessages(prev => [...prev, optimistic])
+    setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 80)
+
+    setSending(true)
+    const { error } = await supabase.from('club_messages').insert({
+      club_id: clubId, sender_id: myId, body
+    })
+    setSending(false)
+    if (error) {
+      setMessages(prev => prev.filter(m => m !== optimistic))
+      Toast.show({ type: 'error', text1: 'Message failed', text2: error.message })
+    }
+  }
+
   const renderMessage = ({ item: m, index }: { item: RoomMessage; index: number }) => {
     const mine = m.sender_id === myId
     const prevMsg = messages[index - 1]
     const showHeader = !prevMsg || prevMsg.sender_id !== m.sender_id
     const name = m.profiles?.full_name ?? 'Member'
     const replyData = parseReply(m.body)
+
+    const attachment = parseAttachment(m.body)
 
     return (
       <View style={[s.msgGroup, mine && s.msgGroupMine]}>
@@ -236,7 +267,19 @@ export default function ClubRoomScreen() {
               m._optimistic && { opacity: 0.65 },
             ]}>
             {replyData && <QuotedBubble replyTo={replyData.replyTo} />}
-            <Text style={[s.bubbleText, { color: mine ? '#fff' : theme.text }]}>{replyData ? replyData.text : m.body}</Text>
+            {attachment ? (
+              attachment._type === 'image' ? (
+                <Image
+                  source={{ uri: attachment.url }}
+                  style={{ width: 120, height: 120, borderRadius: 8, marginVertical: 4 }}
+                  resizeMode="contain"
+                />
+              ) : (
+                <Text style={{ color: mine ? '#fff' : theme.text, fontSize: 13 }}>🎥 Video Sticker</Text>
+              )
+            ) : (
+              <Text style={[s.bubbleText, { color: mine ? '#fff' : theme.text }]}>{replyData ? replyData.text : m.body}</Text>
+            )}
             <Text style={[s.bubbleTime, { color: mine ? 'rgba(255,255,255,0.5)' : theme.textFaint }]}>
               {getTimeAgo(m.created_at)}
             </Text>
@@ -267,6 +310,16 @@ export default function ClubRoomScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {loading ? (
           <View style={s.loadingWrap}><ActivityIndicator color={clubColor} size="large" /></View>
+        ) : !isMember ? (
+          <View style={s.emptyWrap}>
+            <Ionicons name="lock-closed-outline" size={48} color={theme.textFaint} />
+            <Text style={[s.emptyText, { color: theme.text, fontFamily: typography.fontSemiBold, fontSize: 16 }]}>
+              Private Chat Room
+            </Text>
+            <Text style={[s.emptySubText, { color: theme.textMuted, textAlign: 'center', paddingHorizontal: 40, fontSize: 13, lineHeight: 18 }]}>
+              Only members of this club can view chat room messages. Join the club to get started!
+            </Text>
+          </View>
         ) : (
           <FlatList
             ref={listRef}
@@ -279,7 +332,7 @@ export default function ClubRoomScreen() {
               <View style={s.emptyWrap}>
                 <Ionicons name="chatbubbles-outline" size={48} color={theme.textFaint} />
                 <Text style={[s.emptyText, { color: theme.textMuted }]}>
-                  {isMember ? 'Start the conversation!' : 'Join the club to participate'}
+                  Start the conversation!
                 </Text>
               </View>
             }
@@ -294,6 +347,14 @@ export default function ClubRoomScreen() {
           borderTopColor: theme.border, backgroundColor: theme.card,
           paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
         }]}>
+          {isMember && (
+            <TouchableOpacity
+              style={[s.smileyBtn, { borderColor: theme.border }]}
+              onPress={() => setShowStickerPicker(true)}
+            >
+              <Ionicons name="happy-outline" size={22} color={theme.textMuted} />
+            </TouchableOpacity>
+          )}
           <TextInput
             ref={inputRef}
             style={[s.input, { backgroundColor: theme.card2, borderColor: theme.border, color: theme.text }]}
@@ -316,6 +377,12 @@ export default function ClubRoomScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      <StickerPicker
+        visible={showStickerPicker}
+        onClose={() => setShowStickerPicker(false)}
+        onSelectSticker={handleSelectSticker}
+      />
     </SafeAreaView>
   )
 }
@@ -361,4 +428,14 @@ const s = StyleSheet.create({
     fontFamily: typography.fontRegular, borderWidth: 0.5, maxHeight: 120,
   },
   sendBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', borderWidth: 0.5 },
+  smileyBtn: {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 0.5, backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  emptySubText: {
+    fontSize: 12,
+    fontFamily: typography.fontRegular,
+    marginTop: 4,
+  },
 })
