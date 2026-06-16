@@ -37,6 +37,8 @@ export class CognitoAuthAdapter {
   }
 
   private async loadSessionFromStorage() {
+    // Skip on server-side rendering (web SSG/SSR) where window/AsyncStorage are unavailable
+    if (typeof window === 'undefined') return;
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       if (stored) {
@@ -231,8 +233,13 @@ const baseSupabase = createClient(API_URL, 'aws-anonymous-key', {
       } else {
         headers.delete('Authorization');
       }
+
+      // The Supabase JS client appends /rest/v1/ to the base URL for all DB queries,
+      // but our PostgREST instance serves tables from the root /. Strip the prefix.
+      const urlStr = url.toString();
+      const rewrittenUrl = API_URL ? urlStr.replace(`${API_URL}/rest/v1`, API_URL) : urlStr;
       
-      return fetch(url, {
+      return fetch(rewrittenUrl, {
         ...options,
         headers,
       });
