@@ -46,7 +46,7 @@ exports.handler = async (event) => {
 
       // Query the legacy credentials table
       const res = await client.query(
-        'SELECT id, email, encrypted_password, full_name, role FROM public.legacy_auth_credentials WHERE email = $1 LIMIT 1',
+        'SELECT id, email, encrypted_password, full_name FROM public.legacy_auth_credentials WHERE email = $1 LIMIT 1',
         [username.toLowerCase().trim()]
       );
 
