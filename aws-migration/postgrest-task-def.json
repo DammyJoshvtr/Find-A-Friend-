@@ -1,0 +1,40 @@
+{
+  "family": "postgrest-task-production",
+  "executionRoleArn": "arn:aws:iam::003861005385:role/faf-infra-prod-v2-ECSTaskExecutionRole-ZhNauXQ5wexU",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
+    {
+      "name": "postgrest",
+      "image": "postgrest/postgrest:v11.1.0",
+      "essential": true,
+      "portMappings": [
+        { "containerPort": 3000, "hostPort": 3000, "protocol": "tcp" }
+      ],
+      "environment": [
+        {
+          "name": "PGRST_DB_URI",
+          "value": "postgres://postgres:wG9cTdjIGynxAStS@faf-infra-prod-v2-rdsinstance-jmrivbavtegl.csr8okcacgur.us-east-1.rds.amazonaws.com:5432/faf_db"
+        },
+        {
+          "name": "PGRST_DB_SCHEMA",
+          "value": "public"
+        },
+        {
+          "name": "PGRST_DB_ANON_ROLE",
+          "value": "authenticated"
+        },
+        {
+          "name": "PGRST_JWT_SECRET",
+          "value": "{\"keys\":[{\"alg\":\"RS256\",\"e\":\"AQAB\",\"kid\":\"cw/18cpmhmrDgR5BurF8sS9NvSbNDVgjrXVe7BSno1E=\",\"kty\":\"RSA\",\"n\":\"9NaS7eB9P_wPZa3TrNEW-HA3kRT_QKl3AKwGP9OCi-gJbBh8ftrgYlz6aVoPEj7E7yW7QrYPKmI_chKyfJVGYJxuX4VFYyK49rdq6bF4W4AOJL9dS8nrEldfVt8LzBdfOVT6_zxXfXSH4utujuMtlgLUg5BzbjYJHoFJhj3EO58mtWJIKTVq2NjvaMF1bfgiQZws55HUyN_EV6FvERtVq0jzCy6fajL4S7-hvluu7asTew_jMjt6iOjJK6OVam5uY9pTAEc6Idc_H7SdOkCTVPPWX6B7UaOH1z3GBd8kVn1ZGSDbnhQyA_dDYrU6rJmyOiV0WElz8nGgkgNDxZPapQ\",\"use\":\"sig\"},{\"alg\":\"RS256\",\"e\":\"AQAB\",\"kid\":\"tnuRJYOEEH5d4zhBZI1Kgg2ZdoYBqz1j7yNWc3u7mRM=\",\"kty\":\"RSA\",\"n\":\"wlwmbo8_ufMe8eD9fhwQZOv64uCGPuffn3e_TVxTemmQ-2LKQsY3opJU7auK_do6Hm0m-kkmqB2_bvPVT3JnxaYvd7yuqFPFoNmQnQxrMjlvD0sz3e0PL2yUlzXzEROtl-ZtqBzXzkdBHZqIcgdW_5gHVEFfTJwcrw_cYgJEG8EZVx9vqDXkoDcwWScdKGJDi2lpnYG8qfHgKq_035-TbuW7Eqon1aWJMu5A1DFwDlCyYZ-qdzEUC76axuz2IsCoX-IYQ7jPX5a7DMb1Dezq4BJkK9xaP44G5nqtOh1Ca6LPFG-6i0JOR-S1KgmEERSVRsKIVq7RP8Eg2UahDHrTyw\",\"use\":\"sig\"}]}"
+        },
+        {
+          "name": "PGRST_JWT_ROLE_CLAIM_KEY",
+          "value": ".role"
+        }
+      ]
+    }
+  ]
+}
