@@ -62,6 +62,8 @@ function formatMessagePreview(body: string, isMe: boolean): string {
     if (obj._type === 'game_challenge') return `${prefix}Sent a game challenge 🎮`
     if (obj._type === 'challenge_accepted') return `${prefix}Accepted challenge ⚡`
     if (obj._type === 'sticker') return `${prefix}Sent a sticker`
+    if (obj._type === 'image') return `${prefix}📷 Photo`
+    if (obj._type === 'video') return `${prefix}🎥 Video`
   } catch {
     // Not JSON
   }

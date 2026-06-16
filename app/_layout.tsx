@@ -267,6 +267,8 @@ function AppStack() {
     };
   }, []);
 
+  if (!initialized) return null;
+
   return (
     <>
       <StatusBar style={theme.statusBar} />
@@ -360,16 +362,18 @@ export default function RootLayout() {
     ...Ionicons.font,
   });
 
+  const authLoading = useAuthStore((s) => s.loading);
+
   useEffect(() => {
     hydrate();
     checkForUpdate();
   }, []);
 
   useEffect(() => {
-    if (fontsLoaded) {
+    if (fontsLoaded && !authLoading) {
       SplashScreen.hideAsync().catch(() => {});
     }
-  }, [fontsLoaded]);
+  }, [fontsLoaded, authLoading]);
 
   if (!fontsLoaded) return null;
 

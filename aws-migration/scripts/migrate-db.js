@@ -53,6 +53,13 @@ async function runMigration() {
 
     // 1. Execute SQL Migrations to build target database schema
     console.log('\n[1/4] Running schema migrations on target AWS RDS database...');
+    console.log('Dropping and recreating public schema on target RDS to ensure a clean slate...');
+    await rdsClient.query(`
+      DROP SCHEMA IF EXISTS public CASCADE;
+      CREATE SCHEMA public;
+      GRANT ALL ON SCHEMA public TO postgres;
+      GRANT ALL ON SCHEMA public TO public;
+    `);
     let migrationsDir = path.join(__dirname, 'supabase/migrations');
     if (!fs.existsSync(migrationsDir)) {
       migrationsDir = path.join(__dirname, '../../supabase/migrations');
@@ -206,6 +213,7 @@ async function runMigration() {
 
     // 1.3 Recreate base tables and primary keys
     console.log('Querying table structures and primary keys from Supabase...');
+    let tablesColumns = {};
     try {
       const columnsRes = await supabaseClient.query(`
         SELECT 
@@ -246,7 +254,7 @@ async function runMigration() {
             kcu.table_name, kcu.ordinal_position
       `);
 
-      const tablesColumns = {};
+      tablesColumns = {};
       for (const col of columnsRes.rows) {
         if (!tablesColumns[col.table_name]) {
           tablesColumns[col.table_name] = [];
@@ -396,9 +404,30 @@ async function runMigration() {
       const columns = Object.keys(dataRes.rows[0]);
       const colNames = columns.map(c => `"${c}"`).join(', ');
       
+      const tableCols = tablesColumns[table] || [];
+      const jsonCols = new Set(
+        tableCols
+          .filter(col => col.data_type === 'json' || col.data_type === 'jsonb')
+          .map(col => col.column_name)
+      );
+
       for (const row of dataRes.rows) {
         const placeholders = columns.map((_, i) => `$${i + 1}`).join(', ');
-        const values = columns.map(col => row[col]);
+        const values = columns.map(col => {
+          let val = row[col];
+          if (jsonCols.has(col) && val !== null && val !== undefined) {
+            if (typeof val === 'string') {
+              try {
+                JSON.parse(val);
+              } catch (e) {
+                val = JSON.stringify(val);
+              }
+            } else {
+              val = JSON.stringify(val);
+            }
+          }
+          return val;
+        });
         
         await rdsClient.query(
           `INSERT INTO public.${table} (${colNames}) VALUES (${placeholders})`,
@@ -623,8 +652,19 @@ async function runMigration() {
         
         let sql = `CREATE POLICY "${policyname}" ON public."${tablename}" FOR ${cmd}`;
         
-        if (roles && roles.length > 0) {
-          sql += ` TO ${roles.map(r => `"${r}"`).join(', ')}`;
+        let rolesArray = [];
+        if (Array.isArray(roles)) {
+          rolesArray = roles;
+        } else if (typeof roles === 'string') {
+          rolesArray = roles
+            .replace(/[{}]/g, '')
+            .split(',')
+            .map(r => r.trim())
+            .filter(r => r.length > 0);
+        }
+        
+        if (rolesArray.length > 0) {
+          sql += ` TO ${rolesArray.map(r => `"${r}"`).join(', ')}`;
         }
         
         if (qual) {

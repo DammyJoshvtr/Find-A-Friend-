@@ -1472,7 +1472,7 @@ export default function DirectMessageScreen() {
       <StickerPicker
         visible={showStickerPicker}
         onClose={() => setShowStickerPicker(false)}
-        onSelectSticker={(url, type) => {
+        onSelectSticker={async (url, type) => {
           setShowStickerPicker(false)
           const attach: Attachment = { _type: type, url, width: 800, height: 800 }
           const body = JSON.stringify(attach)
@@ -1490,9 +1490,17 @@ export default function DirectMessageScreen() {
             () => scrollRef.current?.scrollToEnd({ animated: true }),
             80,
           );
-          supabase
+          const { error } = await supabase
             .from("messages")
             .insert({ conversation_id: convId, sender_id: myId, body });
+          if (error) {
+            setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+            Toast.show({
+              type: "error",
+              text1: "Failed to send sticker",
+              text2: error.message,
+            });
+          }
         }}
       />
 

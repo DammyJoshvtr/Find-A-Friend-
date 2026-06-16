@@ -42,7 +42,7 @@ async function backfill() {
     const eventsRes = await client.query(`
       UPDATE public.events e
       SET 
-        rsvp_count = (SELECT COUNT(*) FROM public.event_rsvps r WHERE r.event_id = e.id)
+        rsvp_count = (SELECT COUNT(*) FROM public.event_rsvps r WHERE r.event_id = e.id AND r.status = 'going')
       RETURNING id;
     `);
     console.log(`Updated ${eventsRes.rowCount} events.`);
