@@ -1,7 +1,11 @@
-import 'react-native-url-polyfill/auto';
+import { Platform } from 'react-native';
+
+if (Platform.OS !== 'web') {
+  require('react-native-url-polyfill/auto');
+}
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
-import { Platform } from 'react-native';
+
 
 const AWS_REGION = process.env.EXPO_PUBLIC_AWS_REGION || 'us-east-1';
 const COGNITO_CLIENT_ID = process.env.EXPO_PUBLIC_AWS_COGNITO_CLIENT_ID!;
