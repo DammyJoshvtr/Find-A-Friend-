@@ -1,4 +1,4 @@
-# File: aws-migration/scripts/run-add-last-seen-at.ps1
+# File: aws-migration/scripts/run-sync-admin-role.ps1
 #
 # Deploys a temporary Lambda function inside the private VPC to execute the database
 # updates on AWS RDS, then forces a redeployment of the ECS PostgREST service
@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 $AWS_PATH = "C:\Program Files\Amazon\AWSCLIV2\aws.exe"
 
 Write-Output "============================================================"
-Write-Output "   Find-A-Friend: Run RDS Database Presence Schema Update"
+Write-Output "   Find-A-Friend: Run RDS Database Admin Badge Sync Update"
 Write-Output "============================================================"
 
 # 1. Retrieve VPC resources from CloudFormation
@@ -49,18 +49,18 @@ if (-Not $rdsPassword) {
     $rdsPassword = "wG9cTdjIGynxAStS"
 }
 
-# 2. Package the add-last-seen-at Lambda
+# 2. Package the sync-admin-role Lambda
 Write-Output "[2/5] Packaging Lambda ZIP..."
-$tempDir = "aws-migration\temp-add-last-seen-at"
+$tempDir = "aws-migration\temp-sync-admin-role"
 if (Test-Path $tempDir) {
     Remove-Item $tempDir -Recurse -Force
 }
 New-Item -ItemType Directory -Path $tempDir | Out-Null
 
-Copy-Item "aws-migration\scripts\add_last_seen_at.js" "$tempDir\index.js" -Force
+Copy-Item "aws-migration\scripts\sync_admin_role.js" "$tempDir\index.js" -Force
 Copy-Item "aws-migration\lambda\node_modules" "$tempDir\node_modules" -Recurse -Force
 
-$zipPath = "aws-migration\vpc_add_last_seen_at_payload.zip"
+$zipPath = "aws-migration\vpc_sync_admin_role_payload.zip"
 if (Test-Path $zipPath) {
     Remove-Item $zipPath -Force
 }
@@ -69,8 +69,8 @@ Remove-Item $tempDir -Recurse -Force
 Write-Output "ZIP created: $zipPath"
 
 # 3. Deploy the Lambda inside the VPC
-Write-Output "[3/5] Deploying add-last-seen-at Lambda to VPC..."
-$funcName = "faf-temp-add-last-seen-at"
+Write-Output "[3/5] Deploying sync-admin-role Lambda to VPC..."
+$funcName = "faf-temp-sync-admin-role"
 
 # Delete stale function if it exists
 try {
@@ -108,8 +108,8 @@ if ($state -ne "Active") {
 }
 
 # 5. Invoke the Lambda
-Write-Output "[4/5] Invoking add-last-seen-at Lambda..."
-$responseFile = "aws-migration\add-last-seen-at-response.json"
+Write-Output "[4/5] Invoking sync-admin-role Lambda..."
+$responseFile = "aws-migration\sync-admin-role-response.json"
 if (Test-Path $responseFile) { Remove-Item $responseFile -Force }
 
 & $AWS_PATH lambda invoke `

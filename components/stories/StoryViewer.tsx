@@ -21,6 +21,7 @@ import {
   Platform,
   Linking,
 } from "react-native";
+import { Video, ResizeMode } from 'expo-av';
 import Toast from "react-native-toast-message";
 import { getInitials, getTimeAgo } from "../../lib/matching";
 import { deleteStory } from "../../lib/stories";
@@ -77,13 +78,21 @@ export default function StoryViewer() {
     currentProgress.current = 0;
   }, [story?.id, progressAnim]);
 
-  // Control HTML5 video playback on Web when story is paused/resumed
+  // Control video playback (Web HTML5 and Native expo-av) when story is paused/resumed
   useEffect(() => {
-    if (Platform.OS === "web" && videoRef.current) {
-      if (paused) {
-        videoRef.current.pause();
-      } else if (visible && mediaLoaded) {
-        videoRef.current.play().catch(() => {});
+    if (videoRef.current) {
+      if (Platform.OS === "web") {
+        if (paused) {
+          videoRef.current.pause();
+        } else if (visible && mediaLoaded) {
+          videoRef.current.play().catch(() => {});
+        }
+      } else {
+        if (paused) {
+          videoRef.current.pauseAsync().catch(() => {});
+        } else if (visible && mediaLoaded) {
+          videoRef.current.playAsync().catch(() => {});
+        }
       }
     }
   }, [paused, visible, mediaLoaded]);
@@ -308,21 +317,22 @@ export default function StoryViewer() {
               onEnded={handleNext}
             />
           ) : (
-            <TouchableOpacity
-              style={[s.media, s.nativeVideoWrap]}
-              onPress={() => {
-                setPaused(true);
-                Linking.openURL(story.media_url).catch((err) =>
-                  Alert.alert("Error", "Could not open video player")
-                );
+            <Video
+              ref={videoRef}
+              source={{ uri: story.media_url }}
+              style={s.media}
+              resizeMode={ResizeMode.COVER}
+              shouldPlay={!paused && visible && mediaLoaded}
+              isLooping={false}
+              useNativeControls={false}
+              onLoadStart={() => setMediaLoaded(false)}
+              onLoad={() => setMediaLoaded(true)}
+              onPlaybackStatusUpdate={(status) => {
+                if (status.isLoaded && status.didJustFinish) {
+                  handleNext();
+                }
               }}
-              activeOpacity={0.9}
-            >
-              <View style={s.playBtnCenter}>
-                <Ionicons name="play-circle-outline" size={80} color="#fff" />
-                <Text style={s.playBtnText}>Play Video</Text>
-              </View>
-            </TouchableOpacity>
+            />
           )
         ) : (
           <Image
