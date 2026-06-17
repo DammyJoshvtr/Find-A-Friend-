@@ -3,6 +3,7 @@
  * Full-screen story viewer with progress bars, tap navigation, and auto-advance.
  */
 import { Ionicons } from "@expo/vector-icons";
+import { ResizeMode, Video } from "expo-av";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -11,6 +12,7 @@ import {
   Dimensions,
   Image,
   Modal,
+  Platform,
   StatusBar,
   StyleSheet,
   Text,
@@ -18,10 +20,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
-  Platform,
-  Linking,
 } from "react-native";
-import { Video, ResizeMode } from 'expo-av';
 import Toast from "react-native-toast-message";
 import { getInitials, getTimeAgo } from "../../lib/matching";
 import { deleteStory } from "../../lib/stories";
@@ -309,7 +308,12 @@ export default function StoryViewer() {
             <video
               ref={videoRef}
               src={story.media_url}
-              style={{ flex: 1, width: "100%", height: "100%", objectFit: "cover" }}
+              style={{
+                flex: 1,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
+              }}
               autoPlay
               playsInline
               controls={false}
