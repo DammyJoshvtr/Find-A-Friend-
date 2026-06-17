@@ -3,7 +3,6 @@
  * Full-screen story viewer with progress bars, tap navigation, and auto-advance.
  */
 import { Ionicons } from "@expo/vector-icons";
-import { ResizeMode, Video } from "expo-av";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,7 +11,6 @@ import {
   Dimensions,
   Image,
   Modal,
-  Platform,
   StatusBar,
   StyleSheet,
   Text,
@@ -50,14 +48,12 @@ export default function StoryViewer() {
   const { user } = useAuthStore();
   const story = useStoriesStore(selectCurrentStory);
   const group = useStoriesStore(selectCurrentGroup);
-  const visible = !!viewerGroupId;
 
   const progressAnim = useRef(new Animated.Value(0)).current;
   const progressRef = useRef<Animated.CompositeAnimation | null>(null);
   const currentProgress = useRef(0);
   const [paused, setPaused] = useState(false);
   const [mediaLoaded, setMediaLoaded] = useState(false);
-  const videoRef = useRef<any>(null);
 
   useEffect(() => {
     const id = progressAnim.addListener(({ value }) => {
@@ -68,31 +64,18 @@ export default function StoryViewer() {
 
   // Reset loading state when the story changes
   useEffect(() => {
-    if (story?.media_type === "video" && Platform.OS !== "web") {
-      setMediaLoaded(true);
-    } else {
-      setMediaLoaded(false);
-    }
+    setMediaLoaded(false);
     progressAnim.setValue(0);
     currentProgress.current = 0;
   }, [story?.id, progressAnim]);
-
-  // Control HTML5 video playback on Web when story is paused/resumed
-  useEffect(() => {
-    if (Platform.OS === "web" && videoRef.current) {
-      if (paused) {
-        videoRef.current.pause();
-      } else if (visible && mediaLoaded) {
-        videoRef.current.play().catch(() => {});
-      }
-    }
-  }, [paused, visible, mediaLoaded]);
 
   // Reactions + comments
   const [myReaction, setMyReaction] = useState<string | null>(null);
   const [storyComment, setStoryComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
   const commentInputRef = useRef<TextInput>(null);
+
+  const visible = !!viewerGroupId;
 
   // Stable next handler — must be defined before startProgress
   const handleNext = useCallback(() => {
@@ -126,11 +109,7 @@ export default function StoryViewer() {
 
   useEffect(() => {
     if (visible && story?.id) {
-      if (story.media_type === "video" && Platform.OS !== "web") {
-        setMediaLoaded(true);
-      } else {
-        setMediaLoaded(false);
-      }
+      setMediaLoaded(false);
       progressAnim.setValue(0);
       currentProgress.current = 0;
       markViewed(story.id);
@@ -295,49 +274,13 @@ export default function StoryViewer() {
       <StatusBar hidden />
       <View style={s.container}>
         {/* Story media */}
-        {story.media_type === "video" ? (
-          Platform.OS === "web" ? (
-            <video
-              ref={videoRef}
-              src={story.media_url}
-              style={{
-                flex: 1,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-              autoPlay
-              playsInline
-              controls={false}
-              onLoadedData={() => setMediaLoaded(true)}
-              onEnded={handleNext}
-            />
-          ) : (
-            <TouchableOpacity
-              style={[s.media, s.nativeVideoWrap]}
-              onPress={() => {
-                setPaused(true);
-                Linking.openURL(story.media_url).catch((err) =>
-                  Alert.alert("Error", "Could not open video player")
-                );
-              }}
-              activeOpacity={0.9}
-            >
-              <View style={s.playBtnCenter}>
-                <Ionicons name="play-circle-outline" size={80} color="#fff" />
-                <Text style={s.playBtnText}>Play Video</Text>
-              </View>
-            </TouchableOpacity>
-          )
-        ) : (
-          <Image
-            source={{ uri: story.media_url }}
-            style={s.media}
-            resizeMode="cover"
-            onLoadStart={() => setMediaLoaded(false)}
-            onLoad={() => setMediaLoaded(true)}
-          />
-        )}
+        <Image
+          source={{ uri: story.media_url }}
+          style={s.media}
+          resizeMode="cover"
+          onLoadStart={() => setMediaLoaded(false)}
+          onLoad={() => setMediaLoaded(true)}
+        />
 
         {!mediaLoaded && (
           <View style={[StyleSheet.absoluteFill, s.loadingOverlay]}>
@@ -669,20 +612,5 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
-  },
-  nativeVideoWrap: {
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#000",
-  },
-  playBtnCenter: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  playBtnText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
   },
 });
