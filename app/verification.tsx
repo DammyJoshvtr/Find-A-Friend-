@@ -17,7 +17,6 @@ const BADGE_DESCRIPTIONS: Record<string, string> = {
   staff: 'University faculty, lecturers, staff, or department administrators.',
   alumni: 'FAF alumni who graduated but remain connected to the campus community.',
   guest: 'Guest visitor account for external speakers, prospective students, or campus guests.',
-  admin: 'System administrator with full controls and privileges over the platform.',
 }
 
 export default function VerificationScreen() {

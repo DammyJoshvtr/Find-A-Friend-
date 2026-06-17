@@ -4,12 +4,12 @@
   "redirects": [
     {
       "source": "/pwa",
-      "destination": "https://faf-pwa-psi.vercel.app/",
+      "destination": "https://faf-pwa.vercel.app/",
       "permanent": false
     },
     {
       "source": "/pwa/:path*",
-      "destination": "https://faf-pwa-psi.vercel.app/:path*",
+      "destination": "https://faf-pwa.vercel.app/:path*",
       "permanent": false
     }
   ]

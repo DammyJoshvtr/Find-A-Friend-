@@ -19,7 +19,6 @@
     "base64-arraybuffer": "^1.0.2",
     "bcryptjs": "^3.0.3",
     "expo": "~54.0.34",
-    "expo-av": "^16.0.8",
     "expo-blur": "~15.0.8",
     "expo-constants": "~18.0.13",
     "expo-device": "~8.0.10",

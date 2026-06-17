@@ -664,7 +664,7 @@ const initButtons = () => {
 const showLaunchpadModal = (email = '') => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
-    const pwaUrl = 'https://faf-pwa-psi.vercel.app/';
+    const pwaUrl = 'https://faf-pwa.vercel.app/';
 
     overlay.innerHTML = `
         <div class="modal-content" style="max-width: 550px;">

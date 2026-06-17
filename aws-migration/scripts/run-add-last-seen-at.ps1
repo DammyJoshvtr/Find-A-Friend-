@@ -132,7 +132,11 @@ Write-Output "------------------------------------------------------------"
 Write-Output "   Forcing PostgREST ECS service redeployment..."
 Write-Output "------------------------------------------------------------"
 
-$ecsCluster = "faf-ecs-cluster-production"
+$ecsCluster = & $AWS_PATH cloudformation describe-stacks `
+  --stack-name faf-infra-prod-v2 `
+  --query "Stacks[0].Outputs[?OutputKey=='ECSCluster'].OutputValue" `
+  --output text --no-verify-ssl
+$ecsCluster = $ecsCluster.Trim()
 Write-Output "ECS Cluster: $ecsCluster"
 
 $ecsServicesList = & $AWS_PATH ecs list-services --cluster $ecsCluster --output text --no-verify-ssl

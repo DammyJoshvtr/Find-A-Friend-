@@ -15,7 +15,6 @@ export const BADGE_COLORS: Record<string, string> = {
   staff: '#10b981',
   alumni: '#94a3b8',
   guest: '#ec4899',
-  admin: '#ef4444',
 };
 
 export const BADGE_LABELS: Record<string, string> = {
@@ -26,7 +25,6 @@ export const BADGE_LABELS: Record<string, string> = {
   staff: 'University Staff',
   alumni: 'FAF Alumni',
   guest: 'Guest Visitor',
-  admin: 'Admin',
 };
 
 export default function VerifiedBadge({ type, customColor, size = 16 }: VerifiedBadgeProps) {
