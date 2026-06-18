@@ -508,47 +508,53 @@ export default function DiscoverScreen() {
         </View>
 
         {/* Trending chips */}
-        {trending.length > 0 && selectedCategory === "All" && !searchQuery && (
-          <View style={{ height: 42, marginTop: 4 }}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={s.trendRow}
-            >
-              {trending.slice(0, 10).map((item) => (
-                <TouchableOpacity
-                  key={item.hashtag_id}
-                  style={[
-                    s.trendPill,
-                    {
-                      backgroundColor: theme.card,
-                      borderColor: theme.accentBorder,
-                    },
-                  ]}
-                  onPress={() =>
-                    router.push(`/hashtag/${item.hashtags?.tag}` as any)
-                  }
-                >
-                  <Text style={[s.trendText, { color: theme.accent }]}>
-                    #{item.hashtags?.tag}
-                  </Text>
-                  <Text
+        {trending.length > 0 &&
+          selectedCategory === "All" &&
+          !searchQuery &&
+          !loading && (
+            <View style={{ height: 42, marginTop: 4 }}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.trendRow}
+              >
+                {trending.slice(0, 10).map((item) => (
+                  <TouchableOpacity
+                    key={item.hashtag_id}
                     style={[
-                      s.trendCount,
-                      { color: theme.textFaint, backgroundColor: theme.card2 },
+                      s.trendPill,
+                      {
+                        backgroundColor: theme.card,
+                        borderColor: theme.accentBorder,
+                      },
                     ]}
+                    onPress={() =>
+                      router.push(`/hashtag/${item.hashtags?.tag}` as any)
+                    }
                   >
-                    {item.post_count}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+                    <Text style={[s.trendText, { color: theme.accent }]}>
+                      #{item.hashtags?.tag}
+                    </Text>
+                    <Text
+                      style={[
+                        s.trendCount,
+                        {
+                          color: theme.textFaint,
+                          backgroundColor: theme.card2,
+                        },
+                      ]}
+                    >
+                      {item.post_count}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
         {/* Student Directory Grid */}
         {loading ? (
-          <ScreenLoader message="Loading campus directory..." />
+          <ScreenLoader message="Loading campus directoory..." />
         ) : remaining === 0 ? (
           <View style={s.center}>
             <Text style={s.doneEmoji}>🔍</Text>
