@@ -53,6 +53,7 @@ interface CourseRowProps {
 
 function CourseRow({ course, onUnenroll }: CourseRowProps) {
   const [loading, setLoading] = useState(false)
+  const theme = useTheme()
 
   const handleUnenroll = () => {
     Alert.alert(
@@ -79,16 +80,16 @@ function CourseRow({ course, onUnenroll }: CourseRowProps) {
 
   return (
     <TouchableOpacity
-      style={s.courseCard}
+      style={[s.courseCard, { backgroundColor: theme.card, borderColor: theme.border }]}
       onPress={() => router.push(`/course/${course.id}` as any)}
       activeOpacity={0.85}>
       <View style={s.courseAccent} />
       <View style={s.courseBody}>
         <View style={{ flex: 1 }}>
           <Text style={s.courseCode}>{course.code}</Text>
-          <Text style={s.courseName} numberOfLines={1}>{course.name}</Text>
+          <Text style={[s.courseName, { color: theme.text }]} numberOfLines={1}>{course.name}</Text>
           {(course.department || course.level) && (
-            <Text style={s.courseMeta}>
+            <Text style={[s.courseMeta, { color: theme.textMuted }]}>
               {[course.department, course.level].filter(Boolean).join(' · ')}
             </Text>
           )}
@@ -120,6 +121,7 @@ function CourseRow({ course, onUnenroll }: CourseRowProps) {
 // ---------------------------------------------------------------------------
 
 function ResourceRow({ resource }: { resource: AcademicResource }) {
+  const theme = useTheme()
   const icon = RESOURCE_TYPE_ICONS[resource.resource_type] ?? 'attach-outline'
   const color = RESOURCE_TYPE_COLORS[resource.resource_type] ?? 'rgba(240,240,255,0.4)'
   const sizeLabel = resource.file_size_kb
@@ -130,25 +132,25 @@ function ResourceRow({ resource }: { resource: AcademicResource }) {
 
   return (
     <TouchableOpacity
-      style={s.resourceCard}
+      style={[s.resourceCard, { backgroundColor: theme.card, borderColor: theme.border }]}
       onPress={() => router.push(`/resource/${resource.id}` as any)}
       activeOpacity={0.85}>
       <View style={[s.resourceIcon, { backgroundColor: color + '18' }]}>
         <Ionicons name={icon} size={18} color={color} />
       </View>
       <View style={{ flex: 1 }}>
-        <Text style={s.resourceTitle} numberOfLines={1}>{resource.title}</Text>
+        <Text style={[s.resourceTitle, { color: theme.text }]} numberOfLines={1}>{resource.title}</Text>
         <View style={s.resourceMeta}>
           {resource.courses && (
             <Text style={s.resourceCourse}>{resource.courses.code}</Text>
           )}
-          <Text style={s.resourceTime}>{getTimeAgo(resource.created_at)}</Text>
-          {sizeLabel && <Text style={s.resourceSize}>{sizeLabel}</Text>}
+          <Text style={[s.resourceTime, { color: theme.textMuted }]}>{getTimeAgo(resource.created_at)}</Text>
+          {sizeLabel && <Text style={[s.resourceSize, { color: theme.textFaint }]}>{sizeLabel}</Text>}
         </View>
       </View>
       <View style={s.downloadBadge}>
-        <Ionicons name="download-outline" size={11} color="rgba(240,240,255,0.35)" />
-        <Text style={s.downloadCount}>{resource.download_count}</Text>
+        <Ionicons name="download-outline" size={11} color={theme.textFaint} />
+        <Text style={[s.downloadCount, { color: theme.textMuted }]}>{resource.download_count}</Text>
       </View>
     </TouchableOpacity>
   )
@@ -250,9 +252,9 @@ export default function AcademicScreen() {
           )}
           ListEmptyComponent={
             <View style={s.empty}>
-              <Ionicons name="book-outline" size={40} color="rgba(240,240,255,0.1)" />
-              <Text style={s.emptyTitle}>No enrolled courses</Text>
-              <Text style={s.emptySub}>Browse and enroll in courses below</Text>
+              <Ionicons name="book-outline" size={40} color={theme.textFaint} />
+              <Text style={[s.emptyTitle, { color: theme.textMuted }]}>No enrolled courses</Text>
+              <Text style={[s.emptySub, { color: theme.textFaint }]}>Browse and enroll in courses below</Text>
               <TouchableOpacity
                 style={s.browseBtn}
                 onPress={() => router.push('/course-browser' as any)}>
@@ -277,9 +279,9 @@ export default function AcademicScreen() {
           renderItem={({ item }) => <StudyGroupCard group={item} />}
           ListEmptyComponent={
             <View style={s.empty}>
-              <Ionicons name="people-outline" size={40} color="rgba(240,240,255,0.1)" />
-              <Text style={s.emptyTitle}>No study groups yet</Text>
-              <Text style={s.emptySub}>Create one and invite your coursemates</Text>
+              <Ionicons name="people-outline" size={40} color={theme.textFaint} />
+              <Text style={[s.emptyTitle, { color: theme.textMuted }]}>No study groups yet</Text>
+              <Text style={[s.emptySub, { color: theme.textFaint }]}>Create one and invite your coursemates</Text>
             </View>
           }
           refreshControl={
@@ -294,18 +296,18 @@ export default function AcademicScreen() {
     // Resources tab
     return (
       <>
-        <View style={s.searchBar}>
-          <Ionicons name="search-outline" size={15} color="rgba(240,240,255,0.3)" />
+        <View style={[s.searchBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Ionicons name="search-outline" size={15} color={theme.textFaint} />
           <TextInput
-            style={s.searchInput}
+            style={[s.searchInput, { color: theme.text }]}
             placeholder="Search notes, past questions..."
-            placeholderTextColor="rgba(240,240,255,0.3)"
+            placeholderTextColor={theme.textFaint}
             value={resourceSearch}
             onChangeText={handleResourceSearch}
           />
           {resourceSearch.length > 0 && (
             <TouchableOpacity onPress={() => { setResourceSearch(''); loadTab('resources') }}>
-              <Ionicons name="close-circle" size={15} color="rgba(240,240,255,0.3)" />
+              <Ionicons name="close-circle" size={15} color={theme.textFaint} />
             </TouchableOpacity>
           )}
         </View>
@@ -315,9 +317,9 @@ export default function AcademicScreen() {
           renderItem={({ item }) => <ResourceRow resource={item} />}
           ListEmptyComponent={
             <View style={s.empty}>
-              <Ionicons name="document-outline" size={40} color="rgba(240,240,255,0.1)" />
-              <Text style={s.emptyTitle}>No resources found</Text>
-              <Text style={s.emptySub}>Upload notes or past questions to share</Text>
+              <Ionicons name="document-outline" size={40} color={theme.textFaint} />
+              <Text style={[s.emptyTitle, { color: theme.textMuted }]}>No resources found</Text>
+              <Text style={[s.emptySub, { color: theme.textFaint }]}>Upload notes or past questions to share</Text>
             </View>
           }
           refreshControl={
@@ -333,13 +335,13 @@ export default function AcademicScreen() {
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color="#f0f0ff" />
+      <View style={[s.header, { borderBottomColor: theme.border }]}>
+        <TouchableOpacity style={[s.backBtn, { backgroundColor: theme.card }]} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={20} color={theme.text} />
         </TouchableOpacity>
-        <Text style={s.title}>Academic Hub</Text>
+        <Text style={[s.title, { color: theme.text }]}>Academic Hub</Text>
         <TouchableOpacity
-          style={s.createBtn}
+          style={[s.createBtn, { backgroundColor: theme.card }]}
           onPress={() => {
             if (activeTab === 'groups') router.push('/create-study-group' as any)
             else if (activeTab === 'resources') router.push('/upload-resource' as any)
@@ -350,13 +352,17 @@ export default function AcademicScreen() {
       </View>
 
       {/* Tab bar */}
-      <View style={s.tabBar}>
+      <View style={[s.tabBar, { borderBottomColor: theme.border }]}>
         {(['courses', 'groups', 'resources'] as Tab[]).map(tab => (
           <TouchableOpacity
             key={tab}
-            style={[s.tab, activeTab === tab && s.tabActive]}
+            style={[
+              s.tab,
+              { backgroundColor: theme.card, borderColor: theme.border },
+              activeTab === tab && s.tabActive
+            ]}
             onPress={() => setActiveTab(tab)}>
-            <Text style={[s.tabText, activeTab === tab && s.tabTextActive]}>
+            <Text style={[s.tabText, { color: theme.textMuted }, activeTab === tab && s.tabTextActive]}>
               {tab === 'courses' ? 'My Courses' : tab === 'groups' ? 'Study Groups' : 'Resources'}
             </Text>
           </TouchableOpacity>

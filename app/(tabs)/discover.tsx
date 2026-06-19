@@ -350,6 +350,18 @@ export default function DiscoverScreen() {
     { id: "Newbies", label: "Newbies", icon: "sparkles-outline" },
   ];
 
+  if (loading) {
+    return (
+      <SafeAreaView
+        style={[s.container, { backgroundColor: theme.bg }]}
+        edges={["top"]}
+      >
+        <NeuralBackground intensity="light" />
+        <ScreenLoader message="Loading campus directory..." />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView
       style={[s.container, { backgroundColor: theme.bg }]}
@@ -553,9 +565,7 @@ export default function DiscoverScreen() {
           )}
 
         {/* Student Directory Grid */}
-        {loading ? (
-          <ScreenLoader message="Loading campus directoory..." />
-        ) : remaining === 0 ? (
+        {remaining === 0 ? (
           <View style={s.center}>
             <Text style={s.doneEmoji}>🔍</Text>
             <Text style={[s.emptyTitle, { color: theme.text }]}>

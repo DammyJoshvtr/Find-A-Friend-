@@ -83,6 +83,7 @@ function StatPill({
   value: string | number;
   color: string;
 }) {
+  const theme = useTheme();
   return (
     <View style={{ flex: 1, alignItems: "center" }}>
       <Text
@@ -94,7 +95,7 @@ function StatPill({
         style={{
           fontSize: 11,
           fontFamily: typography.fontRegular,
-          color: "rgba(255,255,255,0.38)",
+          color: theme.textMuted,
           marginTop: 2,
         }}
       >
@@ -381,7 +382,7 @@ export default function GamesScreen() {
             {leaders.map((entry, i) => (
               <View key={entry.user_id}>
                 <View style={s.lbRow}>
-                  <Text style={s.medal}>{i < 3 ? MEDALS[i] : `${i + 1}.`}</Text>
+                  <Text style={[s.medal, { color: theme.text }]}>{i < 3 ? MEDALS[i] : `${i + 1}.`}</Text>
                   <Avatar
                     url={entry.avatar_url}
                     name={entry.full_name}

@@ -266,7 +266,7 @@ export default function GameLobbyScreen() {
                       <Avatar url={friend.avatar_url} name={friend.full_name} size={42} theme={theme} />
                       <View style={[
                         s.onlineDot,
-                        { backgroundColor: online ? '#4ade80' : theme.textFaint },
+                        { backgroundColor: online ? '#4ade80' : theme.textFaint, borderColor: theme.card },
                       ]} />
                     </View>
                     <View style={s.friendInfo}>

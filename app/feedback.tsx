@@ -737,6 +737,7 @@ const FeedbackCard = React.memo(function FeedbackCard({
                 <TouchableOpacity
                   style={[
                     fc.voteBtn,
+                    { borderColor: theme.border },
                     item.myVote === 1 && {
                       backgroundColor: GREEN_DIM,
                       borderColor: "rgba(52,211,153,0.35)",
@@ -771,6 +772,7 @@ const FeedbackCard = React.memo(function FeedbackCard({
                 <TouchableOpacity
                   style={[
                     fc.voteBtn,
+                    { borderColor: theme.border },
                     item.myVote === -1 && {
                       backgroundColor: RED_DIM,
                       borderColor: "rgba(248,113,113,0.35)",
@@ -790,6 +792,7 @@ const FeedbackCard = React.memo(function FeedbackCard({
               <Pressable
                 style={[
                   fc.commentPill,
+                  { borderColor: theme.border },
                   expanded && {
                     backgroundColor: PURPLE_DIM,
                     borderColor: PURPLE_BORDER,

@@ -144,7 +144,7 @@ export default function AnonymousScreen() {
   const renderEventsHeader = () => {
     if (linkedEvents.length === 0) return null
     return (
-      <View style={s.eventsSection}>
+      <View style={[s.eventsSection, { borderBottomColor: theme.border }]}>
         <View style={s.eventsHeader}>
           <Ionicons name="calendar-outline" size={16} color="#f472b6" />
           <Text style={[s.eventsTitle, { color: theme.text }]}>Featured Events</Text>
@@ -310,8 +310,8 @@ const s = StyleSheet.create({
   subtitle: { fontSize: 10, textAlign: 'center', fontFamily: typography.fontRegular },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle: { fontSize: 16, fontFamily: typography.fontSemiBold, color: '#f0f0ff' },
-  emptyText: { fontSize: 13, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontRegular },
+  emptyTitle: { fontSize: 16, fontFamily: typography.fontSemiBold },
+  emptyText: { fontSize: 13, fontFamily: typography.fontRegular },
   fab: {
     position: 'absolute', bottom: 24, right: 20,
     width: 54, height: 54, borderRadius: 27,
@@ -323,7 +323,6 @@ const s = StyleSheet.create({
   eventsSection: {
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
   },
   eventsHeader: {
     flexDirection: 'row',

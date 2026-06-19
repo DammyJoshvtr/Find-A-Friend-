@@ -240,16 +240,6 @@ export default function EventsScreen() {
         ))}
       </View>
 
-      {activeTab === 'upcoming' && (
-        <CalendarGrid
-          events={events}
-          selectedDay={selectedDay}
-          onSelectDay={setSelectedDay}
-          month={viewMonth}
-          onMonthChange={(m) => { setViewMonth(m); setSelectedDay(null) }}
-        />
-      )}
-
       {loading && !refreshing ? (
         <View style={s.loadingWrap}>
           <ActivityIndicator size="large" color={theme.accent} />
@@ -259,6 +249,17 @@ export default function EventsScreen() {
           data={listData}
           keyExtractor={(item) => item.type === 'event' ? item.event.id : `section-${item.date}`}
           renderItem={renderItem}
+          ListHeaderComponent={
+            activeTab === 'upcoming' ? (
+              <CalendarGrid
+                events={events}
+                selectedDay={selectedDay}
+                onSelectDay={setSelectedDay}
+                month={viewMonth}
+                onMonthChange={(m) => { setViewMonth(m); setSelectedDay(null) }}
+              />
+            ) : null
+          }
           onScroll={onScroll}
           scrollEventThrottle={scrollEventThrottle}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}

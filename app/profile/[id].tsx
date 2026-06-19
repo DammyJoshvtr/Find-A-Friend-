@@ -43,6 +43,7 @@ interface MiniPost {
 function MiniPostCard({ post, onPress }: { post: MiniPost; onPress: () => void }) {
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(post.likes_count)
+  const theme = useTheme()
 
   const handleLike = async () => {
     const wasLiked = liked
@@ -56,21 +57,21 @@ function MiniPostCard({ post, onPress }: { post: MiniPost; onPress: () => void }
   }
 
   return (
-    <TouchableOpacity style={s.miniCard} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[s.miniCard, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={onPress} activeOpacity={0.85}>
       {post.image_url && (
         <Image source={{ uri: post.image_url }} style={s.miniImage} resizeMode="cover" />
       )}
-      <Text style={s.miniBody} numberOfLines={post.image_url ? 2 : 4}>{post.body}</Text>
+      <Text style={[s.miniBody, { color: theme.text }]} numberOfLines={post.image_url ? 2 : 4}>{post.body}</Text>
       <View style={s.miniFooter}>
         <TouchableOpacity style={s.miniAction} onPress={handleLike} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-          <Ionicons name={liked ? 'heart' : 'heart-outline'} size={13} color={liked ? '#ef4444' : 'rgba(240,240,255,0.35)'} />
-          <Text style={s.miniActionText}>{likeCount}</Text>
+          <Ionicons name={liked ? 'heart' : 'heart-outline'} size={13} color={liked ? '#ef4444' : theme.textMuted} />
+          <Text style={[s.miniActionText, { color: theme.textMuted }]}>{likeCount}</Text>
         </TouchableOpacity>
         <View style={s.miniAction}>
-          <Ionicons name="chatbubble-outline" size={12} color="rgba(240,240,255,0.35)" />
-          <Text style={s.miniActionText}>{post.comments_count}</Text>
+          <Ionicons name="chatbubble-outline" size={12} color={theme.textMuted} />
+          <Text style={[s.miniActionText, { color: theme.textMuted }]}>{post.comments_count}</Text>
         </View>
-        <Text style={s.miniTime}>{getTimeAgo(post.created_at)}</Text>
+        <Text style={[s.miniTime, { color: theme.textFaint }]}>{getTimeAgo(post.created_at)}</Text>
       </View>
     </TouchableOpacity>
   )
@@ -323,24 +324,24 @@ export default function ProfileScreen() {
     <>
       {/* Back button */}
       <View style={s.topBar}>
-        <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color="#f0f0ff" />
+        <TouchableOpacity style={[s.backBtn, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={20} color={theme.text} />
         </TouchableOpacity>
         {isOwnProfile && (
-          <TouchableOpacity style={s.editBtn} onPress={() => router.push('/edit-profile' as any)}>
-            <Ionicons name="create-outline" size={18} color="#a78bfa" />
+          <TouchableOpacity style={[s.editBtn, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => router.push('/edit-profile' as any)}>
+            <Ionicons name="create-outline" size={18} color={theme.accent} />
           </TouchableOpacity>
         )}
       </View>
 
       {/* Avatar */}
       <View style={s.avatarSection}>
-        <View style={s.avatarRing}>
+        <View style={[s.avatarRing, { borderColor: theme.accentBorder }]}>
           {profile.avatar_url ? (
             <Image source={{ uri: profile.avatar_url }} style={s.avatar} />
           ) : (
-            <View style={s.avatarPlaceholder}>
-              <Text style={s.avatarInitials}>{getInitials(profile.full_name ?? '??')}</Text>
+            <View style={[s.avatarPlaceholder, { backgroundColor: theme.cardSolid }]}>
+              <Text style={[s.avatarInitials, { color: theme.accent }]}>{getInitials(profile.full_name ?? '??')}</Text>
             </View>
           )}
         </View>
@@ -349,7 +350,7 @@ export default function ProfileScreen() {
       {/* Name + bio */}
       <View style={s.nameSection}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Text style={s.name}>{profile.full_name ?? 'Student'}</Text>
+          <Text style={[s.name, { color: theme.text }]}>{profile.full_name ?? 'Student'}</Text>
           <VerifiedBadge type={profile.badge_type} customColor={profile.badge_color} size={18} />
           {(!profile.badge_type || profile.badge_type === 'none') && profile.role === 'admin' && (
             <View style={{ backgroundColor: 'rgba(167,139,250,0.15)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 0.5, borderColor: 'rgba(167,139,250,0.45)' }}>
@@ -358,30 +359,30 @@ export default function ProfileScreen() {
           )}
         </View>
         {(profile.department || profile.level) && (
-          <Text style={s.dept}>
+          <Text style={[s.dept, { color: theme.textMuted }]}>
             {[profile.department, profile.level].filter(Boolean).join(' · ')}
           </Text>
         )}
-        {profile.bio && <Text style={s.bio}>{profile.bio}</Text>}
+        {profile.bio && <Text style={[s.bio, { color: theme.textMuted }]}>{profile.bio}</Text>}
       </View>
 
       {/* Stats row */}
       <View style={s.statsRow}>
         <View style={s.statItem}>
-          <Text style={s.statValue}>{posts.length}</Text>
-          <Text style={s.statLabel}>Posts</Text>
+          <Text style={[s.statValue, { color: theme.text }]}>{posts.length}</Text>
+          <Text style={[s.statLabel, { color: theme.textFaint }]}>Posts</Text>
         </View>
         <TouchableOpacity
           style={s.statItem}
           onPress={() => router.push(`/followers/${id}` as any)}>
-          <Text style={s.statValue}>{followerCount}</Text>
-          <Text style={s.statLabel}>Followers</Text>
+          <Text style={[s.statValue, { color: theme.text }]}>{followerCount}</Text>
+          <Text style={[s.statLabel, { color: theme.textFaint }]}>Followers</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={s.statItem}
           onPress={() => router.push(`/following/${id}` as any)}>
-          <Text style={s.statValue}>{followingCount}</Text>
-          <Text style={s.statLabel}>Following</Text>
+          <Text style={[s.statValue, { color: theme.text }]}>{followingCount}</Text>
+          <Text style={[s.statLabel, { color: theme.textFaint }]}>Following</Text>
         </TouchableOpacity>
       </View>
 
@@ -389,8 +390,8 @@ export default function ProfileScreen() {
       {profile.interests && profile.interests.length > 0 && (
         <View style={s.interestsRow}>
           {profile.interests.slice(0, 6).map((interest, i) => (
-            <View key={i} style={s.interestChip}>
-              <Text style={s.interestText}>{interest}</Text>
+            <View key={i} style={[s.interestChip, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}>
+              <Text style={[s.interestText, { color: theme.accent }]}>{interest}</Text>
             </View>
           ))}
         </View>
@@ -402,13 +403,13 @@ export default function ProfileScreen() {
           style={[
             s.followBtn,
             (connectionStatus === 'connected' || connectionStatus === 'requested_sent') && s.followingBtn,
-            isOwnProfile && s.editProfileBtn,
+            isOwnProfile && [s.editProfileBtn, { backgroundColor: theme.card, borderColor: theme.border }],
           ]}
           onPress={handleFollowToggle}
           disabled={followLoading}>
           {followLoading
             ? <ActivityIndicator size="small" color={(connectionStatus === 'connected' || connectionStatus === 'requested_sent') ? '#a78bfa' : '#fff'} />
-            : <Text style={[s.followText, (connectionStatus === 'connected' || connectionStatus === 'requested_sent') && s.followingText, isOwnProfile && s.editProfileText]}>
+            : <Text style={[s.followText, (connectionStatus === 'connected' || connectionStatus === 'requested_sent') && s.followingText, isOwnProfile && [s.editProfileText, { color: theme.textMuted }]]}>
                 {isOwnProfile 
                   ? 'Edit Profile' 
                   : connectionStatus === 'connected' 
@@ -422,25 +423,25 @@ export default function ProfileScreen() {
         </TouchableOpacity>
         {!isOwnProfile && (
           <TouchableOpacity
-            style={s.messageBtn}
+            style={[s.messageBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
             onPress={() => router.push(`/chat/${id}` as any)}>
-            <Ionicons name="chatbubble-outline" size={16} color="#a78bfa" />
-            <Text style={s.messageBtnText}>Message</Text>
+            <Ionicons name="chatbubble-outline" size={16} color={theme.accent} />
+            <Text style={[s.messageBtnText, { color: theme.accent }]}>Message</Text>
           </TouchableOpacity>
         )}
       </View>
 
       {/* Tab bar */}
-      <View style={s.tabBar}>
+      <View style={[s.tabBar, { borderTopColor: theme.border }]}>
         <TouchableOpacity
           style={[s.tab, activeTab === 'posts' && s.tabActive]}
           onPress={() => setActiveTab('posts')}>
           <Ionicons
             name="grid-outline"
             size={16}
-            color={activeTab === 'posts' ? '#a78bfa' : 'rgba(240,240,255,0.4)'}
+            color={activeTab === 'posts' ? theme.accent : theme.textMuted}
           />
-          <Text style={[s.tabText, activeTab === 'posts' && s.tabTextActive]}>Posts</Text>
+          <Text style={[s.tabText, { color: theme.textMuted }, activeTab === 'posts' && [s.tabTextActive, { color: theme.accent }]]}>Posts</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.tab, activeTab === 'liked' && s.tabActive]}
@@ -448,9 +449,9 @@ export default function ProfileScreen() {
           <Ionicons
             name="heart-outline"
             size={16}
-            color={activeTab === 'liked' ? '#a78bfa' : 'rgba(240,240,255,0.4)'}
+            color={activeTab === 'liked' ? theme.accent : theme.textMuted}
           />
-          <Text style={[s.tabText, activeTab === 'liked' && s.tabTextActive]}>Liked</Text>
+          <Text style={[s.tabText, { color: theme.textMuted }, activeTab === 'liked' && [s.tabTextActive, { color: theme.accent }]]}>Liked</Text>
         </TouchableOpacity>
       </View>
 

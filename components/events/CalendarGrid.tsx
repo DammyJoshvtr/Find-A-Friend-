@@ -203,7 +203,7 @@ export default function CalendarGrid({ events, selectedDay, onSelectDay, month, 
   }))
 
   return (
-    <View style={[s.container, { borderColor: `${theme.accent}28`, shadowColor: theme.accent }]}>
+    <View style={[s.container, { borderColor: `${theme.accent}28`, shadowColor: theme.accent, backgroundColor: theme.card }]}>
       <View style={[s.scanLine, { backgroundColor: theme.accent }]} />
 
       <View style={s.header}>
@@ -255,7 +255,6 @@ const s = StyleSheet.create({
   container: {
     marginHorizontal: 16, marginBottom: 8,
     borderRadius: 20, borderWidth: 1,
-    backgroundColor: 'rgba(10,10,28,0.75)',
     overflow: 'hidden',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.35,

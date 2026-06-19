@@ -312,7 +312,7 @@ export default function PostCard({ post }: PostCardProps) {
                     source={{ uri: images[0] }}
                     style={[s.media, { borderColor: theme.border }]}
                     resizeMode="cover"
-                  />
+                  />  
                 </TouchableOpacity>
               )
             ) : (
@@ -433,8 +433,8 @@ export default function PostCard({ post }: PostCardProps) {
 
           {/* Action row */}
           <View style={s.actions}>
-            <Action icon="chatbubble-outline" count={post.comments_count} onPress={handleComment} activeColor={theme.cyan} />
-            <Action icon="repeat-outline" count={post.repost_count ?? 0} onPress={handleRepost} activeColor="#34d399" />
+            <Action icon="chatbubble-outline" count={post.comments_count} onPress={handleComment} activeColor={theme.cyan} inactiveColor={theme.textMuted} />
+            <Action icon="repeat-outline" count={post.repost_count ?? 0} onPress={handleRepost} activeColor="#34d399" inactiveColor={theme.textMuted} />
             <Action icon={post.is_liked ? 'heart' : 'heart-outline'} count={post.likes_count} onPress={handleLike} active={post.is_liked} activeColor="#f472b6" inactiveColor={theme.textMuted} />
             <Action icon={post.is_bookmarked ? 'bookmark' : 'bookmark-outline'} onPress={handleBookmark} active={post.is_bookmarked} activeColor={theme.accent} inactiveColor={theme.textMuted} />
             <Action icon="share-outline" onPress={handleShare} activeColor={theme.accent} inactiveColor={theme.textMuted} />
@@ -458,14 +458,16 @@ interface ActionProps {
   active?: boolean; activeColor?: string; inactiveColor?: string
 }
 
-function Action({ icon, count, onPress, active, activeColor = '#a78bfa', inactiveColor = 'rgba(240,240,255,0.3)' }: ActionProps) {
+function Action({ icon, count, onPress, active, activeColor = '#a78bfa', inactiveColor }: ActionProps) {
+  const theme = useTheme()
+  const resolvedInactiveColor = inactiveColor || theme.textMuted
   return (
     <TouchableOpacity style={s.actionBtn} onPress={onPress} hitSlop={12}>
       <View style={active ? [s.activeIconWrap, { shadowColor: activeColor }] : null}>
-        <Ionicons name={icon as any} size={17} color={active ? activeColor : inactiveColor} />
+        <Ionicons name={icon as any} size={17} color={active ? activeColor : resolvedInactiveColor} />
       </View>
       {count !== undefined && count > 0 ? (
-        <Text style={[s.actionCount, { color: active ? activeColor : inactiveColor }]}>
+        <Text style={[s.actionCount, { color: active ? activeColor : resolvedInactiveColor }]}>
           {count >= 1000 ? `${(count / 1000).toFixed(1)}k` : count}
         </Text>
       ) : null}

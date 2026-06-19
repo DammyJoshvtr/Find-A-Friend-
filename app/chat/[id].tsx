@@ -1747,10 +1747,12 @@ export default function DirectMessageScreen() {
                                   s.bubbleMine,
                                   {
                                     // Sent: purple tint matching app theme
-                                    backgroundColor: "rgba(167,139,250,0.25)",
-                                    shadowColor: "#a78bfa",
+                                    backgroundColor: theme.accentBg,
+                                    borderColor: theme.accentBorder,
+                                    borderWidth: 0.5,
+                                    shadowColor: theme.accent,
                                     shadowOffset: { width: 0, height: 2 },
-                                    shadowOpacity: m._optimistic ? 0.1 : 0.35,
+                                    shadowOpacity: m._optimistic ? 0.1 : 0.2,
                                     shadowRadius: 8,
                                     elevation: m._optimistic ? 1 : 4,
                                     ...(parsed ? { padding: 4 } : {}),
@@ -1759,9 +1761,10 @@ export default function DirectMessageScreen() {
                               : [
                                   s.bubbleTheirs,
                                   {
-                                    // Received: dark card background
-                                    backgroundColor: "rgba(255,255,255,0.07)",
-                                    borderColor: "rgba(167,139,250,0.12)",
+                                    // Received: card background matching theme
+                                    backgroundColor: theme.card2,
+                                    borderColor: theme.border,
+                                    borderWidth: 0.5,
                                   },
                                 ],
                             m._optimistic && { opacity: 0.6 },
@@ -1857,8 +1860,8 @@ export default function DirectMessageScreen() {
           style={[
             s.inputOuter,
             {
-              backgroundColor: "rgba(13,13,20,0.97)",
-              borderTopColor: "rgba(167,139,250,0.2)",
+              backgroundColor: theme.cardSolid,
+              borderTopColor: theme.border,
             },
           ]}
         >
@@ -1932,12 +1935,12 @@ export default function DirectMessageScreen() {
               style={[
                 s.input,
                 {
-                  backgroundColor: "rgba(255,255,255,0.06)",
+                  backgroundColor: theme.card2,
                   borderColor: inputFocused
-                    ? "rgba(167,139,250,0.5)"
-                    : "rgba(167,139,250,0.15)",
+                    ? theme.accent
+                    : theme.border,
                   color: theme.text,
-                  shadowColor: inputFocused ? "#a78bfa" : "transparent",
+                  shadowColor: inputFocused ? theme.accent : "transparent",
                   shadowOffset: { width: 0, height: 0 },
                   shadowOpacity: inputFocused ? 0.3 : 0,
                   shadowRadius: 6,

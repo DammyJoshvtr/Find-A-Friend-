@@ -43,7 +43,7 @@ export async function uploadFile(
     // Native (Android/iOS) direct S3 upload using expo-file-system
     const uploadResult = await FileSystem.uploadAsync(s3Url, uri, {
       httpMethod: 'PUT',
-      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      uploadType: FileSystem.UploadType.BINARY_CONTENT as any,
       headers: {
         'Content-Type': mimeType,
       },
