@@ -1,5 +1,4 @@
 import { Platform } from 'react-native'
-import * as FileSystem from 'expo-file-system'
 
 const S3_BUCKET_URL = 'https://faf-infra-prod-v2-appstoragebucket-prasmiamuew2.s3.amazonaws.com'
 
@@ -24,7 +23,7 @@ export async function uploadFile(
 
   console.log(`[S3 Upload] Uploading ${uri} to ${s3Url} (${mimeType})`)
 
-  if (Platform.OS === 'web') {
+  try {
     const resBlob = await fetch(uri)
     const blob = await resBlob.blob()
 
@@ -37,21 +36,11 @@ export async function uploadFile(
     })
 
     if (!uploadRes.ok) {
-      throw new Error(`S3 upload failed with status ${uploadRes.status}`)
+      const errorText = await uploadRes.text().catch(() => '')
+      throw new Error(`S3 upload failed with status ${uploadRes.status}: ${errorText}`)
     }
-  } else {
-    // Native (Android/iOS) direct S3 upload using expo-file-system
-    const uploadResult = await FileSystem.uploadAsync(s3Url, uri, {
-      httpMethod: 'PUT',
-      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-      headers: {
-        'Content-Type': mimeType,
-      },
-    })
-
-    if (uploadResult.status < 200 || uploadResult.status >= 300) {
-      throw new Error(`S3 upload failed with status ${uploadResult.status}: ${uploadResult.body}`)
-    }
+  } catch (err: any) {
+    throw new Error(`Upload to S3 failed: ${err.message || String(err)}`)
   }
 
   return s3Url
