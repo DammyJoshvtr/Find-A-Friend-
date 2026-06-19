@@ -29,7 +29,7 @@ import { useTheme } from '../lib/theme'
 import { useFeedStore } from '../store/feedStore'
 import { typography } from '../lib/typography'
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://vcbtvhociaioeyhhsczh.supabase.co'
+
 
 type PostType = 'feed' | 'club' | 'academic'
 

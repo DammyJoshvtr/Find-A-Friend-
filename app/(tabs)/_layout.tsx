@@ -121,7 +121,6 @@ export default function TabLayout() {
         name="chat"
         options={{
           title: 'Chat',
-          tabBarStyle: { display: 'none' },
           tabBarIcon: ({ color, size, focused }) => (
             <TabIcon name="chatbubbles" color={color} size={size} focused={focused} />
           ),

@@ -24,34 +24,39 @@ export async function uploadFile(
 
   console.log(`[S3 Upload] Uploading ${uri} to ${s3Url} (${mimeType})`)
 
-  if (Platform.OS === 'web') {
-    const resBlob = await fetch(uri)
-    const blob = await resBlob.blob()
+  try {
+    if (Platform.OS === 'web') {
+      const resBlob = await fetch(uri)
+      const blob = await resBlob.blob()
 
-    const uploadRes = await fetch(s3Url, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': mimeType,
-      },
-      body: blob,
-    })
+      const uploadRes = await fetch(s3Url, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': mimeType,
+        },
+        body: blob,
+      })
 
-    if (!uploadRes.ok) {
-      throw new Error(`S3 upload failed with status ${uploadRes.status}`)
+      if (!uploadRes.ok) {
+        const errorText = await uploadRes.text().catch(() => '')
+        throw new Error(`S3 upload failed with status ${uploadRes.status}: ${errorText}`)
+      }
+    } else {
+      // Native (Android/iOS) direct S3 upload using expo-file-system
+      const uploadResult = await FileSystem.uploadAsync(s3Url, uri, {
+        httpMethod: 'PUT',
+        uploadType: FileSystem.UploadType.BINARY_CONTENT as any,
+        headers: {
+          'Content-Type': mimeType,
+        },
+      })
+
+      if (uploadResult.status < 200 || uploadResult.status >= 300) {
+        throw new Error(`S3 upload failed with status ${uploadResult.status}: ${uploadResult.body}`)
+      }
     }
-  } else {
-    // Native (Android/iOS) direct S3 upload using expo-file-system
-    const uploadResult = await FileSystem.uploadAsync(s3Url, uri, {
-      httpMethod: 'PUT',
-      uploadType: FileSystem.UploadType.BINARY_CONTENT as any,
-      headers: {
-        'Content-Type': mimeType,
-      },
-    })
-
-    if (uploadResult.status < 200 || uploadResult.status >= 300) {
-      throw new Error(`S3 upload failed with status ${uploadResult.status}: ${uploadResult.body}`)
-    }
+  } catch (err: any) {
+    throw new Error(`Upload to S3 failed: ${err.message || String(err)}`)
   }
 
   return s3Url

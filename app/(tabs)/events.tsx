@@ -306,7 +306,7 @@ const s = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontFamily: typography.fontSemiBold },
   emptyText: { fontSize: 13, textAlign: 'center', fontFamily: typography.fontRegular, color: 'gray' },
   fab: {
-    position: 'absolute', bottom: 84, right: 20,
+    position: 'absolute', bottom: 108, right: 20,
     width: 54, height: 54, borderRadius: 27,
     alignItems: 'center', justifyContent: 'center',
     shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 8, elevation: 8,
