@@ -5,7 +5,8 @@
  * The `rsvp_count` on events is maintained by a DB trigger.
  * Events are visible only when `is_public = true` per RLS policy.
  */
-import { supabase } from './supabase'
+import { client } from './aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import { uploadFile } from './upload'
 import { scheduleEventReminders, cancelEventReminders } from './notifications'
 
@@ -115,28 +116,19 @@ export async function getEvents(
   limit = 20
 ): Promise<{ data: Event[] | null; error: Error | null }> {
   try {
-    let query = supabase
-      .from('events')
-      .select(`
-        *,
-        clubs(id, name, color),
-        profiles!organizer_id(id, full_name, avatar_url)
-      `)
-      .eq('is_public', true)
-      .order('starts_at', { ascending: true })
-      .limit(limit)
+    let filter: any = { is_public: { eq: true } }
 
     // Default: only upcoming events
     if (filters?.upcoming !== false) {
-      query = query.gte('starts_at', new Date().toISOString())
+      filter.starts_at = { ge: new Date().toISOString() }
     }
 
     if (filters?.category) {
-      query = query.eq('category', filters.category)
+      filter.category = { eq: filters.category }
     }
 
     if (filters?.clubId) {
-      query = query.eq('club_id', filters.clubId)
+      filter.club_id = { eq: filters.clubId }
     }
 
     if (filters?.date) {
@@ -145,17 +137,18 @@ export async function getEvents(
       dayStart.setHours(0, 0, 0, 0)
       const dayEnd = new Date(filters.date)
       dayEnd.setHours(23, 59, 59, 999)
-      query = query
-        .gte('starts_at', dayStart.toISOString())
-        .lte('starts_at', dayEnd.toISOString())
+      filter.and = [
+        { starts_at: { ge: dayStart.toISOString() } },
+        { starts_at: { le: dayEnd.toISOString() } }
+      ]
     }
 
     if (cursor) {
-      query = query.gt('starts_at', cursor)
+      filter.starts_at = { gt: cursor }
     }
 
-    const { data, error } = await query
-    if (error) throw error
+    const { data, errors } = await client.models.Event.list({ filter, limit })
+    if (errors) throw new Error(errors[0].message)
     return { data: data as Event[], error: null }
   } catch (err) {
     return { data: null, error: err as Error }
@@ -167,17 +160,9 @@ export async function getEventDetail(eventId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('events')
-      .select(`
-        *,
-        clubs(id, name, color),
-        profiles!organizer_id(id, full_name, avatar_url)
-      `)
-      .eq('id', eventId)
-      .single()
+    const { data, errors } = await client.models.Event.get({ id: eventId })
 
-    if (error) throw error
+    if (errors) throw new Error(errors[0].message)
     return { data: data as Event, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
@@ -193,13 +178,11 @@ export async function createEvent(payload: CreateEventPayload): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { data, error } = await supabase
-      .from('events')
-      .insert({
-        organizer_id: user.id,
+    const { data, errors } = await client.models.Event.create({
+        organizer_id: user.userId,
         title: payload.title,
         venue: payload.venue ?? null,
         starts_at: payload.startsAt,
@@ -215,19 +198,11 @@ export async function createEvent(payload: CreateEventPayload): Promise<{
         map_pin_y: payload.mapPinY ?? null,
         is_anonymous_linked: payload.isAnonymousLinked ?? false,
       })
-      .select(`
-        *,
-        profiles!organizer_id(id, full_name, avatar_url)
-      `)
-      .single()
 
-    if (error) throw error
+    if (errors) throw new Error(errors[0].message)
 
     // Auto-RSVP the organizer as 'going' so the event appears in their My Events tab
-    await supabase
-      .from('event_rsvps')
-      .upsert({ event_id: (data as any).id, user_id: user.id, status: 'going' },
-               { onConflict: 'event_id,user_id' })
+    await client.models.EventRsvp.create({ event_id: data.id, user_id: user.userId, status: 'going' })
 
     // Schedule local reminders
     await scheduleEventReminders(data.id, data.title, data.starts_at)
@@ -247,7 +222,7 @@ export async function updateEvent(eventId: string, payload: UpdateEventPayload):
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
     const updates: any = {}
@@ -262,18 +237,9 @@ export async function updateEvent(eventId: string, payload: UpdateEventPayload):
     if (payload.isPublic !== undefined) updates.is_public = payload.isPublic
     if (payload.clubId !== undefined) updates.club_id = payload.clubId
 
-    const { data, error } = await supabase
-      .from('events')
-      .update(updates)
-      .eq('id', eventId)
-      .eq('organizer_id', user.id)
-      .select(`
-        *,
-        profiles!organizer_id(id, full_name, avatar_url)
-      `)
-      .single()
+    const { data, errors } = await client.models.Event.update({ id: eventId, ...updates })
 
-    if (error) throw error
+    if (errors) throw new Error(errors[0].message)
     
     // Reschedule reminders if time/title changed
     if (payload.startsAt || payload.title) {
@@ -296,22 +262,22 @@ export async function rsvpEvent(
   status: 'going' | 'interested' | 'not_going'
 ): Promise<{ data: EventRsvp | null; error: Error | null }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { data, error } = await supabase
-      .from('event_rsvps')
-      .upsert(
-        { event_id: eventId, user_id: user.id, status },
-        { onConflict: 'event_id,user_id' }
-      )
-      .select()
-      .single()
+    const res = await client.models.EventRsvp.list({ filter: { event_id: { eq: eventId }, user_id: { eq: user.userId } } })
+    let data;
+    let errors;
+    if (res.data && res.data.length > 0) {
+      ({ data, errors } = await client.models.EventRsvp.update({ id: res.data[0].id, status }))
+    } else {
+      ({ data, errors } = await client.models.EventRsvp.create({ event_id: eventId, user_id: user.userId, status }))
+    }
 
-    if (error) throw error
+    if (errors) throw new Error(errors[0].message)
 
     if (status === 'going') {
-      const { data: eventData } = await supabase.from('events').select('title, starts_at').eq('id', eventId).single()
+      const { data: eventData } = await client.models.Event.get({ id: eventId })
       if (eventData) {
         await scheduleEventReminders(eventId, eventData.title, eventData.starts_at)
       }
@@ -330,16 +296,14 @@ export async function cancelRsvp(eventId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { error } = await supabase
-      .from('event_rsvps')
-      .delete()
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-
-    if (error) throw error
+    const res = await client.models.EventRsvp.list({ filter: { event_id: { eq: eventId }, user_id: { eq: user.userId } } })
+    if (res.data && res.data.length > 0) {
+      const { errors } = await client.models.EventRsvp.delete({ id: res.data[0].id })
+      if (errors) throw new Error(errors[0].message)
+    }
 
     await cancelEventReminders(eventId)
 
@@ -354,18 +318,15 @@ export async function getMyRsvpStatus(eventId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { data: null, error: null }
 
-    const { data, error } = await supabase
-      .from('event_rsvps')
-      .select('status')
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-      .maybeSingle()
+    const { data: listData, errors } = await client.models.EventRsvp.list({
+      filter: { event_id: { eq: eventId }, user_id: { eq: user.userId } }
+    })
 
-    if (error) throw error
-    return { data: data?.status ?? null, error: null }
+    if (errors) throw new Error(errors[0].message)
+    return { data: listData?.[0]?.status ?? null, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -379,17 +340,14 @@ export async function getEventAttendees(
   status?: 'going' | 'interested' | 'not_going'
 ): Promise<{ data: EventRsvp[] | null; error: Error | null }> {
   try {
-    let query = supabase
-      .from('event_rsvps')
-      .select('*, profiles!user_id(id, full_name, avatar_url, department, level)')
-      .eq('event_id', eventId)
+    let filter: any = { event_id: { eq: eventId } }
 
     if (status) {
-      query = query.eq('status', status)
+      filter.status = { eq: status }
     }
 
-    const { data, error } = await query
-    if (error) throw error
+    const { data, errors } = await client.models.EventRsvp.list({ filter })
+    if (errors) throw new Error(errors[0].message)
     return { data: data as EventRsvp[], error: null }
   } catch (err) {
     return { data: null, error: err as Error }
@@ -404,22 +362,17 @@ export async function getMyRsvps(): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { data, error } = await supabase
-      .from('event_rsvps')
-      .select(`
-        *,
-        events(*, profiles!organizer_id(id, full_name, avatar_url))
-      `)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+    const { data, errors } = await client.models.EventRsvp.list({
+      filter: { user_id: { eq: user.userId } }
+    })
 
-    if (error) throw error
+    if (errors) throw new Error(errors[0].message)
     const result = (data ?? []).map((row: any) => ({
       rsvp: row as EventRsvp,
-      event: row.events as Event,
+      event: row.event as Event,
     }))
     return { data: result, error: null }
   } catch (err) {
@@ -436,11 +389,11 @@ export async function uploadEventCover(uri: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
     const ext = uri.split('.').pop() ?? 'jpg'
-    const path = `${user.id}/${Date.now()}.${ext}`
+    const path = `${user.userId}/${Date.now()}.${ext}`
     const mimeType = `image/${ext === 'jpg' ? 'jpeg' : ext}`
 
     const publicUrl = await uploadFile('event-covers', path, uri, mimeType)
@@ -459,12 +412,9 @@ export async function deleteEvent(eventId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { error } = await supabase
-      .from('events')
-      .delete()
-      .eq('id', eventId)
+    const { errors } = await client.models.Event.delete({ id: eventId })
 
-    if (error) throw error
+    if (errors) throw new Error(errors[0].message)
 
     await cancelEventReminders(eventId)
 

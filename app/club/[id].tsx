@@ -27,7 +27,8 @@ import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import type { FeedPost } from '../../lib/feed'
 import type { Event } from '../../lib/events'
-import { supabase } from '../../lib/supabase'
+import { client } from '../../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 
 type Tab = 'feed' | 'announcements' | 'members' | 'events'
 
@@ -94,7 +95,7 @@ export default function ClubDetailScreen() {
       const [clubRes, myRole, authUserRes] = await Promise.all([
         getClubDetail(id),
         getMyClubRole(id),
-        supabase.auth.getUser(),
+        getCurrentUser(),
       ])
       if (clubRes.error) {
         throw clubRes.error

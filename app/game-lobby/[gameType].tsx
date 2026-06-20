@@ -7,7 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons'
 import { router, useLocalSearchParams } from 'expo-router'
 import Toast from 'react-native-toast-message'
-import { supabase } from '../../lib/supabase'
+import { client } from '../../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import { GAME_META, getMyStats, type GameType, type UserGameStats } from '../../lib/games'
@@ -62,10 +63,10 @@ export default function GameLobbyScreen() {
 
   const load = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await getCurrentUser().catch(() => null)
 
       const [followRes, statsRes] = await Promise.all([
-        user ? getFollowing(user.id) : Promise.resolve({ data: null, error: null }),
+        user ? getFollowing(user.userId) : Promise.resolve({ data: null, error: null }),
         getMyStats(),
       ])
 
@@ -91,27 +92,25 @@ export default function GameLobbyScreen() {
     }
 
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser().catch(() => null)
     if (!user) return
 
-    const { data: cid, error } = await supabase.rpc('get_or_create_conversation', {
-      p_other_user_id: friend.id,
-    })
+    const { data: cid, error } = { data: null, error: new Error('TODO: Complex RPC get_or_create_conversation') } // TODO: Complex RPC
 
     if (error || !cid) {
       Toast.show({ type: 'error', text1: 'Could not send challenge', text2: error?.message })
       return
     }
 
-    await supabase.from('messages').insert({
+    await client.models.messages.create({
       conversation_id: cid,
-      sender_id: user.id,
+      sender_id: user.userId,
       body: JSON.stringify({
         _type: 'game_challenge',
         gameType: gt,
         emoji: meta.emoji,
         label: meta.label,
-        challengerId: user.id,
+        challengerId: user.userId,
       }),
     })
 
@@ -124,7 +123,7 @@ export default function GameLobbyScreen() {
   }
 
   const handleRandomMatch = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser().catch(() => null)
     if (!user) {
       Toast.show({ type: 'error', text1: 'Not logged in' })
       return
@@ -134,14 +133,9 @@ export default function GameLobbyScreen() {
 
     try {
       // Look for an open waiting session for this game type with no guest yet
-      const { data: openSessions } = await supabase
-        .from('live_game_sessions')
-        .select('id, host_id')
-        .eq('game_type', gt)
-        .eq('status', 'waiting')
-        .is('guest_id', null)
-        .neq('host_id', user.id)
-        .limit(1)
+      const { data: openSessions } = await client.models.live_game_sessions.list({
+        // TODO: filter game_type, status, guest_id, neq host_id, limit
+      })
 
       if (openSessions && openSessions.length > 0) {
         // Join an existing open session as guest
@@ -157,17 +151,13 @@ export default function GameLobbyScreen() {
         })
       } else {
         // No open sessions — create one and wait for someone to join
-        const { data: newSession, error } = await supabase
-          .from('live_game_sessions')
-          .insert({
+        const { data: newSession, error } = await client.models.live_game_sessions.create({
             game_type: gt,
-            host_id: user.id,
+            host_id: user.userId,
             guest_id: null,
             status: 'waiting',
-            state: {},
-          })
-          .select('id')
-          .single()
+            state: '{}',
+          }) // TODO: check error handling
 
         if (error || !newSession) {
           Toast.show({ type: 'error', text1: 'Could not create session', text2: error?.message })

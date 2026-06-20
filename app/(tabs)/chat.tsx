@@ -12,7 +12,8 @@ import { useFocusEffect } from '@react-navigation/native'
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { supabase } from '../../lib/supabase'
+import { client } from '../../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import { getInitials, getTimeAgo } from '../../lib/matching'
 import { getAllProfiles } from '../../lib/profiles'
 import { Skeleton } from '../../components/ui/Skeleton'
@@ -295,7 +296,7 @@ export default function ChatScreen() {
 
   const loadConversations = useCallback(async () => {
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser()
+      const { data: { user: authUser } } = await getCurrentUser()
       if (!authUser) { setLoading(false); return }
       setMyId(authUser.id)
 
@@ -376,10 +377,10 @@ export default function ChatScreen() {
   useEffect(() => {
     loadConversations()
 
-    let listChannel: ReturnType<typeof supabase.channel> | null = null
+    let listChannel: any = null
     let isMounted = true
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getCurrentUser().then(({ data: { user } }) => {
       if (!user || !isMounted) return
 
       listChannel = supabase
@@ -402,7 +403,7 @@ export default function ChatScreen() {
 
     return () => {
       isMounted = false
-      if (listChannel) supabase.removeChannel(listChannel)
+      // if (listChannel) supabase.removeChannel(listChannel)
     }
   }, [loadConversations])
 

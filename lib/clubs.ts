@@ -6,7 +6,8 @@
  * Any authenticated user can join or leave a club.
  * Club announcements can only be posted by club admins/moderators.
  */
-import { supabase } from './supabase'
+import { client } from './aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import { uploadFile } from './upload'
 import type { FeedPost } from './feed'
 import type { Event } from './events'
@@ -76,21 +77,17 @@ export async function getClubs(filters?: ClubFilters): Promise<{
   error: Error | null
 }> {
   try {
-    let query = supabase
-      .from('clubs')
-      .select('*')
-      .eq('is_active', true)
-      .order('member_count', { ascending: false })
-
+    const filter: any = { is_active: { eq: true } }
     if (filters?.category) {
-      query = query.eq('category', filters.category)
+      filter.category = { eq: filters.category }
     }
 
     if (filters?.search) {
-      query = query.ilike('name', `%${filters.search}%`)
+      filter.name = { contains: filters.search }
     }
 
-    const { data, error } = await query
+    const { data, errors: errorList } = await client.models.Club.list({ filter })
+    const error = errorList ? errorList[0] : null
     if (error) throw error
     return { data: data as Club[], error: null }
   } catch (err) {
@@ -117,32 +114,30 @@ export async function createClub(payload: CreateClubPayload): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const currentUser = await getCurrentUser()
+    const user = { id: currentUser.userId }
     if (!user) throw new Error('Not authenticated')
 
-    const slug = payload.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
+    const slug = payload.name.toLowerCase().replace(/[^a-z0-9]+/g, '-',).replace(/(^-|-$)/g, '')
 
-    const { data, error } = await supabase
-      .from('clubs')
-      .insert({
-        name: payload.name,
-        slug: `${slug}-${Date.now().toString(36)}`,
-        description: payload.description ?? null,
-        category: payload.category,
-        color: payload.color ?? '#a78bfa',
-        icon: payload.icon ?? null,
-        is_active: true,
-        created_by: user.id,
-        member_count: 1,
-      })
-      .select('*')
-      .single()
+    const { data, errors: errorList } = await client.models.Club.create({
+      name: payload.name,
+      slug: `${slug}-${Date.now().toString(36)}`,
+      description: payload.description ?? null,
+      category: payload.category,
+      color: payload.color ?? '#a78bfa',
+      icon: payload.icon ?? null,
+      is_active: true,
+      created_by: user.id,
+      member_count: 1,
+    })
+    const error = errorList ? errorList[0] : null
 
     if (error) throw error
     if (!data) throw new Error('Club was created but the database did not return the new club record.')
 
     // Auto-join as admin
-    await supabase.from('club_members').insert({
+    await client.models.ClubMember.create({
       club_id: data.id,
       user_id: user.id,
       role: 'admin',
@@ -171,10 +166,8 @@ export async function updateClub(
   payload: UpdateClubPayload
 ): Promise<{ error: Error | null }> {
   try {
-    const { error } = await supabase
-      .from('clubs')
-      .update(payload)
-      .eq('id', clubId)
+    const { errors: errorList } = await client.models.Club.update({ id: clubId, ...payload })
+    const error = errorList ? errorList[0] : null
     if (error) throw error
     return { error: null }
   } catch (err) {
@@ -206,11 +199,8 @@ export async function getClubDetail(clubId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('clubs')
-      .select('*')
-      .eq('id', clubId)
-      .single()
+    const { data, errors: errorList } = await client.models.Club.get({ id: clubId })
+    const error = errorList ? errorList[0] : null
 
     if (error) throw error
     return { data: data as Club, error: null }
@@ -226,17 +216,15 @@ export async function getClubDetail(clubId: string): Promise<{
 export async function getMyClubRole(
   clubId: string
 ): Promise<'member' | 'moderator' | 'admin' | null> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return null
+  const currentUser = await getCurrentUser().catch(() => null)
+  if (!currentUser) return null
+  const user = { id: currentUser.userId }
 
-  const { data } = await supabase
-    .from('club_members')
-    .select('role')
-    .eq('club_id', clubId)
-    .eq('user_id', user.id)
-    .maybeSingle()
+  const { data } = await client.models.ClubMember.list({
+    filter: { club_id: { eq: clubId }, user_id: { eq: user.id } }
+  })
 
-  return data?.role ?? null
+  return data?.[0]?.role ?? null
 }
 
 /**
@@ -247,14 +235,16 @@ export async function getMyClubMemberships(
 ): Promise<Map<string, 'member' | 'moderator' | 'admin'>> {
   if (!clubIds.length) return new Map()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return new Map()
+  const currentUser = await getCurrentUser().catch(() => null)
+  if (!currentUser) return new Map()
+  const user = { id: currentUser.userId }
 
-  const { data } = await supabase
-    .from('club_members')
-    .select('club_id, role')
-    .eq('user_id', user.id)
-    .in('club_id', clubIds)
+  const { data } = await client.models.ClubMember.list({
+    filter: {
+      user_id: { eq: user.id },
+      or: clubIds.map(id => ({ club_id: { eq: id } }))
+    }
+  })
 
   const map = new Map<string, 'member' | 'moderator' | 'admin'>()
   for (const row of data ?? []) {
@@ -272,16 +262,14 @@ export async function joinClub(clubId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const currentUser = await getCurrentUser()
+    const user = { id: currentUser.userId }
     if (!user) throw new Error('Not authenticated')
 
-    const { data, error } = await supabase
-      .from('club_members')
-      .insert({ club_id: clubId, user_id: user.id, role: 'member' })
-      .select()
-      .single()
+    const { data, errors: errorList } = await client.models.ClubMember.create({ club_id: clubId, user_id: user.id, role: 'member' })
+    const error: any = errorList ? errorList[0] : null
 
-    if (error && error.code === '23505') {
+    if (error && error.errorType === 'DynamoDB:ConditionalCheckFailedException') {
       // Already a member — not an error
       return { data: null, error: null }
     }
@@ -297,14 +285,18 @@ export async function leaveClub(clubId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const currentUser = await getCurrentUser()
+    const user = { id: currentUser.userId }
     if (!user) throw new Error('Not authenticated')
 
-    const { error } = await supabase
-      .from('club_members')
-      .delete()
-      .eq('club_id', clubId)
-      .eq('user_id', user.id)
+    const { data: memberships } = await client.models.ClubMember.list({
+      filter: { club_id: { eq: clubId }, user_id: { eq: user.id } }
+    })
+    const error = null
+    if (memberships && memberships.length > 0) {
+      const { errors } = await client.models.ClubMember.delete({ id: memberships[0].id })
+      if (errors) throw errors[0]
+    }
 
     if (error) throw error
     return { data: null, error: null }
@@ -327,18 +319,16 @@ export async function getClubPosts(
   limit = 20
 ): Promise<{ data: FeedPost[] | null; error: Error | null }> {
   try {
-    let query = supabase
-      .from('posts')
-      .select('*, profiles!author_id(id, full_name, department, level, avatar_url)')
-      .eq('club_id', clubId)
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
+    let filter: any = { club_id: { eq: clubId } }
     if (cursor) {
-      query = query.lt('created_at', cursor)
+      filter.created_at = { lt: cursor }
     }
 
-    const { data, error } = await query
+    const { data, errors: errorList } = await client.models.Post.list({
+      filter,
+      limit
+    })
+    const error = errorList ? errorList[0] : null
     if (error) throw error
     return { data: data as FeedPost[], error: null }
   } catch (err) {
@@ -356,22 +346,20 @@ export async function createClubPost(
   imageUrl?: string | null
 ): Promise<{ data: FeedPost | null; error: Error | null }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const currentUser = await getCurrentUser()
+    const user = { id: currentUser.userId }
     if (!user) throw new Error('Not authenticated')
 
-    const { data, error } = await supabase
-      .from('posts')
-      .insert({
-        author_id: user.id,
-        body,
-        tags: tags ?? [],
-        image_url: imageUrl ?? null,
-        club_id: clubId,
-        post_type: 'club',
-        is_anonymous: false,
-      })
-      .select('*, profiles!author_id(id, full_name, department, level, avatar_url)')
-      .single()
+    const { data, errors: errorList } = await client.models.Post.create({
+      author_id: user.id,
+      body,
+      tags: tags ?? [],
+      image_url: imageUrl ?? null,
+      club_id: clubId,
+      post_type: 'club',
+      is_anonymous: false,
+    })
+    const error = errorList ? errorList[0] : null
 
     if (error) throw error
     return { data: data as FeedPost, error: null }
@@ -389,11 +377,10 @@ export async function getClubAnnouncements(clubId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('club_announcements')
-      .select('*, profiles!author_id(id, full_name, avatar_url)')
-      .eq('club_id', clubId)
-      .order('created_at', { ascending: false })
+    const { data, errors: errorList } = await client.models.ClubAnnouncement.list({
+      filter: { club_id: { eq: clubId } }
+    })
+    const error = errorList ? errorList[0] : null
 
     if (error) throw error
     return { data: data as ClubAnnouncement[], error: null }
@@ -410,14 +397,12 @@ export async function createClubAnnouncement(
   body: string
 ): Promise<{ data: ClubAnnouncement | null; error: Error | null }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const currentUser = await getCurrentUser()
+    const user = { id: currentUser.userId }
     if (!user) throw new Error('Not authenticated')
 
-    const { data, error } = await supabase
-      .from('club_announcements')
-      .insert({ club_id: clubId, author_id: user.id, body })
-      .select('*, profiles!author_id(id, full_name, avatar_url)')
-      .single()
+    const { data, errors: errorList } = await client.models.ClubAnnouncement.create({ club_id: clubId, author_id: user.id, body })
+    const error = errorList ? errorList[0] : null
 
     if (error) throw error
     return { data: data as ClubAnnouncement, error: null }
@@ -435,25 +420,13 @@ export async function getClubMembers(
   limit = 50
 ): Promise<{ data: ClubMember[] | null; error: Error | null }> {
   try {
-    // Try with joined_at ordering first (available after migration)
-    const { data, error } = await supabase
-      .from('club_members')
-      .select('*, profiles!user_id(id, full_name, avatar_url, department, level)')
-      .eq('club_id', clubId)
-      .order('joined_at', { ascending: false })
-      .limit(limit)
+    const { data, errors: errorList } = await client.models.ClubMember.list({
+      filter: { club_id: { eq: clubId } },
+      limit
+    })
+    const error: any = errorList ? errorList[0] : null
 
     if (error) {
-      // joined_at column may not exist on older DB instances — fall back without ordering
-      if (error.message?.includes('joined_at')) {
-        const { data: fallback, error: fallbackErr } = await supabase
-          .from('club_members')
-          .select('*, profiles!user_id(id, full_name, avatar_url, department, level)')
-          .eq('club_id', clubId)
-          .limit(limit)
-        if (fallbackErr) throw fallbackErr
-        return { data: fallback as ClubMember[], error: null }
-      }
       throw error
     }
     return { data: data as ClubMember[], error: null }
@@ -471,13 +444,14 @@ export async function getClubEvents(clubId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('events')
-      .select('*, profiles!organizer_id(id, full_name, avatar_url)')
-      .eq('club_id', clubId)
-      .eq('is_public', true)
-      .gte('starts_at', new Date().toISOString())
-      .order('starts_at', { ascending: true })
+    const { data, errors: errorList } = await client.models.Event.list({
+      filter: {
+        club_id: { eq: clubId },
+        is_public: { eq: true },
+        starts_at: { ge: new Date().toISOString() }
+      }
+    })
+    const error = errorList ? errorList[0] : null
 
     if (error) throw error
     return { data: data as Event[], error: null }
@@ -495,10 +469,8 @@ export async function deleteClub(clubId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { error } = await supabase
-      .from('clubs')
-      .delete()
-      .eq('id', clubId)
+    const { errors: errorList } = await client.models.Club.delete({ id: clubId })
+    const error = errorList ? errorList[0] : null
 
     if (error) throw error
     return { data: null, error: null }
@@ -515,15 +487,12 @@ export async function addClubMember(
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('club_members')
-      .insert({
-        club_id: clubId,
-        user_id: userId,
-        role: 'member',
-      })
-      .select()
-      .single()
+    const { data, errors: errorList } = await client.models.ClubMember.create({
+      club_id: clubId,
+      user_id: userId,
+      role: 'member',
+    })
+    const error = errorList ? errorList[0] : null
 
     if (error) throw error
     return { data: data as ClubMember, error: null }
@@ -541,13 +510,15 @@ export async function updateClubMemberRole(
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('club_members')
-      .update({ role })
-      .eq('club_id', clubId)
-      .eq('user_id', userId)
-      .select()
-      .single()
+    const { data: members } = await client.models.ClubMember.list({
+      filter: { club_id: { eq: clubId }, user_id: { eq: userId } }
+    })
+    if (!members || members.length === 0) throw new Error('Member not found')
+    const { data, errors: errorList } = await client.models.ClubMember.update({
+      id: members[0].id,
+      role
+    })
+    const error = errorList ? errorList[0] : null
 
     if (error) throw error
     return { data: data as ClubMember, error: null }
@@ -564,11 +535,14 @@ export async function removeClubMember(
   error: Error | null
 }> {
   try {
-    const { error } = await supabase
-      .from('club_members')
-      .delete()
-      .eq('club_id', clubId)
-      .eq('user_id', userId)
+    const { data: members } = await client.models.ClubMember.list({
+      filter: { club_id: { eq: clubId }, user_id: { eq: userId } }
+    })
+    const error = null;
+    if (members && members.length > 0) {
+      const { errors: errorList } = await client.models.ClubMember.delete({ id: members[0].id })
+      if (errorList) throw errorList[0]
+    }
 
     if (error) throw error
     return { data: null, error: null }

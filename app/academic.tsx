@@ -13,16 +13,14 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
-import {
-  getMyEnrolledCourses, getStudyGroups, getResources,
-  enrollInCourse, unenrollFromCourse, getCourses,
-} from '../lib/academic'
+import { unenrollFromCourse } from '../lib/academic'
 import StudyGroupCard from '../components/academic/StudyGroupCard'
-import type { Course, StudyGroup, AcademicResource } from '../lib/academic'
+import type { Course, StudyGroup, AcademicResource, ResourceType } from '../lib/academic'
 import { getTimeAgo } from '../lib/matching'
 import { useTheme } from '../lib/theme'
 import { typography } from '../lib/typography'
 import { useBadgesStore } from '../store/badgesStore'
+import { useAcademicStore } from '../store/academicStore'
 
 type Tab = 'courses' | 'groups' | 'resources'
 
@@ -40,6 +38,32 @@ const RESOURCE_TYPE_COLORS: Record<string, string> = {
   textbook: '#34d399',
   slide: '#fbbf24',
   other: 'rgba(240,240,255,0.4)',
+}
+
+// ---------------------------------------------------------------------------
+// Skeletons
+// ---------------------------------------------------------------------------
+
+function SkeletonRow() {
+  return (
+    <View style={[s.courseCard, { padding: 12, opacity: 0.5 }]}>
+      <View style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20 }} />
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <View style={{ width: '60%', height: 14, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 4, marginBottom: 8 }} />
+        <View style={{ width: '40%', height: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 4 }} />
+      </View>
+    </View>
+  )
+}
+
+function renderSkeletons() {
+  return (
+    <View style={{ paddingTop: 8 }}>
+      <SkeletonRow />
+      <SkeletonRow />
+      <SkeletonRow />
+    </View>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -165,50 +189,39 @@ export default function AcademicScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('courses')
   const markSeen = useBadgesStore(s => s.markSeen)
 
+  const {
+    enrolledCourses, loadingEnrolled, fetchEnrolledCourses,
+    groups, loadingGroups, fetchGroups, groupsNextToken,
+    resources, loadingResources, fetchResources, resourcesNextToken,
+    searchQuery, setSearchQuery,
+    resourceTypeFilter, setResourceTypeFilter
+  } = useAcademicStore()
+
   useFocusEffect(
     useCallback(() => {
       markSeen('academic')
     }, [markSeen])
   )
 
-  const [courses, setCourses] = useState<Course[]>([])
-  const [studyGroups, setStudyGroups] = useState<StudyGroup[]>([])
-  const [resources, setResources] = useState<AcademicResource[]>([])
-
-  const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-
-  const [resourceSearch, setResourceSearch] = useState('')
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     loadTab(activeTab)
   }, [activeTab])
 
-  const loadTab = async (tab: Tab, refresh = false) => {
-    if (!refresh) setLoading(true)
+  const loadTab = async (tab: Tab, reset = false) => {
     try {
-      switch (tab) {
-        case 'courses': {
-          const { data } = await getMyEnrolledCourses()
-          setCourses(data ?? [])
-          break
-        }
-        case 'groups': {
-          const { data } = await getStudyGroups()
-          setStudyGroups(data ?? [])
-          break
-        }
-        case 'resources': {
-          const { data } = await getResources()
-          setResources(data ?? [])
-          break
-        }
+      if (tab === 'courses') {
+        await fetchEnrolledCourses()
+      } else if (tab === 'groups') {
+        await fetchGroups(reset)
+      } else if (tab === 'resources') {
+        await fetchResources(reset)
       }
-    } catch {
-      // Non-fatal — keep existing data
+    } catch (e) {
+      Toast.show({ type: 'error', text1: 'Network Error', text2: 'Failed to load academic data. Pull to retry.' })
     } finally {
-      setLoading(false)
       setRefreshing(false)
     }
   }
@@ -219,33 +232,42 @@ export default function AcademicScreen() {
   }, [activeTab])
 
   const handleResourceSearch = (text: string) => {
-    setResourceSearch(text)
+    setSearchQuery(text)
     if (searchTimer.current) clearTimeout(searchTimer.current)
     searchTimer.current = setTimeout(async () => {
-      setLoading(true)
-      const { data } = await getResources({ search: text || undefined })
-      setResources(data ?? [])
-      setLoading(false)
-    }, 300)
+      try {
+        await fetchResources(true)
+      } catch (e) {
+        Toast.show({ type: 'error', text1: 'Search Error', text2: 'Failed to search resources.' })
+      }
+    }, 400)
   }
 
   const handleCourseUnenrolled = (courseId: string) => {
-    setCourses(prev => prev.filter(c => c.id !== courseId))
+    fetchEnrolledCourses() // Reload list
   }
 
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <View style={s.centeredWrap}>
-          <ActivityIndicator size="large" color="#a78bfa" />
-        </View>
-      )
+  const handleEndReached = () => {
+    if (activeTab === 'groups' && groupsNextToken && !loadingGroups) {
+      fetchGroups(false).catch(() => {})
+    } else if (activeTab === 'resources' && resourcesNextToken && !loadingResources) {
+      fetchResources(false).catch(() => {})
     }
+  }
 
+  // Effect to refetch resources if filter changes
+  useEffect(() => {
+    if (activeTab === 'resources') {
+      fetchResources(true).catch(() => {})
+    }
+  }, [resourceTypeFilter])
+
+  const renderContent = () => {
     if (activeTab === 'courses') {
+      if (loadingEnrolled && enrolledCourses.length === 0) return renderSkeletons()
       return (
         <FlatList
-          data={courses}
+          data={enrolledCourses}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <CourseRow course={item} onUnenroll={handleCourseUnenrolled} />
@@ -272,9 +294,10 @@ export default function AcademicScreen() {
     }
 
     if (activeTab === 'groups') {
+      if (loadingGroups && groups.length === 0) return renderSkeletons()
       return (
         <FlatList
-          data={studyGroups}
+          data={groups}
           keyExtractor={item => item.id}
           renderItem={({ item }) => <StudyGroupCard group={item} />}
           ListEmptyComponent={
@@ -287,6 +310,9 @@ export default function AcademicScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#a78bfa" />
           }
+          onEndReached={handleEndReached}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={loadingGroups && groups.length > 0 ? <ActivityIndicator style={{marginVertical: 20}} /> : null}
           contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
           scrollEnabled={false}
         />
@@ -294,6 +320,15 @@ export default function AcademicScreen() {
     }
 
     // Resources tab
+    const RESOURCE_FILTERS = [
+      { key: 'all', label: 'All' },
+      { key: 'note', label: 'Notes' },
+      { key: 'past_question', label: 'Past Questions' },
+      { key: 'slide', label: 'Slides' },
+      { key: 'textbook', label: 'Textbooks' },
+      { key: 'other', label: 'Other' },
+    ]
+
     return (
       <>
         <View style={[s.searchBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
@@ -302,32 +337,60 @@ export default function AcademicScreen() {
             style={[s.searchInput, { color: theme.text }]}
             placeholder="Search notes, past questions..."
             placeholderTextColor={theme.textFaint}
-            value={resourceSearch}
+            value={searchQuery}
             onChangeText={handleResourceSearch}
           />
-          {resourceSearch.length > 0 && (
-            <TouchableOpacity onPress={() => { setResourceSearch(''); loadTab('resources') }}>
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearchQuery(''); fetchResources(true); }}>
               <Ionicons name="close-circle" size={15} color={theme.textFaint} />
             </TouchableOpacity>
           )}
         </View>
-        <FlatList
-          data={resources}
-          keyExtractor={item => item.id}
-          renderItem={({ item }) => <ResourceRow resource={item} />}
-          ListEmptyComponent={
-            <View style={s.empty}>
-              <Ionicons name="document-outline" size={40} color={theme.textFaint} />
-              <Text style={[s.emptyTitle, { color: theme.textMuted }]}>No resources found</Text>
-              <Text style={[s.emptySub, { color: theme.textFaint }]}>Upload notes or past questions to share</Text>
-            </View>
-          }
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#a78bfa" />
-          }
-          contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
-          scrollEnabled={false}
-        />
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filtersContainer}>
+          {RESOURCE_FILTERS.map(f => {
+            const isActive = resourceTypeFilter === f.key
+            return (
+              <TouchableOpacity 
+                key={f.key} 
+                style={[
+                  s.filterPill,
+                  { backgroundColor: theme.card, borderColor: theme.border },
+                  isActive && { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }
+                ]}
+                onPress={() => setResourceTypeFilter(f.key as any)}>
+                <Text style={[
+                  s.filterPillText,
+                  { color: theme.textMuted },
+                  isActive && { color: theme.accent, fontFamily: typography.fontBold }
+                ]}>{f.label}</Text>
+              </TouchableOpacity>
+            )
+          })}
+        </ScrollView>
+
+        {loadingResources && resources.length === 0 ? renderSkeletons() : (
+          <FlatList
+            data={resources}
+            keyExtractor={item => item.id}
+            renderItem={({ item }) => <ResourceRow resource={item} />}
+            ListEmptyComponent={
+              <View style={s.empty}>
+                <Ionicons name="document-outline" size={40} color={theme.textFaint} />
+                <Text style={[s.emptyTitle, { color: theme.textMuted }]}>No resources found</Text>
+                <Text style={[s.emptySub, { color: theme.textFaint }]}>Upload notes or past questions to share</Text>
+              </View>
+            }
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />
+            }
+            onEndReached={handleEndReached}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={loadingResources && resources.length > 0 ? <ActivityIndicator style={{marginVertical: 20}} /> : null}
+            contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
+            scrollEnabled={false}
+          />
+        )}
       </>
     )
   }
@@ -486,6 +549,21 @@ const s = StyleSheet.create({
     borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
   },
   searchInput: { flex: 1, fontSize: 13, color: '#f0f0ff' },
+  // Filters
+  filtersContainer: {
+    paddingHorizontal: 16, paddingBottom: 16, gap: 8,
+  },
+  filterPill: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingHorizontal: 14, paddingVertical: 6,
+    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+  },
+  filterPillActive: {
+    backgroundColor: 'rgba(167,139,250,0.2)',
+    borderColor: '#a78bfa',
+  },
+  filterPillText: { fontSize: 12, color: 'rgba(240,240,255,0.6)', fontFamily: typography.fontMedium },
+  filterPillTextActive: { color: '#a78bfa', fontFamily: typography.fontBold },
   // Empty state
   empty: {
     alignItems: 'center', paddingTop: 60, paddingBottom: 40, gap: 8,

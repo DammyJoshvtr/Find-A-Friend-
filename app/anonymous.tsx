@@ -20,7 +20,8 @@ import { typography } from '../lib/typography'
 import { useBadgesStore } from '../store/badgesStore'
 import { getCurrentProfile } from '../lib/profiles'
 import type { Profile } from '../lib/profiles'
-import { supabase } from '../lib/supabase'
+import { client } from '../../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import type { Event } from '../lib/events'
 
 export default function AnonymousScreen() {

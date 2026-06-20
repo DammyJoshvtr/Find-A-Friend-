@@ -8,7 +8,8 @@ import { useNotificationsStore } from '../../store/notificationsStore'
 import { useBadgesStore } from '../../store/badgesStore'
 import { tabBarTranslateY, showTabBar } from '../../lib/tabBarAnim'
 import { useEffect } from 'react'
-import { supabase } from '../../lib/supabase'
+import { client } from '../../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 
 function TabIcon({ name, color, size, focused }: { name: any; color: string; size: number; focused: boolean }) {
   return (
@@ -56,7 +57,7 @@ export default function TabLayout() {
     })
 
     return () => {
-      channels.forEach(ch => supabase.removeChannel(ch))
+      // channels.forEach(ch => supabase.removeChannel(ch))
     }
   }, [syncCounts])
 

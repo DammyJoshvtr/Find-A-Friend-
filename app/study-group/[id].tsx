@@ -16,9 +16,12 @@ import {
   getCourseDiscussions, createAcademicPost,
 } from '../../lib/academic'
 import { getInitials, getTimeAgo } from '../../lib/matching'
-import { supabase } from '../../lib/supabase'
+// import { supabase } from '../../lib/supabase'
 import type { StudyGroup, CourseDiscussion } from '../../lib/academic'
 import { useTheme } from '../../lib/theme'
+import { getCurrentUser } from 'aws-amplify/auth'
+import { client } from '../../lib/aws'
+import { useAcademicStore } from '../../store/academicStore'
 
 type Tab = 'discussion' | 'members' | 'info'
 
@@ -67,15 +70,13 @@ export default function StudyGroupDetailScreen() {
       setGroup(found)
 
       // Check membership
-      const { data: { user } } = await supabase.auth.getUser()
+      let user;
+      try { user = await getCurrentUser() } catch {}
       if (user && found) {
-        const { data: membership } = await supabase
-          .from('study_group_members')
-          .select('user_id')
-          .eq('group_id', id)
-          .eq('user_id', user.id)
-          .maybeSingle()
-        setIsMember(!!membership)
+        const { data: membership } = await client.models.StudyGroupMember.list({
+          filter: { group_id: { eq: id }, user_id: { eq: user.userId } }
+        })
+        setIsMember(membership && membership.length > 0)
       }
     } catch {
       // Non-fatal
@@ -92,11 +93,9 @@ export default function StudyGroupDetailScreen() {
     } else if (tab === 'discussion') {
       setDiscussions([])
     } else if (tab === 'members') {
-      const { data, error } = await supabase
-        .from('study_group_members')
-        .select('user_id, joined_at, profiles(id, full_name, avatar_url, department)')
-        .eq('group_id', id)
-        .order('joined_at', { ascending: true })
+      const { data, errors: error } = await client.models.StudyGroupMember.list({
+        filter: { group_id: { eq: id } }
+      })
       if (!error) {
         const mapped = (data ?? []).map((item: any) => ({
           ...item,
@@ -110,14 +109,18 @@ export default function StudyGroupDetailScreen() {
 
   const handleJoinLeave = async () => {
     if (!group) return
+    const { optimisticJoinGroup, optimisticLeaveGroup } = useAcademicStore.getState()
+
     setJoinLoading(true)
     if (isMember) {
       setIsMember(false)
-      setGroup(g => g ? { ...g, member_count: Math.max(0, g.member_count - 1) } : g)
+      setGroup(g => g ? { ...g, member_count: Math.max(0, (g.member_count ?? 1) - 1) } : g)
+      optimisticLeaveGroup(id)
       const { error } = await leaveStudyGroup(id)
       if (error) {
         setIsMember(true)
         setGroup(g => g ? { ...g, member_count: (g.member_count ?? 0) + 1 } : g)
+        optimisticJoinGroup(id)
         Alert.alert('Error', 'Could not leave group.')
       }
     } else {
@@ -125,10 +128,12 @@ export default function StudyGroupDetailScreen() {
       if (isFull) { setJoinLoading(false); return }
       setIsMember(true)
       setGroup(g => g ? { ...g, member_count: (g.member_count ?? 0) + 1 } : g)
+      optimisticJoinGroup(id)
       const { error } = await joinStudyGroup(id)
       if (error) {
         setIsMember(false)
         setGroup(g => g ? { ...g, member_count: Math.max(0, (g.member_count ?? 1) - 1) } : g)
+        optimisticLeaveGroup(id)
         Alert.alert('Error', error.message)
       }
     }

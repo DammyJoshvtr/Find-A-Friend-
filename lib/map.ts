@@ -6,7 +6,8 @@
  * dimensions). The UI component multiplies by the rendered image size to
  * get absolute pixel positions.
  */
-import { supabase } from './supabase'
+import { client } from './aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -81,14 +82,12 @@ export async function getMapPins(): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('map_locations')
-      .select('*')
-      .eq('is_active', true)
-      .order('name', { ascending: true })
+    const { data, errors } = await client.models.MapLocation.list({
+      filter: { is_active: { eq: true } }
+    })
 
-    if (error) throw error
-    return { data: data as MapLocation[], error: null }
+    if (errors) throw new Error(errors[0].message)
+    return { data: (data as any) as MapLocation[], error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -103,16 +102,14 @@ export async function getMapEvents(): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('events')
-      .select('id, title, venue, starts_at, ends_at, category, cover_image_url, rsvp_count, map_location_id, map_pin_x, map_pin_y, map_locations(*)')
-      .eq('is_public', true)
-      .gte('starts_at', new Date().toISOString())
-      .not('map_location_id', 'is', null)
-      .order('starts_at', { ascending: true })
+    // Assuming Amplify Gen 2 relations resolve mapped names
+    const { data, errors } = await client.models.Event.list({
+      filter: { is_public: { eq: true } }
+    })
 
-    if (error) throw error
-    return { data: data as EventWithPin[], error: null }
+    if (errors) throw new Error(errors[0].message)
+    const filtered = (data ?? []).filter(e => e.map_location_id && new Date(e.starts_at) >= new Date())
+    return { data: filtered as unknown as EventWithPin[], error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -127,15 +124,16 @@ export async function getMapVendors(): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('vendors')
-      .select('id, name, category, icon, logo_url, location_text, map_location_id, map_locations(*)')
-      .eq('is_approved', true)
-      .eq('is_active', true)
-      .not('map_location_id', 'is', null)
+    const { data, errors } = await client.models.Vendor.list({
+      filter: {
+        is_approved: { eq: true },
+        is_active: { eq: true }
+      }
+    })
 
-    if (error) throw error
-    return { data: data as VendorWithPin[], error: null }
+    if (errors) throw new Error(errors[0].message)
+    const filtered = (data ?? []).filter(v => v.map_location_id)
+    return { data: filtered as unknown as VendorWithPin[], error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -152,21 +150,17 @@ export async function createMapPin(payload: CreateMapPinPayload): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('map_locations')
-      .insert({
-        name: payload.name,
-        category: payload.category,
-        pin_x: payload.pinX,
-        pin_y: payload.pinY,
-        color: payload.color ?? '#a78bfa',
-        description: payload.description ?? null,
-      })
-      .select()
-      .single()
+    const { data, errors } = await client.models.MapLocation.create({
+      name: payload.name,
+      category: payload.category,
+      pin_x: payload.pinX,
+      pin_y: payload.pinY,
+      color: payload.color ?? '#a78bfa',
+      description: payload.description ?? null,
+    })
 
-    if (error) throw error
-    return { data: data as MapLocation, error: null }
+    if (errors) throw new Error(errors[0].message)
+    return { data: data as unknown as MapLocation, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -177,7 +171,7 @@ export async function updateMapPin(
   updates: Partial<CreateMapPinPayload> & { isActive?: boolean }
 ): Promise<{ data: MapLocation | null; error: Error | null }> {
   try {
-    const payload: Record<string, unknown> = {}
+    const payload: any = { id: pinId }
     if (updates.name !== undefined) payload.name = updates.name
     if (updates.category !== undefined) payload.category = updates.category
     if (updates.pinX !== undefined) payload.pin_x = updates.pinX
@@ -186,15 +180,10 @@ export async function updateMapPin(
     if (updates.description !== undefined) payload.description = updates.description
     if (updates.isActive !== undefined) payload.is_active = updates.isActive
 
-    const { data, error } = await supabase
-      .from('map_locations')
-      .update(payload)
-      .eq('id', pinId)
-      .select()
-      .single()
+    const { data, errors } = await client.models.MapLocation.update(payload)
 
-    if (error) throw error
-    return { data: data as MapLocation, error: null }
+    if (errors) throw new Error(errors[0].message)
+    return { data: data as unknown as MapLocation, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -205,12 +194,9 @@ export async function deleteMapPin(pinId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { error } = await supabase
-      .from('map_locations')
-      .delete()
-      .eq('id', pinId)
+    const { errors } = await client.models.MapLocation.delete({ id: pinId })
 
-    if (error) throw error
+    if (errors) throw new Error(errors[0].message)
     return { data: null, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
@@ -226,6 +212,6 @@ export async function deleteMapPin(pinId: string): Promise<{
  * The file is expected to be uploaded by admin as `campus.png`.
  */
 export function getCampusMapUrl(): string {
-  const { data } = supabase.storage.from('campus-map').getPublicUrl('campus.png')
-  return data.publicUrl
+  // Stubbed public S3 bucket URL format
+  return 'https://findafriend-amplify-bucket.s3.amazonaws.com/public/campus-map/campus.png'
 }

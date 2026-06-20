@@ -7,7 +7,8 @@
  * rows. Additionally, `deleteExpiredStories` can be called client-side on
  * foreground to assist cleanup on the free Supabase tier (no pg_cron).
  */
-import { supabase } from './supabase'
+import { client } from './aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import { uploadFile } from './upload'
 
 // ---------------------------------------------------------------------------
@@ -62,14 +63,14 @@ export async function getStories(): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    const currentUser = await getCurrentUser()
+    if (!currentUser) throw new Error('Not authenticated')
+    const user = { id: currentUser.userId }
 
     // Fetch IDs of users the current user follows + their own ID
-    const { data: followRows } = await supabase
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', user.id)
+    const { data: followRows } = await client.models.follows.list({
+      filter: { follower_id: { eq: user.id } }
+    })
 
     const followingIds: string[] = (followRows ?? []).map(
       (r: { following_id: string }) => r.following_id
@@ -77,11 +78,9 @@ export async function getStories(): Promise<{
     const authorIds = Array.from(new Set([user.id, ...followingIds]))
 
     // Fetch non-expired stories for those authors (RLS also filters)
-    const { data: storyRows, error: storiesError } = await supabase
-      .from('stories')
-      .select('*, profiles!stories_author_id_fkey(id, full_name, avatar_url)')
-      .in('author_id', authorIds)
-      .order('created_at', { ascending: false })
+    const { data: storyRows, errors: storiesError } = await client.models.stories.list({
+      filter: { or: authorIds.map(id => ({ author_id: { eq: id } })) }
+    })
 
     if (storiesError) throw storiesError
 
@@ -132,11 +131,12 @@ async function _getViewedStoryIds(
 ): Promise<string[]> {
   if (!storyIds.length) return []
 
-  const { data } = await supabase
-    .from('story_views')
-    .select('story_id')
-    .eq('viewer_id', viewerId)
-    .in('story_id', storyIds)
+  const { data } = await client.models.story_views.list({
+    filter: {
+      viewer_id: { eq: viewerId },
+      or: storyIds.map(id => ({ story_id: { eq: id } }))
+    }
+  })
 
   return (data ?? []).map((r: { story_id: string }) => r.story_id)
 }
@@ -154,21 +154,18 @@ export async function createStory(payload: CreateStoryPayload): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    const currentUser = await getCurrentUser()
+    if (!currentUser) throw new Error('Not authenticated')
+    const user = { id: currentUser.userId }
 
-    const { data, error } = await supabase
-      .from('stories')
-      .insert({
-        author_id: user.id,
-        media_url: payload.mediaUrl,
-        media_type: payload.mediaType ?? 'image',
-        caption: payload.caption ?? null,
-        duration_secs: payload.durationSecs ?? 5,
-        // expires_at defaults to now() + 24h in the DB
-      })
-      .select('*, profiles!stories_author_id_fkey(id, full_name, avatar_url)')
-      .single()
+    const { data, errors: error } = await client.models.stories.create({
+      author_id: user.id,
+      media_url: payload.mediaUrl,
+      media_type: payload.mediaType ?? 'image',
+      caption: payload.caption ?? null,
+      duration_secs: payload.durationSecs ?? 5,
+      // expires_at defaults to now() + 24h in the DB
+    })
 
     if (error) throw error
     return { data: data as Story, error: null }
@@ -190,8 +187,9 @@ export async function uploadStoryMedia(uri: string, mimeType: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    const currentUser = await getCurrentUser()
+    if (!currentUser) throw new Error('Not authenticated')
+    const user = { id: currentUser.userId }
 
     const ext = mimeType.split('/')[1]?.split(';')[0] ?? uri.split('.').pop() ?? 'jpg'
     const path = `${user.id}/${Date.now()}.${ext}`
@@ -215,15 +213,14 @@ export async function markStoryViewed(storyId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    const currentUser = await getCurrentUser()
+    if (!currentUser) throw new Error('Not authenticated')
+    const user = { id: currentUser.userId }
 
-    const { error } = await supabase
-      .from('story_views')
-      .upsert(
-        { story_id: storyId, viewer_id: user.id },
-        { onConflict: 'story_id,viewer_id' }
-      )
+    const { errors: error } = await client.models.story_views.create({
+      story_id: storyId,
+      viewer_id: user.id
+    })
 
     if (error) throw error
     return { data: null, error: null }
@@ -241,10 +238,9 @@ export async function deleteStory(storyId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { error } = await supabase
-      .from('stories')
-      .delete()
-      .eq('id', storyId)
+    const { errors: error } = await client.models.stories.delete({
+      id: storyId
+    })
 
     if (error) throw error
     return { data: null, error: null }
@@ -267,14 +263,22 @@ export async function deleteExpiredStories(): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { data: null, error: null }
+    const currentUser = await getCurrentUser()
+    if (!currentUser) return { data: null, error: null }
+    const user = { id: currentUser.userId }
 
-    const { error } = await supabase
-      .from('stories')
-      .delete()
-      .eq('author_id', user.id)
-      .lt('expires_at', new Date().toISOString())
+    const { data: toDelete } = await client.models.stories.list({
+      filter: {
+        author_id: { eq: user.id },
+        expires_at: { lt: new Date().toISOString() }
+      }
+    })
+    
+    let error = null
+    for (const story of toDelete ?? []) {
+      const { errors } = await client.models.stories.delete({ id: story.id })
+      if (errors) error = errors as any
+    }
 
     if (error) throw error
     return { data: null, error: null }
@@ -292,11 +296,9 @@ export async function getStoryViewers(storyId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('story_views')
-      .select('viewer_id, viewed_at, profiles!viewer_id(full_name, avatar_url)')
-      .eq('story_id', storyId)
-      .order('viewed_at', { ascending: false })
+    const { data, errors: error } = await client.models.story_views.list({
+      filter: { story_id: { eq: storyId } }
+    })
 
     if (error) throw error
     return { data, error: null }

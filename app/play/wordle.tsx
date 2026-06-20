@@ -8,11 +8,13 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '../../lib/supabase'
+// import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../store/authStore'
 import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import { recordGameResult } from '../../lib/games'
+import { client, broadcastEvent, subscribeToChannel } from '../../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 
 const WORDS = [
   'FLAME','BLAZE','SPARK','GRIND','SCORE','PHASE','FOCUS','BRAVE','CODED','DRAFT',
@@ -119,16 +121,12 @@ export default function WordleScreen() {
       setWord(WORDS[Math.floor(Math.random() * WORDS.length)])
       setLoading(false)
     }
-    return () => { channelRef.current && supabase.removeChannel(channelRef.current) }
+    return () => { channelRef.current && channelRef.current.unsubscribe() }
   }, [sessionId])
 
   const loadSession = async () => {
     try {
-      const { data: sess } = await supabase
-        .from('live_game_sessions')
-        .select('*')
-        .eq('id', sessionId)
-        .single()
+      const { data: sess } = await client.models.LiveGameSession.get({ id: sessionId })
 
       if (sess?.state?.word) {
         setWord(sess.state.word)
@@ -144,12 +142,8 @@ export default function WordleScreen() {
   }
 
   const subscribe = () => {
-    // Remove any stale channel from a previous mount cycle
-    const stale = supabase.getChannels().find(c => c.topic === `realtime:game_room:${sessionId}`)
-    if (stale) supabase.removeChannel(stale)
-
-    channelRef.current = supabase.channel(`game_room:${sessionId}`)
-      .on('broadcast', { event: 'move' }, ({ payload }) => {
+    channelRef.current = subscribeToChannel(`game_room:${sessionId}`, (event, payload) => {
+      if (event === 'move') {
         if (payload.type === 'GUESS') {
           setBotGuesses(prev => {
             const next = [...prev, payload.word]
@@ -160,7 +154,7 @@ export default function WordleScreen() {
               // Record result for real multiplayer — opponent won
               if (opponentId && opponentId !== 'faf-bot' && user?.id) {
                 recordGameResult('wordle', opponentId, opponentId, { me_guesses: 0, opp_guesses: next.length }).catch(() => {})
-                supabase.from('live_game_sessions').update({ status: 'finished', winner_id: opponentId }).eq('id', sessionId).then(() => {})
+                client.models.LiveGameSession.update({ id: sessionId, status: 'finished', winner_id: opponentId }).then(() => {})
               }
             } else if (next.length >= MAX_GUESSES) {
               // Both must fail to be none
@@ -168,8 +162,8 @@ export default function WordleScreen() {
             return next
           })
         }
-      })
-      .subscribe()
+      }
+    })
   }
 
   // Bot guesses on a timer (only if no session)
@@ -204,11 +198,7 @@ export default function WordleScreen() {
 
     // Broadcast if multiplayer
     if (channelRef.current) {
-      channelRef.current.send({
-        type: 'broadcast',
-        event: 'move',
-        payload: { type: 'GUESS', word: current }
-      })
+      broadcastEvent('game_room:' + sessionId, 'move', { type: 'GUESS', word: current })
     }
 
     // Update key states
@@ -230,7 +220,7 @@ export default function WordleScreen() {
       // Record result for real multiplayer games
       if (sessionId && opponentId && opponentId !== 'faf-bot' && user?.id) {
         recordGameResult('wordle', opponentId, user.id, { me_guesses: newGuesses.length, opp_guesses: botGuesses.length }).catch(() => {})
-        supabase.from('live_game_sessions').update({ status: 'finished', winner_id: user.id }).eq('id', sessionId).then(() => {})
+        client.models.LiveGameSession.update({ id: sessionId, status: 'finished', winner_id: user.id }).then(() => {})
       }
     } else if (newGuesses.length >= MAX_GUESSES) {
       // If opponent still has guesses, don't end game yet
@@ -240,7 +230,7 @@ export default function WordleScreen() {
         // Record result for real multiplayer — nobody won
         if (sessionId && opponentId && opponentId !== 'faf-bot' && user?.id) {
           recordGameResult('wordle', opponentId, opponentId, { me_guesses: newGuesses.length, opp_guesses: botGuesses.length }).catch(() => {})
-          supabase.from('live_game_sessions').update({ status: 'finished', winner_id: null }).eq('id', sessionId).then(() => {})
+          client.models.LiveGameSession.update({ id: sessionId, status: 'finished', winner_id: null }).then(() => {})
         }
       }
     }

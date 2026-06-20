@@ -16,7 +16,7 @@ import { useFeedStore } from '../../store/feedStore'
 import { getInitials, getTimeAgo } from '../../lib/matching'
 import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
-import { supabase } from '../../lib/supabase'
+// import { supabase } from '../../lib/supabase'
 import { pickCommentMedia, takeCommentPhoto, recordCommentVideo } from '../../lib/feedAttachments'
 import { useVideoPlayer, VideoView } from 'expo-video'
 import type { FeedMedia } from '../../lib/feedAttachments'
@@ -24,6 +24,7 @@ import { StickerPicker } from '../../components/StickerPicker'
 import { ReplyBanner } from '../../components/chat/ReplyUI'
 import { AttachmentSheet, type AttachmentOptionKey } from '../../components/AttachmentSheet'
 import { useStickerStore } from '../../store/stickerStore'
+import { getCurrentUser } from 'aws-amplify/auth'
 
 function toHandle(name: string | null | undefined) {
   if (!name) return '@user'
@@ -124,13 +125,15 @@ export default function PostDetailScreen() {
   const threadedComments = flattenComments(null)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setMyUserId(data.user?.id ?? null))
+    getCurrentUser().then(user => setMyUserId(user.userId ?? null)).catch(() => setMyUserId(null))
     if (id) loadData()
   }, [id])
 
   useEffect(() => {
     if (!id) return
 
+    // TODO: AWS Amplify Realtime
+    /*
     const channel = supabase
       .channel(`post-comments:${id}`)
       .on('postgres_changes', {
@@ -175,6 +178,7 @@ export default function PostDetailScreen() {
     return () => {
       supabase.removeChannel(channel)
     }
+    */
   }, [id])
 
   const loadData = async () => {

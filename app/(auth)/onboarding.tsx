@@ -2,7 +2,8 @@ import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, Alert,
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useState } from 'react'
 import { router } from 'expo-router'
-import { supabase } from '../../lib/supabase'
+import { client } from '../../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import { useTheme } from '../../lib/theme'
 import { registerForPushNotifications, savePushToken, subscribeToWebPush } from '../../lib/notifications'
 
@@ -51,7 +52,7 @@ export default function OnboardingScreen() {
   }
   setLoading(true)
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await getCurrentUser()
   if (!user) {
     Alert.alert('Error', 'Not logged in')
     setLoading(false)

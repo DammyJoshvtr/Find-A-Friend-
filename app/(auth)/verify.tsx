@@ -7,7 +7,7 @@ import {
 import Toast from 'react-native-toast-message'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
-import { supabase } from '../../lib/supabase'
+import { signUp, signIn, confirmSignUp } from 'aws-amplify/auth'
 import Animated, {
   useSharedValue, useAnimatedStyle,
   withTiming, withDelay, withRepeat, withSequence, withSpring, Easing,
@@ -149,6 +149,8 @@ export default function VerifyScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [verificationCode, setVerificationCode] = useState('')
+  const [showVerification, setShowVerification] = useState(false)
   const [loading, setLoading] = useState(false)
 
   // Entry animations
@@ -177,6 +179,25 @@ export default function VerifyScreen() {
   const handleSubmit = async () => {
     const trimmedEmail = email.toLowerCase().trim()
 
+    if (showVerification) {
+      if (!verificationCode) {
+        Toast.show({ type: 'error', text1: 'Missing code', text2: 'Please enter the verification code' })
+        return
+      }
+      setLoading(true)
+      try {
+        await confirmSignUp({ username: trimmedEmail, confirmationCode: verificationCode })
+        Toast.show({ type: 'success', text1: 'Verified!', text2: 'Please sign in.' })
+        setShowVerification(false)
+        setMode('signin')
+      } catch (error: any) {
+        Toast.show({ type: 'error', text1: 'Verification failed', text2: error.message })
+      } finally {
+        setLoading(false)
+      }
+      return
+    }
+
     if (!trimmedEmail || !password) {
       Toast.show({ type: 'error', text1: 'Missing fields', text2: 'Please fill in all fields' })
       return
@@ -193,51 +214,45 @@ export default function VerifyScreen() {
     setLoading(true)
 
     if (mode === 'signup') {
-      const { data, error } = await supabase.auth.signUp({
-        email: trimmedEmail,
-        password,
-        options: { data: { email: trimmedEmail } },
-      })
-      if (error) {
+      try {
+        const { nextStep } = await signUp({
+          username: trimmedEmail,
+          password,
+          options: { userAttributes: { email: trimmedEmail } },
+        })
         setLoading(false)
-        if (error.message.toLowerCase().includes('already registered')) {
+        if (nextStep?.signUpStep === 'CONFIRM_SIGN_UP') {
+          Toast.show({ type: 'success', text1: 'Check your email', text2: `Verification code sent to ${trimmedEmail}` })
+          setShowVerification(true)
+        } else {
+          router.replace('/(auth)/onboarding')
+        }
+      } catch (error: any) {
+        setLoading(false)
+        if (error.name === 'UsernameExistsException') {
           Toast.show({ type: 'info', text1: 'Account exists', text2: 'Switching to sign in.' })
           setMode('signin')
         } else {
           Toast.show({ type: 'error', text1: 'Sign up failed', text2: error.message })
         }
-        return
-      }
-      if (data.session) {
-        setLoading(false)
-        router.replace('/(auth)/onboarding')
-      } else {
-        const { data: sd } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
-        setLoading(false)
-        if (sd?.session) {
-          router.replace('/(auth)/onboarding')
-        } else {
-          Toast.show({ type: 'success', text1: 'Check your email', text2: `Confirmation sent to ${trimmedEmail}` })
-          setMode('signin')
-        }
       }
     } else {
-      const { data, error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
-      setLoading(false)
-      if (error) {
-        if (error.message.toLowerCase().includes('not confirmed')) {
-          Toast.show({ type: 'info', text1: 'Email not confirmed', text2: 'Check your inbox for a confirmation link.' })
-        } else if (error.message.toLowerCase().includes('invalid login credentials')) {
+      try {
+        const { nextStep } = await signIn({ username: trimmedEmail, password })
+        setLoading(false)
+        if (nextStep?.signInStep === 'CONFIRM_SIGN_UP') {
+          Toast.show({ type: 'info', text1: 'Email not confirmed', text2: 'Please verify your email.' })
+          setShowVerification(true)
+        } else {
+          router.replace('/(tabs)') // Skip profile check for now as data schema is pending
+        }
+      } catch (error: any) {
+        setLoading(false)
+        if (error.name === 'NotAuthorizedException') {
           Toast.show({ type: 'error', text1: 'Sign in failed', text2: 'Wrong email or password.' })
         } else {
           Toast.show({ type: 'error', text1: 'Sign in error', text2: error.message })
         }
-        return
-      }
-      if (data.session) {
-        const { data: profile } = await supabase
-          .from('profiles').select('id').eq('id', data.session.user.id).maybeSingle()
-        router.replace(profile ? '/(tabs)' : '/(auth)/onboarding')
       }
     }
   }
@@ -320,13 +335,23 @@ export default function VerifyScreen() {
                   onChangeText={setPassword}
                   isPassword
                 />
-                {mode === 'signup' && (
+                {mode === 'signup' && !showVerification && (
                   <AnimatedInput
                     label="Confirm Password"
                     placeholder="Repeat your password"
                     value={confirmPassword}
                     onChangeText={setConfirmPassword}
                     isPassword
+                  />
+                )}
+                
+                {showVerification && (
+                  <AnimatedInput
+                    label="Verification Code"
+                    placeholder="Enter 6-digit code from email"
+                    value={verificationCode}
+                    onChangeText={setVerificationCode}
+                    keyboardType="number-pad"
                   />
                 )}
 
@@ -349,7 +374,7 @@ export default function VerifyScreen() {
                   {loading
                     ? <ActivityIndicator color="#fff" />
                     : <Text style={s.btnText}>
-                        {mode === 'signup' ? 'Create Account' : 'Sign In'}
+                      {showVerification ? 'Verify Code →' : mode === 'signup' ? 'Create Account →' : 'Sign In →'}
                       </Text>
                   }
                 </TouchableOpacity>

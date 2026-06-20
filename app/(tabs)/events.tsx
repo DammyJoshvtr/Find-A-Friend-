@@ -16,7 +16,8 @@ import { useTabBarScroll } from '../../lib/useTabBarScroll'
 import { showTabBar } from '../../lib/tabBarAnim'
 import { useBadgesStore } from '../../store/badgesStore'
 import type { Event } from '../../lib/events'
-import { supabase } from '../../lib/supabase'
+import { client } from '../../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 
 type Tab = 'upcoming' | 'rsvps' | 'past'
 
@@ -111,7 +112,7 @@ export default function EventsScreen() {
       .subscribe();
 
     let rsvpChannel: any;
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getCurrentUser().then(({ data: { user } }) => {
       if (!user) return;
       rsvpChannel = supabase
         .channel("my-rsvps-realtime")
@@ -149,8 +150,8 @@ export default function EventsScreen() {
     });
 
     return () => {
-      supabase.removeChannel(eventChannel);
-      if (rsvpChannel) supabase.removeChannel(rsvpChannel);
+      // supabase.removeChannel(eventChannel);
+      // if (rsvpChannel) supabase.removeChannel(rsvpChannel);
     };
   }, []);
 

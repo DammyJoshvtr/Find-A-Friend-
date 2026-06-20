@@ -5,7 +5,7 @@
  * The root layout (`app/_layout.tsx`) should set up a Supabase realtime
  * channel after the user session is established:
  *
- *   supabase.channel('user-notifications')
+ *   // supabase.channel('user-notifications')
  *     .on('postgres_changes', {
  *       event: 'INSERT',
  *       schema: 'public',

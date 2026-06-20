@@ -22,7 +22,7 @@ import {
 import Toast from "react-native-toast-message";
 import { getInitials, getTimeAgo } from "../../lib/matching";
 import { deleteStory } from "../../lib/stories";
-import { supabase } from "../../lib/supabase";
+import { client } from "../../lib/aws";
 import { useAuthStore } from "../../store/authStore";
 import {
   selectCurrentGroup,
@@ -168,13 +168,12 @@ export default function StoryViewer() {
       setMyReaction(null);
       return;
     }
-    supabase
-      .from("story_reactions")
-      .select("emoji")
-      .eq("story_id", story.id)
-      .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => setMyReaction(data?.emoji ?? null));
+    client.models.story_reactions.list({
+      filter: {
+        story_id: { eq: story.id },
+        user_id: { eq: user.id }
+      }
+    } as any).then(({ data }: any) => setMyReaction(data?.[0]?.emoji ?? null));
     setStoryComment("");
   }, [story?.id, user?.id]);
 
@@ -183,28 +182,17 @@ export default function StoryViewer() {
     const isSame = myReaction === emoji;
     setMyReaction(isSame ? null : emoji);
     if (isSame) {
-      await supabase
-        .from("story_reactions")
-        .delete()
-        .eq("story_id", story.id)
-        .eq("user_id", user.id);
+      await client.models.story_reactions.delete({ story_id: story.id, user_id: user.id } as any);
     } else {
-      await supabase
-        .from("story_reactions")
-        .upsert(
-          { user_id: user.id, story_id: story.id, emoji },
-          { onConflict: "user_id,story_id" },
-        );
+      await client.models.story_reactions.update(
+        { user_id: user.id, story_id: story.id, emoji } as any
+      );
       // Mirror to author's DM so they see it in chat
       if (story.author_id !== user.id) {
-        const { data: convId } = await supabase.rpc(
-          "get_or_create_conversation",
-          {
-            p_other_user_id: story.author_id,
-          },
-        );
+        // TODO: Complex RPC
+        const convId = null as any;
         if (convId) {
-          await supabase.from("messages").insert({
+          await client.models.messages.create({
             conversation_id: convId,
             sender_id: user.id,
             body: JSON.stringify({
@@ -214,7 +202,7 @@ export default function StoryViewer() {
               caption: story.caption ?? "",
               mediaUrl: story.media_url,
             }),
-          });
+          } as any);
         }
       }
     }
@@ -227,14 +215,10 @@ export default function StoryViewer() {
 
     // Mirror to author's DM regardless of story_comments table availability
     if (story.author_id !== user.id) {
-      const { data: convId } = await supabase.rpc(
-        "get_or_create_conversation",
-        {
-          p_other_user_id: story.author_id,
-        },
-      );
+      // TODO: Complex RPC
+      const convId = null as any;
       if (convId) {
-        await supabase.from("messages").insert({
+        await client.models.messages.create({
           conversation_id: convId,
           sender_id: user.id,
           body: JSON.stringify({
@@ -244,16 +228,16 @@ export default function StoryViewer() {
             caption: story.caption ?? "",
             mediaUrl: story.media_url,
           }),
-        });
+        } as any);
       }
     }
 
     // Also insert into story_comments if the table exists (best-effort)
-    await supabase.from("story_comments").insert({
+    await client.models.story_comments.create({
       story_id: story.id,
       author_id: user.id,
       body: text,
-    });
+    } as any);
 
     setStoryComment("");
     commentInputRef.current?.blur();

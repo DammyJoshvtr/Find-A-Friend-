@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
-import { supabase } from '../../lib/supabase'
+import { client } from '../../lib/aws'
 
 const { width } = Dimensions.get('window')
 const ITEM_WIDTH = width - 15
@@ -36,14 +36,11 @@ export default function AdCarousel() {
 
   // Fetch active ads from Supabase
   useEffect(() => {
-    supabase
-      .from('app_ads')
-      .select('id, title, subtitle, color, icon')
-      .eq('active', true)
-      .order('display_order', { ascending: true })
-      .then(({ data }) => {
-        if (data && data.length > 0) setAds(data)
-      })
+    client.models.app_ads.list({
+      filter: { active: { eq: true } }
+    } as any).then(({ data }: any) => {
+      if (data && data.length > 0) setAds(data)
+    })
   }, [])
 
   // Swipe gesture animation

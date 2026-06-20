@@ -1,12 +1,16 @@
 import { create } from 'zustand'
-import { supabase } from '../lib/supabase'
-import { Session, User } from '@supabase/supabase-js'
+import { signOut as amplifySignOut, getCurrentUser, fetchAuthSession, AuthSession } from 'aws-amplify/auth'
+
+export interface AmplifyUser {
+  userId: string;
+  username: string;
+}
 
 interface AuthState {
-  user: User | null
-  session: Session | null
+  user: AmplifyUser | null
+  session: AuthSession | null
   loading: boolean
-  setSession: (session: Session | null) => void
+  setSession: (session: AuthSession | null, user: AmplifyUser | null) => void
   signOut: () => Promise<void>
 }
 
@@ -15,15 +19,19 @@ export const useAuthStore = create<AuthState>((set) => ({
   session: null,
   loading: true,
 
-  setSession: (session) =>
+  setSession: (session, user) =>
     set({
       session,
-      user: session?.user ?? null,
+      user,
       loading: false,
     }),
 
   signOut: async () => {
-    await supabase.auth.signOut()
+    try {
+      await amplifySignOut()
+    } catch (err) {
+      console.warn('Signout error', err)
+    }
     set({ user: null, session: null, loading: false })
   },
 }))

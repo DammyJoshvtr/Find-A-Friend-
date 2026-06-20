@@ -6,7 +6,8 @@
  * query level. Anonymous posts are only fetched through the anonymous board
  * screens which use dedicated queries.
  */
-import { supabase } from './supabase'
+import { client } from './aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -117,18 +118,16 @@ export async function getFeed(cursor?: string, limit = 20): Promise<{
   error: Error | null
 }> {
   try {
-    let query = supabase
-      .from('posts')
-      .select(POST_SELECT)
-      .eq('is_anonymous', false)
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
+    let filter: any = { is_anonymous: { eq: false } }
     if (cursor) {
-      query = query.lt('created_at', cursor)
+      filter.created_at = { lt: cursor }
     }
 
-    const { data, error } = await query
+    const { data, errors } = await client.models.Post.list({
+      filter,
+      limit,
+    })
+    const error = errors ? new Error(errors[0].message) : null
     if (error) throw error
     return { data: (data as any[]).map(toFeedPost), error: null }
   } catch (err) {
@@ -145,16 +144,14 @@ export async function createPost(payload: CreatePostPayload): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
     const isAnon = payload.isAnonymous ?? false
     const postType = payload.postType ?? (isAnon ? 'anonymous' : 'feed')
 
-    const { data: post, error: postError } = await supabase
-      .from('posts')
-      .insert({
-        author_id: user.id,
+    const { data: post, errors: postErrors } = await client.models.Post.create({
+        author_id: user.userId,
         body: payload.body,
         tags: payload.tags ?? [],
         image_url: payload.imageUrl ?? null,
@@ -163,8 +160,7 @@ export async function createPost(payload: CreatePostPayload): Promise<{
         club_id: payload.clubId ?? null,
         study_group_id: payload.studyGroupId ?? null,
       })
-      .select()
-      .single()
+    const postError = postErrors ? new Error(postErrors[0].message) : null
 
     if (postError) throw postError
 
@@ -185,16 +181,15 @@ export async function createPost(payload: CreatePostPayload): Promise<{
 async function _upsertPostHashtags(postId: string, tags: string[]) {
   for (const tag of tags) {
     // Upsert hashtag row
-    const { data: hashtagRow } = await supabase
-      .from('hashtags')
-      .upsert({ tag }, { onConflict: 'tag' })
-      .select('id')
-      .single()
+    const { data: existingHashtags } = await client.models.Hashtag.list({ filter: { tag: { eq: tag } } })
+    let hashtagRow = existingHashtags?.[0]
+    if (!hashtagRow) {
+      const { data } = await client.models.Hashtag.create({ tag })
+      hashtagRow = data
+    }
 
     if (hashtagRow) {
-      await supabase
-        .from('post_hashtags')
-        .upsert({ post_id: postId, hashtag_id: hashtagRow.id })
+      await client.models.PostHashtag.create({ post_id: postId, hashtag_id: hashtagRow.id })
     }
   }
 }
@@ -213,8 +208,8 @@ export async function likePost(postId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .rpc('toggle_post_like', { p_post_id: postId })
+    const { data, errors } = await client.mutations.toggle_post_like({ p_post_id: postId })
+    const error = errors ? new Error(errors[0].message) : null
     if (error) throw error
     return { data: data as { liked: boolean }, error: null }
   } catch (err) {
@@ -232,14 +227,12 @@ export const unlikePost = likePost
 export async function getMyLikedPostIds(postIds: string[]): Promise<string[]> {
   if (!postIds.length) return []
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser().catch(() => null)
   if (!user) return []
 
-  const { data } = await supabase
-    .from('post_likes')
-    .select('post_id')
-    .eq('user_id', user.id)
-    .in('post_id', postIds)
+  const { data } = await client.models.PostLike.list({
+    filter: { user_id: { eq: user.userId } }
+  })
 
   return (data ?? []).map((row: { post_id: string }) => row.post_id)
 }
@@ -257,22 +250,19 @@ export async function commentOnPost(
   mediaType: string | null = null
 ): Promise<{ data: PostComment | null; error: Error | null }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { data, error } = await supabase
-      .from('post_comments')
-      .insert({
+    const { data, errors } = await client.models.PostComment.create({
         post_id: postId,
         parent_id: parentId,
-        author_id: user.id,
+        author_id: user.userId,
         body: body.trim(),
         media_url: mediaUrl,
         media_type: mediaType,
         is_anonymous: isAnonymous,
       })
-      .select('*, profiles!author_id(id, full_name, department, level, avatar_url, role, badge_type, badge_color)')
-      .single()
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
 
@@ -293,11 +283,10 @@ export async function getComments(postId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('post_comments')
-      .select('*, profiles!author_id(id, full_name, department, level, avatar_url, role, badge_type, badge_color)')
-      .eq('post_id', postId)
-      .order('created_at', { ascending: true })
+    const { data, errors } = await client.models.PostComment.list({
+      filter: { post_id: { eq: postId } }
+    })
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
 
@@ -319,10 +308,8 @@ export async function deleteComment(commentId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { error } = await supabase
-      .from('post_comments')
-      .delete()
-      .eq('id', commentId)
+    const { errors } = await client.models.PostComment.delete({ id: commentId })
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
     return { data: null, error: null }
@@ -345,34 +332,28 @@ export async function repostPost(
   quoteBody?: string
 ): Promise<{ data: FeedPost | null; error: Error | null }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
     // Guard: check if the user has already reposted this post
-    const { data: existingRepost } = await supabase
-      .from('reposts')
-      .select('id')
-      .eq('post_id', postId)
-      .eq('user_id', user.id)
-      .maybeSingle()
+    const { data: existingReposts } = await client.models.Repost.list({
+      filter: { post_id: { eq: postId }, user_id: { eq: user.userId } }
+    })
+    const existingRepost = existingReposts?.[0]
 
     if (existingRepost) {
       throw new Error('You have already reposted this post')
     }
 
     // Fetch original post to copy its content into the repost row
-    const { data: original, error: origError } = await supabase
-      .from('posts')
-      .select('body, tags, image_url')
-      .eq('id', postId)
-      .single()
+    const { data: original, errors: origErrors } = await client.models.Post.get({ id: postId })
+    const origError = origErrors ? new Error(origErrors[0].message) : null
 
     if (origError) throw origError
 
     // Insert the repost tracking record
-    const { error: repostError } = await supabase
-      .from('reposts')
-      .insert({ post_id: postId, user_id: user.id, quote_body: quoteBody ?? null })
+    const { errors: repErrors } = await client.models.Repost.create({ post_id: postId, user_id: user.userId, quote_body: quoteBody ?? null })
+    const repostError = repErrors ? new Error(repErrors[0].message) : null
 
     if (repostError) throw repostError
 
@@ -381,18 +362,15 @@ export async function repostPost(
       ? quoteBody
       : ''
 
-    const { data: newPost, error: newPostError } = await supabase
-      .from('posts')
-      .insert({
-        author_id: user.id,
+    const { data: newPost, errors: newPostErrors } = await client.models.Post.create({
+        author_id: user.userId,
         body: newBody,
-        tags: original.tags,
-        image_url: original.image_url,
+        tags: original?.tags,
+        image_url: original?.image_url,
         repost_of: postId,
         post_type: 'feed',
       })
-      .select(POST_SELECT)
-      .single()
+    const newPostError = newPostErrors ? new Error(newPostErrors[0].message) : null
 
     if (newPostError) throw newPostError
     return { data: toFeedPost(newPost), error: null }
@@ -412,11 +390,11 @@ export async function getHashtagPosts(
 ): Promise<{ data: FeedPost[] | null; error: Error | null }> {
   try {
     // Resolve hashtag id
-    const { data: hashtagRow, error: hError } = await supabase
-      .from('hashtags')
-      .select('id')
-      .eq('tag', tag.toLowerCase())
-      .single()
+    const { data: hashtags, errors: hErrors } = await client.models.Hashtag.list({
+      filter: { tag: { eq: tag.toLowerCase() } }
+    })
+    const hashtagRow = hashtags?.[0]
+    const hError = hErrors ? new Error(hErrors[0].message) : null
 
     if (hError) {
       if (hError.code === 'PGRST116') return { data: [], error: null }
@@ -425,29 +403,26 @@ export async function getHashtagPosts(
     if (!hashtagRow) return { data: [], error: null }
 
     // Get post IDs for this hashtag
-    const { data: links, error: linkError } = await supabase
-      .from('post_hashtags')
-      .select('post_id')
-      .eq('hashtag_id', hashtagRow.id)
+    const { data: links, errors: linkErrors } = await client.models.PostHashtag.list({
+      filter: { hashtag_id: { eq: hashtagRow.id } }
+    })
+    const linkError = linkErrors ? new Error(linkErrors[0].message) : null
 
     if (linkError) throw linkError
 
     const postIds = (links ?? []).map((l: { post_id: string }) => l.post_id)
     if (!postIds.length) return { data: [], error: null }
 
-    let query = supabase
-      .from('posts')
-      .select(POST_SELECT)
-      .in('id', postIds)
-      .eq('is_anonymous', false)
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
+    let filter: any = { is_anonymous: { eq: false } }
     if (cursor) {
-      query = query.lt('created_at', cursor)
+      filter.created_at = { lt: cursor }
     }
 
-    const { data, error } = await query
+    const { data, errors } = await client.models.Post.list({
+      filter,
+      limit,
+    })
+    const error = errors ? new Error(errors[0].message) : null
     if (error) throw error
     return { data: (data as any[]).map(toFeedPost), error: null }
   } catch (err) {
@@ -460,11 +435,10 @@ export async function getTrending(): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('trending_hashtags')
-      .select('*, hashtags(tag)')
-      .order('post_count', { ascending: false })
-      .limit(20)
+    const { data, errors } = await client.models.TrendingHashtag.list({
+      limit: 20
+    })
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
     return { data: data as TrendingHashtag[], error: null }
@@ -482,22 +456,19 @@ export async function bookmarkPost(postId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { data: existing } = await supabase
-      .from('post_bookmarks')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('post_id', postId)
-      .maybeSingle()
+    const { data: existingBookmarks } = await client.models.PostBookmark.list({
+      filter: { user_id: { eq: user.userId }, post_id: { eq: postId } }
+    })
+    const existing = existingBookmarks?.[0]
 
     if (existing) {
-      await supabase.from('post_bookmarks').delete()
-        .eq('user_id', user.id).eq('post_id', postId)
+      await client.models.PostBookmark.delete({ id: existing.id })
       return { data: { bookmarked: false }, error: null }
     } else {
-      await supabase.from('post_bookmarks').insert({ user_id: user.id, post_id: postId })
+      await client.models.PostBookmark.create({ user_id: user.userId, post_id: postId })
       return { data: { bookmarked: true }, error: null }
     }
   } catch (err) {
@@ -507,16 +478,15 @@ export async function bookmarkPost(postId: string): Promise<{
 
 export async function getBookmarkedPosts(): Promise<{ data: FeedPost[] | null; error: Error | null }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
     const bookmarkSelect = `post_id, posts(${POST_SELECT})`
 
-    const { data, error } = await supabase
-      .from('post_bookmarks')
-      .select(bookmarkSelect)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+    const { data, errors } = await client.models.PostBookmark.list({
+      filter: { user_id: { eq: user.userId } }
+    })
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
 
@@ -533,13 +503,11 @@ export async function getBookmarkedPosts(): Promise<{ data: FeedPost[] | null; e
 
 export async function getMyBookmarkedPostIds(postIds: string[]): Promise<string[]> {
   if (!postIds.length) return []
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser().catch(() => null)
   if (!user) return []
-  const { data } = await supabase
-    .from('post_bookmarks')
-    .select('post_id')
-    .eq('user_id', user.id)
-    .in('post_id', postIds)
+  const { data } = await client.models.PostBookmark.list({
+    filter: { user_id: { eq: user.userId } }
+  })
   return (data ?? []).map((r: { post_id: string }) => r.post_id)
 }
 
@@ -552,13 +520,12 @@ export async function getFollowingFeed(
   limit = 20
 ): Promise<{ data: FeedPost[] | null; error: Error | null }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { data: followRows } = await supabase
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', user.id)
+    const { data: followRows } = await client.models.Follow.list({
+      filter: { follower_id: { eq: user.userId } }
+    })
 
     const followingIds: string[] = (followRows ?? []).map(
       (r: { following_id: string }) => r.following_id
@@ -566,17 +533,14 @@ export async function getFollowingFeed(
 
     if (!followingIds.length) return { data: [], error: null }
 
-    let query = supabase
-      .from('posts')
-      .select(POST_SELECT)
-      .in('author_id', followingIds)
-      .eq('is_anonymous', false)
-      .order('created_at', { ascending: false })
-      .limit(limit)
+    let filter: any = { is_anonymous: { eq: false } }
+    if (cursor) filter.created_at = { lt: cursor }
 
-    if (cursor) query = query.lt('created_at', cursor)
-
-    const { data, error } = await query
+    const { data, errors } = await client.models.Post.list({
+      filter,
+      limit
+    })
+    const error = errors ? new Error(errors[0].message) : null
     if (error) throw error
     return { data: (data as any[]).map(toFeedPost), error: null }
   } catch (err) {
@@ -593,11 +557,8 @@ export async function getPost(postId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('posts')
-      .select(POST_SELECT)
-      .eq('id', postId)
-      .single()
+    const { data, errors } = await client.models.Post.get({ id: postId })
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
     return { data: toFeedPost(data), error: null }
@@ -611,13 +572,11 @@ export async function getUserFeedPosts(userId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('posts')
-      .select(POST_SELECT)
-      .eq('author_id', userId)
-      .eq('is_anonymous', false)
-      .order('created_at', { ascending: false })
-      .limit(50)
+    const { data, errors } = await client.models.Post.list({
+      filter: { author_id: { eq: userId }, is_anonymous: { eq: false } },
+      limit: 50
+    })
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
     return { data: (data as any[]).map(toFeedPost), error: null }
@@ -631,10 +590,8 @@ export async function deletePost(postId: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { error } = await supabase
-      .from('posts')
-      .delete()
-      .eq('id', postId)
+    const { errors } = await client.models.Post.delete({ id: postId })
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
     return { data: null, error: null }
@@ -648,12 +605,11 @@ export async function reportPost(postId: string, reason?: string): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error('Not authenticated')
 
-    const { error } = await supabase
-      .from('reports')
-      .insert({ reporter_id: user.id, post_id: postId, reason: reason ?? null })
+    const { errors } = await client.models.Report.create({ reporter_id: user.userId, post_id: postId, reason: reason ?? null })
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
     return { data: null, error: null }

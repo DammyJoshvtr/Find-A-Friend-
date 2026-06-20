@@ -13,7 +13,8 @@ import { Ionicons } from '@expo/vector-icons'
 import { getEventDetail, getEventAttendees, rsvpEvent, cancelRsvp, deleteEvent } from '../../lib/events'
 import { getInitials } from '../../lib/matching'
 import type { Event, EventRsvp } from '../../lib/events'
-import { supabase } from '../../lib/supabase'
+import { client } from '../../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
@@ -31,60 +32,25 @@ export default function EventDetailScreen() {
   useEffect(() => {
     if (!id) return;
 
-    const eventChannel = supabase
-      .channel(`event-detail-realtime-${id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "events",
-          filter: `id=eq.${id}`,
-        },
-        (payload) => {
-          const updated = payload.new as Event;
-          setEvent((e) => (e ? { ...e, rsvp_count: updated.rsvp_count } : e));
-        }
-      )
-      .subscribe();
-
-    const rsvpsChannel = supabase
-      .channel(`event-rsvps-realtime-${id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "event_rsvps",
-          filter: `event_id=eq.${id}`,
-        },
-        async () => {
-          const attendeesRes = await getEventAttendees(id, "going");
-          setAttendees(attendeesRes.data ?? []);
-        }
-      )
-      .subscribe();
-
+    // TODO: Complex realtime channel
     return () => {
-      supabase.removeChannel(eventChannel);
-      supabase.removeChannel(rsvpsChannel);
     };
   }, [id]);
 
   const loadData = async () => {
     setLoading(true)
     try {
-      const [eventRes, attendeesRes, authUserRes] = await Promise.all([
+      const [eventRes, attendeesRes] = await Promise.all([
         getEventDetail(id),
         getEventAttendees(id, 'going'),
-        supabase.auth.getUser()
       ])
+      try {
+        const user = await getCurrentUser()
+        if (user) setMyUserId(user.userId)
+      } catch (e) {}
       setEvent(eventRes.data)
       setRsvpStatus(eventRes.data?.user_rsvp_status ?? null)
       setAttendees(attendeesRes.data ?? [])
-      if (authUserRes.data?.user) {
-        setMyUserId(authUserRes.data.user.id)
-      }
     } catch {
       // Non-fatal
     } finally {

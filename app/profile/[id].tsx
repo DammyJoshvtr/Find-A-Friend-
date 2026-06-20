@@ -17,11 +17,13 @@ import type { ConnectionStatus } from '../../lib/discoverLikes'
 import { Alert } from 'react-native'
 import { likePost } from '../../lib/feed'
 import { getInitials, getTimeAgo } from '../../lib/matching'
-import { supabase } from '../../lib/supabase'
+// import { supabase } from '../../lib/supabase'
 import type { Profile } from '../../lib/profiles'
 import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import VerifiedBadge from '../../components/ui/VerifiedBadge'
+import { getCurrentUser } from 'aws-amplify/auth'
+import { client } from '../../lib/aws'
 
 type Tab = 'posts' | 'liked'
 
@@ -107,11 +109,7 @@ export default function ProfileScreen() {
   }, [activeTab, profile])
 
   const refreshCounts = useCallback(async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('follower_count, following_count')
-      .eq('id', id)
-      .single()
+    const { data } = await client.models.Profile.get({ id })
     if (data) {
       setFollowerCount(data.follower_count ?? 0)
       setFollowingCount(data.following_count ?? 0)
@@ -123,6 +121,8 @@ export default function ProfileScreen() {
     if (!id) return
     const channelName = `profile-rt:${id}`
 
+    // TODO: AWS Amplify Realtime
+    /*
     // Remove any stale channel with this name (e.g. after React Navigation reconnect)
     const stale = supabase.getChannels().find(c => c.topic === `realtime:${channelName}`)
     if (stale) supabase.removeChannel(stale)
@@ -147,6 +147,7 @@ export default function ProfileScreen() {
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
+    */
     // refreshCounts is stable while id is unchanged; omit to prevent double-subscribe on reconnect
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
@@ -154,7 +155,8 @@ export default function ProfileScreen() {
   const loadProfile = async () => {
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      let user;
+      try { user = await getCurrentUser() } catch {}
 
       const [profileRes, connStatus] = await Promise.all([
         getProfileById(id),
@@ -187,14 +189,12 @@ export default function ProfileScreen() {
       setPosts(data as MiniPost[])
     } else {
       // Liked posts — fetch from liked_posts view or posts joined with likes
-      const { data: { user } } = await supabase.auth.getUser()
-      const targetId = user?.id === id ? user.id : id
-      const { data } = await supabase
-        .from('post_likes')
-        .select('post_id, posts(id, body, tags, image_url, is_anonymous, likes_count, comments_count, created_at)')
-        .eq('user_id', targetId)
-        .order('created_at', { ascending: false })
-        .limit(30)
+      let user;
+      try { user = await getCurrentUser() } catch {}
+      const targetId = user?.userId === id ? user.userId : id
+      const { data } = await client.models.PostLike.list({
+        // TODO: complex query
+      })
       const likedData = (data ?? [])
         .map((r: any) => r.posts)
         .filter(Boolean) as MiniPost[]

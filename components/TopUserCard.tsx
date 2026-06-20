@@ -1,6 +1,6 @@
 import { ConnectionStatus, likeUser, unlikeUser } from "@/lib/discoverLikes";
 import { FollowProfile, followUser, unfollowUser } from "@/lib/follows";
-import { supabase } from "@/lib/supabase";
+import { client } from "@/lib/aws";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -51,7 +51,8 @@ export default function TopUserCard({
   }, [user.follower_count]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+    // TODO: AWS Auth
+    (client as any).auth.getUser().then(({ data: { user: authUser } }: any) => {
       if (authUser) setCurrentUserId(authUser.id);
     });
   }, []);

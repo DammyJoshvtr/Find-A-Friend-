@@ -1,4 +1,5 @@
-import { supabase } from './supabase'
+import { client } from './aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 
 export type GameType = 'pool' | 'trivia' | 'wordle'
 
@@ -92,12 +93,11 @@ export async function getLeaderboard(
   limit = 20
 ): Promise<{ data: LeaderboardEntry[] | null; error: Error | null }> {
   try {
-    const { data, error } = await supabase
-      .from('game_sessions')
-      .select('winner_id, player1_id, player2_id')
-      .eq('game_type', gameType)
+    const { data, errors } = await client.models.GameSession.list({
+      filter: { game_type: { eq: gameType } }
+    })
 
-    if (error) throw error
+    if (errors) throw new Error(errors[0].message)
 
     const winMap = new Map<string, number>()
     const playedMap = new Map<string, number>()
@@ -117,12 +117,11 @@ export async function getLeaderboard(
     if (ranked.length === 0) return { data: [], error: null }
 
     const ids = ranked.map(([id]) => id)
-    const { data: profiles, error: profErr } = await supabase
-      .from('profiles')
-      .select('id, full_name, avatar_url')
-      .in('id', ids)
-
-    if (profErr) throw profErr
+    // Naive fetch for profiles since IN filter on arrays of ids might be complex, 
+    // but assuming client.models.Profile.list with OR works or we just fetch all and filter
+    const profPromises = ids.map(id => client.models.Profile.get({ id }))
+    const profResults = await Promise.all(profPromises)
+    const profiles = profResults.map(r => r.data).filter(Boolean)
 
     const profMap = new Map((profiles ?? []).map((p: any) => [p.id, p]))
 
@@ -152,21 +151,25 @@ export async function getMyStats(): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    const user = await getCurrentUser()
 
-    const { data, error } = await supabase
-      .from('game_sessions')
-      .select('game_type, winner_id')
-      .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`)
+    const { data, errors } = await client.models.GameSession.list({
+      filter: {
+        or: [
+          { player1_id: { eq: user.userId } },
+          { player2_id: { eq: user.userId } }
+        ]
+      }
+    })
 
-    if (error) throw error
+    if (errors) throw new Error(errors[0].message)
 
     const map = new Map<string, { wins: number; played: number }>()
     for (const row of (data ?? [])) {
+      if (!row.game_type) continue;
       const cur = map.get(row.game_type) ?? { wins: 0, played: 0 }
       cur.played++
-      if (row.winner_id === user.id) cur.wins++
+      if (row.winner_id === user.userId) cur.wins++
       map.set(row.game_type, cur)
     }
 
@@ -188,13 +191,13 @@ export async function getMyRank(gameType: GameType): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { data: null, error: null }
+    let user;
+    try { user = await getCurrentUser() } catch { return { data: null, error: null } }
 
     const { data } = await getLeaderboard(gameType, 200)
     if (!data) return { data: null, error: null }
 
-    const idx = data.findIndex(e => e.user_id === user.id)
+    const idx = data.findIndex(e => e.user_id === user.userId)
     return { data: idx === -1 ? null : idx + 1, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
@@ -211,22 +214,19 @@ export async function recordGameResult(
   durationSeconds?: number
 ): Promise<{ error: Error | null }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    const user = await getCurrentUser()
 
-    const { error } = await supabase
-      .from('game_sessions')
-      .insert({
-        game_type: gameType,
-        player1_id: user.id,
-        player2_id: opponentId,
-        winner_id: winnerId,
-        score: score ?? {},
-        duration_seconds: durationSeconds ?? null,
-        finished_at: new Date().toISOString(),
-      })
+    const { errors } = await client.models.GameSession.create({
+      game_type: gameType,
+      player1_id: user.userId,
+      player2_id: opponentId,
+      winner_id: winnerId,
+      score: score ? JSON.stringify(score) : null,
+      duration_seconds: durationSeconds ?? null,
+      finished_at: new Date().toISOString(),
+    })
 
-    if (error) throw error
+    if (errors) throw new Error(errors[0].message)
     return { error: null }
   } catch (err) {
     return { error: err as Error }

@@ -2,7 +2,7 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { router } from "expo-router";
 import { GAME_META, type GameType } from "../../lib/games";
-import { supabase } from "../../lib/supabase";
+import { client } from "../../lib/aws";
 import { useTheme } from "../../lib/theme";
 import { typography } from "../../lib/typography";
 
@@ -38,7 +38,7 @@ export function ChallengeBubble({
     } as any);
 
     // Send acceptance message
-    await supabase.from("messages").insert({
+    await client.models.messages.create({
       conversation_id: convId,
       sender_id: myId,
       body: JSON.stringify({
@@ -48,15 +48,15 @@ export function ChallengeBubble({
         label: challenge.label,
         sessionId: "", // Will be matched by opponentId in waiting room
       }),
-    });
+    } as any);
   };
 
   const handleDecline = async () => {
-    await supabase.from("messages").insert({
+    await client.models.messages.create({
       conversation_id: convId,
       sender_id: myId,
       body: `❌ Declined the ${challenge.emoji} ${challenge.label} challenge.`,
-    });
+    } as any);
   };
 
   return (

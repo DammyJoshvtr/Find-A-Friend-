@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { supabase } from '../lib/supabase'
+import { client } from '../lib/aws'
 
 export interface UserSticker {
   id: string
@@ -22,22 +22,22 @@ export const useStickerStore = create<StickerState>((set, get) => ({
   loadStickers: async () => {
     if (get().loaded || get().loading) return
     set({ loading: true })
-    const { data: { user } } = await supabase.auth.getUser()
+    // TODO: AWS Auth
+    const { data: { user } } = await (client as any).auth.getUser()
     if (!user) {
       set({ loading: false })
       return
     }
-    const { data } = await supabase
-      .from('user_stickers')
-      .select('id, media_url')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
+    const { data } = await client.models.user_stickers.list({
+      filter: { user_id: { eq: user.id } }
+    } as any)
     
     if (data) set({ stickers: data, loaded: true })
     set({ loading: false })
   },
   addSticker: async (url: string) => {
-    const { data: { user } } = await supabase.auth.getUser()
+    // TODO: AWS Auth
+    const { data: { user } } = await (client as any).auth.getUser()
     if (!user) return { error: new Error('Not logged in') }
 
     // Avoid duplicates
@@ -45,11 +45,7 @@ export const useStickerStore = create<StickerState>((set, get) => ({
       return { error: new Error('Sticker already saved') }
     }
 
-    const { data, error } = await supabase
-      .from('user_stickers')
-      .insert({ user_id: user.id, media_url: url })
-      .select('id, media_url')
-      .single()
+    const { data, error } = await client.models.user_stickers.create({ user_id: user.id, media_url: url } as any)
 
     if (error) return { error }
     if (data) {
@@ -58,7 +54,7 @@ export const useStickerStore = create<StickerState>((set, get) => ({
     return { error: null }
   },
   removeSticker: async (id: string) => {
-    const { error } = await supabase.from('user_stickers').delete().eq('id', id)
+    const { error } = await client.models.user_stickers.delete({ id } as any)
     if (!error) {
       set(state => ({ stickers: state.stickers.filter(s => s.id !== id) }))
     }

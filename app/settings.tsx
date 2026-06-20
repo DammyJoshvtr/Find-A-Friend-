@@ -8,8 +8,9 @@ import { router, Stack } from 'expo-router'
 import { useState } from 'react'
 import { Ionicons } from '@expo/vector-icons'
 import { useAuthStore } from '../store/authStore'
-import { supabase } from '../lib/supabase'
+// import { supabase } from '../lib/supabase'
 import { useTheme } from '../lib/theme'
+import { client } from '../lib/aws'
 import * as Updates from 'expo-updates'
 
 export default function SettingsScreen() {
@@ -89,10 +90,10 @@ export default function SettingsScreen() {
         { text: 'Delete', style: 'destructive', onPress: async () => {
           try {
             if (user?.id) {
-              await supabase.from('profiles').delete().eq('id', user.id)
+              await client.models.Profile.delete({ id: user.id })
             }
           } catch {}
-          await supabase.auth.signOut()
+          await signOut()
           Toast.show({ type: 'success', text1: 'Account deleted', text2: 'Your data has been removed.' })
           router.replace('/(auth)/welcome' as any)
         }},

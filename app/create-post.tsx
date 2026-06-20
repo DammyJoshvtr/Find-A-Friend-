@@ -22,7 +22,8 @@ import { router, useLocalSearchParams } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { createPost } from '../lib/feed'
 import { getClubs } from '../lib/clubs'
-import { supabase } from '../lib/supabase'
+import { client } from '../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import { uploadFile } from '../lib/upload'
 import type { Club } from '../lib/clubs'
 import { useTheme } from '../lib/theme'
@@ -96,11 +97,11 @@ export default function CreatePostScreen() {
   }
 
   const uploadMedia = async (uri: string): Promise<string> => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) throw new Error('Not authenticated')
+    const user = await getCurrentUser()
+    if (!user) throw new Error('Not authenticated')
     const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg'
     const randomStr = Math.random().toString(36).substring(7)
-    const path = `${session.user.id}/${Date.now()}-${randomStr}.${ext}`
+    const path = `${user.userId}/${Date.now()}-${randomStr}.${ext}`
     const isVideo = ['mp4', 'mov', 'm4v', '3gp'].includes(ext)
     const mimeType = isVideo ? `video/${ext === 'mov' ? 'quicktime' : 'mp4'}` : `image/${ext === 'jpg' ? 'jpeg' : ext}`
 

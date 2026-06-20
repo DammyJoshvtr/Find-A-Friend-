@@ -1,12 +1,15 @@
 import { useEffect, useState, useRef } from 'react'
-import { AppState, Platform, Alert } from 'react-native'
+import { AppState, Platform, Alert, View, useWindowDimensions } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { Stack, router, useSegments } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { StatusBar } from 'expo-status-bar'
 import * as Updates from 'expo-updates'
 import Toast from 'react-native-toast-message'
-import { supabase } from '../lib/supabase'
+import { client, subscribeToChannel } from '../lib/aws';
+import '../lib/aws'
+import { getCurrentUser, fetchAuthSession } from 'aws-amplify/auth'
+import { Hub } from 'aws-amplify/utils'
 import { useAuthStore } from '../store/authStore'
 import { useThemeStore } from '../store/themeStore'
 import { useNotificationsStore } from '../store/notificationsStore'
@@ -39,7 +42,7 @@ import { Ionicons } from "@expo/vector-icons";
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function AppStack() {
-  const { session, setSession } = useAuthStore();
+  const { session, user, setSession } = useAuthStore();
   const segments = useSegments();
   const [mounted, setMounted] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -47,16 +50,29 @@ function AppStack() {
 
   useEffect(() => {
     setMounted(true);
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setInitialized(true);
+    
+    const initAuth = async () => {
+      try {
+        const session = await fetchAuthSession();
+        const user = await getCurrentUser();
+        setSession(session, user);
+      } catch (err) {
+        setSession(null, null);
+      } finally {
+        setInitialized(true);
+      }
+    };
+    initAuth();
+
+    const hubListenerCancel = Hub.listen('auth', (data) => {
+      if (data.payload.event === 'signedIn') {
+        initAuth();
+      } else if (data.payload.event === 'signedOut') {
+        setSession(null, null);
+      }
     });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) =>
-      setSession(session),
-    );
-    return () => subscription.unsubscribe();
+    
+    return () => hubListenerCancel();
   }, []);
 
   const { addNotification, loadUnreadCount } = useNotificationsStore();
@@ -67,7 +83,7 @@ function AppStack() {
   );
 
   useEffect(() => {
-    if (!session) return;
+    if (!session || !user) return;
 
     // Push notification registration (native)
     registerForPushNotifications().then((token) => {
@@ -76,7 +92,7 @@ function AppStack() {
 
     // Web Push subscription (iOS PWA / Android PWA — background push via VAPID)
     if (Platform.OS === "web") {
-      subscribeToWebPush(session.user.id);
+      subscribeToWebPush(user.userId);
     }
 
     // Load initial unread count
@@ -86,27 +102,23 @@ function AppStack() {
     useStreakStore.getState().recordDailyActivity();
     // ── Presence & Active Users Fallback (Database-backed Heartbeat) ───────────
     const updatePresence = async () => {
-      if (!session?.user?.id) return
+      if (!user?.userId) return
       try {
-        await supabase
-          .from('profiles')
-          .update({ last_seen_at: new Date().toISOString() })
-          .eq('id', session.user.id)
+        await client.models.profiles.update({ id: user.userId, last_active_date: new Date().toISOString() })
       } catch (err) {
         console.warn('Failed to update presence heartbeat:', err)
       }
     }
 
     const fetchOnlineUsers = async () => {
-      if (!session?.user?.id) return
+      if (!user?.userId) return
       try {
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id')
-          .gt('last_seen_at', fiveMinutesAgo)
+        const { data, errors } = await client.models.profiles.list({
+          filter: { last_active_date: { gt: fiveMinutesAgo } }
+        })
 
-        if (error) throw error
+        if (errors) throw errors
         if (data) {
           setOnlineUsers(data.map(d => d.id))
         }
@@ -140,7 +152,7 @@ function AppStack() {
     useNotificationsStore.getState().loadNotifications()
 
     const pollInterval = setInterval(async () => {
-      if (!session?.user?.id) return
+      if (!user?.userId) return
       try {
         const store = useNotificationsStore.getState()
         const existingIds = new Set(store.notifications.map(n => n.id))
@@ -170,32 +182,24 @@ function AppStack() {
     }, 15000)
 
     // ── Dashboard-triggered OTA updates + post deletions ──────────────────
-    const updateChannel = supabase
-      .channel("app-updates")
-      .on("broadcast", { event: "force_update" }, () => checkForUpdate())
-      .on("broadcast", { event: "post_deleted" }, (payload: any) => {
-        const id = payload.payload?.postId as string | undefined;
+    const updateChannel = subscribeToChannel("app-updates", (event, payload) => {
+      if (event === "force_update") checkForUpdate();
+      else if (event === "post_deleted") {
+        const id = payload?.postId as string | undefined;
         if (id) removePost(id);
-      })
-      .subscribe();
+      }
+    });
 
     // ── Game challenge interception ──────────────────────────────────────────
     // Listen for incoming game challenges in the messages table.
-    // When the challenger sends a game_challenge message, this fires and shows
-    // an in-app Accept/Decline dialog.
-    const gameChannel = supabase
-      .channel(`game-challenges-${session.user.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-      }, async (payload: any) => {
+    const gameChannel = client.models.messages.onCreate().subscribe({
+      next: async (data) => {
         try {
-          const msg = payload.new
+          const msg = data;
           // Only process messages sent TO the current user (not by them)
-          if (msg.sender_id === session.user.id) return
+          if (msg.sender_id === user.userId) return
           let body: any = null
-          try { body = JSON.parse(msg.body) } catch { return }
+          try { body = JSON.parse(msg.body || '') } catch { return }
           if (body?._type !== 'game_challenge') return
 
           const gt = body.gameType as GameType
@@ -203,11 +207,7 @@ function AppStack() {
           if (!meta) return
 
           // Fetch challenger's name
-          const { data: challenger } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', msg.sender_id)
-            .single()
+          const { data: challenger } = await client.models.profiles.get({ id: msg.sender_id || '' });
           const challengerName = challenger?.full_name ?? 'Someone'
 
           Alert.alert(
@@ -236,19 +236,19 @@ function AppStack() {
         } catch {
           // Non-fatal — ignore malformed messages
         }
-      })
-      .subscribe()
+      }
+    });
 
     return () => {
       clearInterval(presenceHeartbeat)
       clearInterval(presenceFetchInterval)
       clearInterval(pollInterval)
-      supabase.removeChannel(updateChannel)
-      supabase.removeChannel(gameChannel)
+      updateChannel.unsubscribe()
+      gameChannel.unsubscribe()
       appStateSub.remove()
       presenceChannelRef.current = null
     }
-  }, [session?.user?.id, removePost])
+  }, [session, user?.userId, removePost])
 
   useEffect(() => {
     if (!mounted || !initialized) return;
@@ -344,8 +344,8 @@ function AppStack() {
         <Stack.Screen name="feedback" />
       </Stack>
       {/* Show push-permission banner for existing iOS PWA users */}
-      {Platform.OS === 'web' && session && (
-        <WebPushBanner userId={session.user.id} />
+      {Platform.OS === 'web' && session && user && (
+        <WebPushBanner userId={user.userId} />
       )}
     </>
   );
@@ -405,11 +405,46 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
         <ThemeProvider>
-          <AppStack />
-          <StreakModal />
-          <Toast />
+          <ResponsiveAppContainer>
+            <AppStack />
+            <StreakModal />
+            <Toast />
+          </ResponsiveAppContainer>
         </ThemeProvider>
       </ErrorBoundary>
     </GestureHandlerRootView>
   );
+}
+
+function ResponsiveAppContainer({ children }: { children: React.ReactNode }) {
+  const theme = useTheme();
+  const { width } = useWindowDimensions();
+  // On web, if screen is wider than typical mobile/tablet, center it with a max-width
+  const isLargeScreen = Platform.OS === 'web' && width > 600;
+
+  if (isLargeScreen) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.base || '#0a0a0a', alignItems: 'center' }}>
+        <View 
+          style={{ 
+            flex: 1, 
+            width: '100%', 
+            maxWidth: 500, 
+            backgroundColor: theme.bg,
+            borderLeftWidth: 1,
+            borderRightWidth: 1,
+            borderColor: theme.border || 'rgba(150,150,150,0.1)',
+            shadowColor: '#000',
+            shadowOpacity: 0.2,
+            shadowRadius: 20,
+            elevation: 10
+          }}
+        >
+          {children}
+        </View>
+      </View>
+    );
+  }
+
+  return <View style={{ flex: 1 }}>{children}</View>;
 }

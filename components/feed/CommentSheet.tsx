@@ -24,7 +24,7 @@ import { getComments, commentOnPost } from '../../lib/feed'
 import { useFeedStore } from '../../store/feedStore'
 import { getInitials, getTimeAgo } from '../../lib/matching'
 import type { PostComment } from '../../lib/feed'
-import { supabase } from '../../lib/supabase'
+import { client } from '../../lib/aws'
 
 interface CommentSheetProps {
   postId: string
@@ -59,7 +59,8 @@ export default function CommentSheet({ postId, visible, onClose, isAnonymousPost
 
     loadComments()
 
-    const channel = supabase
+    // TODO: Complex Subscription
+    const channel = (client as any)
       .channel(`post-comments-sheet:${postId}`)
       .on('postgres_changes', {
         event: 'INSERT',
@@ -69,11 +70,7 @@ export default function CommentSheet({ postId, visible, onClose, isAnonymousPost
       }, async (payload: any) => {
         let profile = null
         if (!payload.new.is_anonymous) {
-          const { data: p } = await supabase
-            .from('profiles')
-            .select('id, full_name, avatar_url')
-            .eq('id', payload.new.author_id)
-            .single()
+          const { data: p } = await client.models.profiles.list({ filter: { id: { eq: payload.new.author_id } } } as any)
           profile = p
         }
 
@@ -100,7 +97,7 @@ export default function CommentSheet({ postId, visible, onClose, isAnonymousPost
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      (client as any).removeChannel(channel)
     }
   }, [visible, postId])
 

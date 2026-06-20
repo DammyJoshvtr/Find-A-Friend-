@@ -1,16 +1,18 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "redirects": [
-    {
-      "source": "/pwa",
-      "destination": "https://faf-pwa.vercel.app/",
-      "permanent": false
-    },
-    {
-      "source": "/pwa/:path*",
-      "destination": "https://faf-pwa.vercel.app/:path*",
-      "permanent": false
-    }
-  ]
+    "trailingSlash":  false,
+    "cleanUrls":  true,
+    "rewrites":  [
+                     {
+                         "destination":  "/pwa/sw.js",
+                         "source":  "/sw.js"
+                     },
+                     {
+                         "destination":  "/pwa/manifest.json",
+                         "source":  "/manifest.json"
+                     },
+                     {
+                         "destination":  "/pwa/favicon.ico",
+                         "source":  "/favicon.ico"
+                     }
+                 ]
 }

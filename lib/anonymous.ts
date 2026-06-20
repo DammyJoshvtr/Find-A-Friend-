@@ -10,7 +10,8 @@
  * Admin identity reveal goes through an Edge Function (or service_role call
  * in lib/admin.ts) — never directly from this file.
  */
-import { supabase } from './supabase'
+import { client } from './aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import type { FeedPost, CreatePostPayload } from './feed'
 
 // ---------------------------------------------------------------------------
@@ -48,23 +49,18 @@ export async function createAnonymousPost(
   imageUrl?: string | null
 ): Promise<{ data: AnonymousPost | null; error: Error | null }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    const user = await getCurrentUser()
 
-    const { data, error } = await supabase
-      .from('posts')
-      .insert({
-        author_id: user.id,     // stored for audit; masked in public_posts view
-        body,
-        tags: tags ?? [],
-        image_url: imageUrl ?? null,
-        is_anonymous: true,
-        post_type: 'anonymous',
-      })
-      .select('id, body, tags, image_url, is_anonymous, post_type, likes_count, comments_count, created_at')
-      .single()
+    const { data, errors } = await client.models.Post.create({
+      author_id: user.userId,     // stored for audit; masked in public_posts view
+      body,
+      tags: tags ?? [],
+      image_url: imageUrl ?? null,
+      is_anonymous: true,
+      post_type: 'anonymous',
+    })
 
-    if (error) throw error
+    if (errors) throw new Error(errors[0].message)
 
     // Return sanitized row — never expose author_id to caller
     const sanitized: AnonymousPost = {
@@ -77,7 +73,7 @@ export async function createAnonymousPost(
       likes_count: data.likes_count ?? 0,
       comments_count: data.comments_count ?? 0,
       author_id: null,
-      created_at: data.created_at,
+      created_at: data.createdAt,
     }
 
     return { data: sanitized, error: null }
@@ -99,24 +95,18 @@ export async function getAnonymousPosts(
   limit = 20
 ): Promise<{ data: AnonymousPost[] | null; error: Error | null }> {
   try {
-    let query = supabase
-      .from('posts')
-      .select('id, body, tags, image_url, is_anonymous, post_type, likes_count, comments_count, author_id, created_at')
-      .eq('is_anonymous', true)
-      .order('created_at', { ascending: false })
-      .limit(limit)
-
-    if (cursor) {
-      query = query.lt('created_at', cursor)
-    }
-
-    const { data, error } = await query
-    if (error) throw error
+    const { data, errors } = await client.models.Post.list({
+      filter: { is_anonymous: { eq: true } },
+      limit
+    })
+    
+    if (errors) throw new Error(errors[0].message)
 
     // Ensure author_id is always null on the way out (belt-and-suspenders)
     const sanitized = (data ?? []).map((post: any) => ({
       ...post,
       author_id: null,
+      created_at: post.createdAt
     })) as AnonymousPost[]
 
     return { data: sanitized, error: null }
@@ -147,16 +137,13 @@ export async function getAnonymousPostIdentity(postId: string): Promise<{
   error: Error | null
 }> {
   try {
-    // This will only succeed when called with a service_role client.
-    // The admin Edge Function (lib/admin.ts) creates a service_role client.
-    const { data, error } = await supabase
-      .from('anonymous_post_audit')
-      .select('post_id, real_author, created_at')
-      .eq('post_id', postId)
-      .single()
+    // Requires an AppSync mutation or direct model query with admin auth
+    const { data, errors } = await client.models.AnonymousPostAudit.list({
+      filter: { post_id: { eq: postId } }
+    })
 
-    if (error) throw error
-    return { data, error: null }
+    if (errors) throw new Error(errors[0].message)
+    return { data: data?.[0] as any, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -173,16 +160,16 @@ export async function getAnonymousPostIdentity(postId: string): Promise<{
  * Does NOT use public_posts view so it can access the unmasked author_id.
  */
 export async function isMyAnonymousPost(postId: string): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return false
+  let user;
+  try { user = await getCurrentUser() } catch { return false }
 
-  const { data } = await supabase
-    .from('posts')
-    .select('id')
-    .eq('id', postId)
-    .eq('author_id', user.id)
-    .eq('is_anonymous', true)
-    .maybeSingle()
+  const { data } = await client.models.Post.list({
+    filter: {
+      id: { eq: postId },
+      author_id: { eq: user.userId },
+      is_anonymous: { eq: true }
+    }
+  })
 
-  return !!data
+  return (data?.length ?? 0) > 0
 }

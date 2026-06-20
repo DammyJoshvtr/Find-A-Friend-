@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
-import { supabase } from '../../lib/supabase'
+import { client } from '../../lib/aws'
 import { getInitials } from '../../lib/matching'
 import { useTheme } from '../../lib/theme'
 
@@ -30,10 +30,7 @@ export default function FollowersScreen() {
   const loadFollowers = async () => {
     setLoading(true)
     try {
-      const { data } = await supabase
-        .from('follows')
-        .select('follower_id, profiles!follows_follower_id_fkey(id, full_name, avatar_url, department)')
-        .eq('following_id', id)
+      const { data } = await client.models.follows.list({ filter: { following_id: { eq: id } } }) // TODO: Complex select
       const profiles = (data ?? [])
         .map((r: any) => r.profiles)
         .filter(Boolean) as FollowerProfile[]

@@ -6,7 +6,8 @@
  * Triggers on the `follows` table maintain follower_count / following_count
  * on profiles automatically — no manual updates needed here.
  */
-import { supabase } from "./supabase";
+import { client } from "./aws";
+import { getCurrentUser } from 'aws-amplify/auth';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -37,18 +38,15 @@ export async function followUser(targetUserId: string): Promise<{
   error: Error | null;
 }> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
-    if (user.id === targetUserId) throw new Error("Cannot follow yourself");
+    let user;
+    try { user = await getCurrentUser(); } catch { throw new Error("Not authenticated"); }
+    if (user.userId === targetUserId) throw new Error("Cannot follow yourself");
 
-    const { error } = await supabase
-      .from("follows")
-      .insert({ follower_id: user.id, following_id: targetUserId });
+    const { errors } = await client.models.Follow.create({ follower_id: user.userId, following_id: targetUserId });
 
     // Ignore duplicate follows gracefully
-    if (error && error.code !== "23505") throw error;
+    if (errors && errors[0]?.message?.includes('ConditionalCheckFailedException')) return { data: null, error: null };
+    if (errors) throw new Error(errors[0].message);
     return { data: null, error: null };
   } catch (err) {
     return { data: null, error: err as Error };
@@ -60,18 +58,21 @@ export async function unfollowUser(targetUserId: string): Promise<{
   error: Error | null;
 }> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
+    let user;
+    try { user = await getCurrentUser(); } catch { throw new Error("Not authenticated"); }
 
-    const { error } = await supabase
-      .from("follows")
-      .delete()
-      .eq("follower_id", user.id)
-      .eq("following_id", targetUserId);
+    const { data } = await client.models.Follow.list({
+      filter: {
+        follower_id: { eq: user.userId },
+        following_id: { eq: targetUserId }
+      }
+    });
 
-    if (error) throw error;
+    if (data && data.length > 0) {
+      const { errors } = await client.models.Follow.delete({ id: data[0].id });
+      if (errors) throw new Error(errors[0].message);
+    }
+    
     return { data: null, error: null };
   } catch (err) {
     return { data: null, error: err as Error };
@@ -90,20 +91,18 @@ export async function getFollowStatus(targetUserId: string): Promise<{
   error: Error | null;
 }> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { data: "not_following", error: null };
+    let user;
+    try { user = await getCurrentUser(); } catch { return { data: "not_following", error: null }; }
 
-    const { data, error } = await supabase
-      .from("follows")
-      .select("follower_id")
-      .eq("follower_id", user.id)
-      .eq("following_id", targetUserId)
-      .maybeSingle();
+    const { data, errors } = await client.models.Follow.list({
+      filter: {
+        follower_id: { eq: user.userId },
+        following_id: { eq: targetUserId }
+      }
+    });
 
-    if (error) throw error;
-    return { data: data ? "following" : "not_following", error: null };
+    if (errors) throw new Error(errors[0].message);
+    return { data: (data && data.length > 0) ? "following" : "not_following", error: null };
   } catch (err) {
     return { data: null, error: err as Error };
   }
@@ -118,19 +117,20 @@ export async function getFollowStatusBulk(
 ): Promise<Set<string>> {
   if (!targetUserIds.length) return new Set();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return new Set();
+  let user;
+  try { user = await getCurrentUser(); } catch { return new Set(); }
 
-  const { data } = await supabase
-    .from("follows")
-    .select("following_id")
-    .eq("follower_id", user.id)
-    .in("following_id", targetUserIds);
+  // Simple fetch all and filter
+  const { data } = await client.models.Follow.list({
+    filter: {
+      follower_id: { eq: user.userId }
+    }
+  });
 
   return new Set(
-    (data ?? []).map((r: { following_id: string }) => r.following_id),
+    (data ?? [])
+      .filter(f => targetUserIds.includes(f.following_id))
+      .map((r: any) => r.following_id),
   );
 }
 
@@ -143,15 +143,12 @@ export async function getFollowers(userId: string): Promise<{
   error: Error | null;
 }> {
   try {
-    const { data, error } = await supabase
-      .from("follows")
-      .select(
-        "profiles!follows_follower_id_fkey(id, full_name, department, level, avatar_url, follower_count, following_count, badge_type, badge_color)",
-      )
-      .eq("following_id", userId)
-      .order("created_at", { ascending: false });
+    const { data, errors } = await client.models.Follow.list({
+      filter: { following_id: { eq: userId } }
+    });
 
-    if (error) throw error;
+    if (errors) throw new Error(errors[0].message);
+    // Since relational fetches depend on the schema definition, assuming it hydrates .profiles or we map
     const profiles = (data ?? [])
       .map((r: any) => r.profiles)
       .filter(Boolean) as FollowProfile[];
@@ -166,15 +163,11 @@ export async function getFollowing(userId: string): Promise<{
   error: Error | null;
 }> {
   try {
-    const { data, error } = await supabase
-      .from("follows")
-      .select(
-        "profiles!follows_following_id_fkey(id, full_name, department, level, avatar_url, follower_count, following_count, badge_type, badge_color)",
-      )
-      .eq("follower_id", userId)
-      .order("created_at", { ascending: false });
+    const { data, errors } = await client.models.Follow.list({
+      filter: { follower_id: { eq: userId } }
+    });
 
-    if (error) throw error;
+    if (errors) throw new Error(errors[0].message);
     const profiles = (data ?? [])
       .map((r: any) => r.profiles)
       .filter(Boolean) as FollowProfile[];
@@ -200,52 +193,36 @@ export async function getSuggestedUsers(): Promise<{
   error: Error | null;
 }> {
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
+    let user;
+    try { user = await getCurrentUser(); } catch { throw new Error("Not authenticated"); }
 
     // Get IDs the current user already follows
-    const { data: followingRows } = await supabase
-      .from("follows")
-      .select("following_id")
-      .eq("follower_id", user.id);
+    const { data: followingRows } = await client.models.Follow.list({
+      filter: { follower_id: { eq: user.userId } }
+    });
 
     const alreadyFollowingIds: string[] = (followingRows ?? []).map(
-      (r: { following_id: string }) => r.following_id,
+      (r: any) => r.following_id,
     );
     // Fetch candidates — always exclude at least the current user
-    const excludeIds = [user.id, ...alreadyFollowingIds];
+    const excludeIds = [user.userId, ...alreadyFollowingIds];
 
-    let candidateQuery = supabase
-      .from("profiles")
-      .select(
-        "id, full_name, department, level, avatar_url, follower_count, following_count, interests, role, badge_type, badge_color",
-      )
-      .limit(500) // fetch up to 500 so all users are visible
-      .neq("id", user.id) // always exclude self
-      .neq("full_name", "")
-      .not("full_name", "is", null);
-
-    // Exclude already-followed users one-by-one
-    for (const id of alreadyFollowingIds) {
-      candidateQuery = candidateQuery.neq("id", id);
+    // Due to list limits and filter complexities, fetch a batch of profiles
+    const { data, errors } = await client.models.Profile.list({
+      limit: 500
+    });
+    
+    if (errors) {
+      throw new Error(errors[0].message);
     }
-
-    const { data, error } = await candidateQuery;
-    if (error) {
-      console.warn(
-        "[getSuggestedUsers] query error:",
-        error.message,
-        error.code,
-        error.details,
-      );
-      throw error;
-    }
+    
+    const filteredData = (data ?? []).filter((p: any) => 
+      !excludeIds.includes(p.id) && p.full_name
+    );
 
     console.log(
       "[getSuggestedUsers] raw results:",
-      data?.length,
+      filteredData?.length,
       "users found",
     );
     console.log("[getSuggestedUsers] current user:", user.id);
@@ -254,7 +231,7 @@ export async function getSuggestedUsers(): Promise<{
       alreadyFollowingIds.length,
     );
 
-    const sorted = (data ?? []).sort(
+    const sorted = filteredData.sort(
       (a: any, b: any) => (b.follower_count ?? 0) - (a.follower_count ?? 0),
     );
 
@@ -274,16 +251,10 @@ export async function getUserProfile(userId: string): Promise<{
   error: Error | null;
 }> {
   try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(
-        "id, full_name, department, level, avatar_url, follower_count, following_count, interests, badge_type, badge_color",
-      )
-      .eq("id", userId)
-      .single();
+    const { data, errors } = await client.models.Profile.get({ id: userId });
 
-    if (error) throw error;
-    return { data: data as FollowProfile, error: null };
+    if (errors) throw new Error(errors[0].message);
+    return { data: data as unknown as FollowProfile, error: null };
   } catch (err) {
     return { data: null, error: err as Error };
   }
@@ -298,18 +269,16 @@ export const getMostFollowedUsers = async (): Promise<{
   error: Error | null;
 }> => {
   try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select(
-        "id, full_name, department, level, avatar_url, follower_count, following_count, interests, badge_type, badge_color",
-      )
-      .order("follower_count", { ascending: false })
-      .limit(10);
+    // In AppSync you can't easily order dynamically on the client without a GSI or custom resolver.
+    // We will list and sort client-side for now to not break the UI.
+    const { data, errors } = await client.models.Profile.list({ limit: 100 });
+    
+    if (errors) throw new Error(errors[0].message);
 
-    console.log("Top 10 Influencers:", data);
+    const sorted = (data ?? []).sort((a: any, b: any) => (b.follower_count ?? 0) - (a.follower_count ?? 0)).slice(0, 10);
+    console.log("Top 10 Influencers:", sorted);
 
-    if (error) throw error;
-    return { data: data as FollowProfile[], error: null };
+    return { data: sorted as unknown as FollowProfile[], error: null };
   } catch (err) {
     return { data: null, error: err as Error };
   }

@@ -12,11 +12,12 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useLocalSearchParams, router } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { getVendorDetail, toggleSaveDeal, getMySavedDealIds, createVendorOrder, getVendorOrders, updateOrderStatus, getDealReviews, createDealReview, getMyOrders } from '../../lib/vendors'
-import { supabase } from '../../lib/supabase'
+// import { supabase } from '../../lib/supabase'
 import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import type { VendorWithDeals, VendorDeal } from '../../lib/vendors'
 import { getTimeAgo } from '../../lib/matching'
+import { getCurrentUser } from 'aws-amplify/auth'
 
 const CATEGORY_COLORS: Record<string, string> = {
   Food: '#fbbf24',
@@ -149,15 +150,16 @@ export default function VendorDetailScreen() {
   const loadVendor = async () => {
     setLoading(true)
     try {
-      const [vendorRes, savedIds, authUserRes] = await Promise.all([
+      let authUser;
+      try { authUser = await getCurrentUser() } catch {}
+      const [vendorRes, savedIds] = await Promise.all([
         getVendorDetail(id),
-        getMySavedDealIds(),
-        supabase.auth.getUser(),
+        getMySavedDealIds()
       ])
       setVendor(vendorRes.data)
       setSavedDealIds(savedIds)
-      if (authUserRes.data?.user) {
-        setMyUserId(authUserRes.data.user.id)
+      if (authUser) {
+        setMyUserId(authUser.userId)
       }
     } catch {
       // Non-fatal

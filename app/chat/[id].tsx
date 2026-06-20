@@ -50,7 +50,8 @@ import {
 } from "../../lib/chatAttachments";
 import { GAME_META, type GameType } from "../../lib/games";
 import { getInitials } from "../../lib/matching";
-import { supabase } from "../../lib/supabase";
+import { client } from '../../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth';
 import { useTheme } from "../../lib/theme";
 import { typography } from "../../lib/typography";
 import { usePresenceStore } from "../../store/presenceStore";
@@ -461,7 +462,7 @@ export default function DirectMessageScreen() {
     try {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCurrentUser();
       if (!user || !otherUserId) {
         setLoading(false);
         return;
@@ -703,7 +704,7 @@ export default function DirectMessageScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
 
     setSending(true);
-    const { error: sendError } = await supabase.from("messages").insert({
+    const { error: sendError } = await client.models.messages.create({
       conversation_id: convId,
       sender_id: myId,
       body: payload,

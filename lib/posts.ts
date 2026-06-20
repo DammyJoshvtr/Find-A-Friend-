@@ -9,7 +9,8 @@
  * New helpers (toggleLike, addComment, repost) delegate to lib/feed.ts
  * which owns the fuller implementation.
  */
-import { supabase } from './supabase'
+import { client } from './aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 
 // ---------------------------------------------------------------------------
 // Feed posts (uses public_posts VIEW)
@@ -20,12 +21,10 @@ import { supabase } from './supabase'
  * Joins profiles so existing UI code (post.profiles?.full_name) keeps working.
  */
 export async function getFeedPosts() {
-  const { data, error } = await supabase
-    .from('posts')
-    .select('*, profiles!author_id(id, full_name, department, level, avatar_url)')
-    .eq('is_anonymous', false)
-    .order('created_at', { ascending: false })
-    .limit(20)
+  const { data, errors: error } = await client.models.posts.list({
+    filter: { is_anonymous: { eq: false } },
+    limit: 20
+  })
 
   if (error) {
     console.log('getFeedPosts error:', error)
@@ -44,21 +43,21 @@ export async function createPost(
   imageUrl: string | null = null,
   isAnonymous = false
 ) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not logged in' }
+  let user;
+  try {
+    user = await getCurrentUser();
+  } catch {
+    return { error: 'Not logged in' };
+  }
 
-  const { data, error } = await supabase
-    .from('posts')
-    .insert({
-      author_id: user.id,
-      body,
-      tags,
-      image_url: imageUrl ?? null,
-      is_anonymous: isAnonymous,
-      post_type: isAnonymous ? 'anonymous' : 'feed',
-    })
-    .select()
-    .single()
+  const { data, errors: error } = await client.models.posts.create({
+    author_id: user.userId,
+    body,
+    tags,
+    image_url: imageUrl ?? null,
+    is_anonymous: isAnonymous,
+    post_type: isAnonymous ? 'anonymous' : 'feed',
+  })
 
   return { data, error }
 }
@@ -72,8 +71,7 @@ export async function createPost(
  * the deprecated increment_likes RPC.
  */
 export async function likePost(postId: string) {
-  const { data, error } = await supabase
-    .rpc('toggle_post_like', { p_post_id: postId })
+  const { data, errors: error } = await (client.mutations as any).toggle_post_like({ p_post_id: postId })
   return { data, error }
 }
 
@@ -86,12 +84,10 @@ export async function likePost(postId: string) {
  * The VIEW returns author_id = NULL for anonymous posts, so no PII leaks.
  */
 export async function getConfessionPosts() {
-  const { data, error } = await supabase
-    .from('posts')
-    .select('id, body, tags, image_url, is_anonymous, post_type, likes_count, comments_count, author_id, created_at')
-    .eq('is_anonymous', true)
-    .order('created_at', { ascending: false })
-    .limit(20)
+  const { data, errors: error } = await client.models.posts.list({
+    filter: { is_anonymous: { eq: true } },
+    limit: 20
+  })
 
   if (error) {
     console.log('getConfessionPosts error:', error)
@@ -106,14 +102,14 @@ export async function getConfessionPosts() {
 // ---------------------------------------------------------------------------
 
 export async function addComment(postId: string, body: string, isAnonymous = false) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { error: 'Not logged in' }
+  let user;
+  try {
+    user = await getCurrentUser();
+  } catch {
+    return { error: 'Not logged in' };
+  }
 
-  const { data, error } = await supabase
-    .from('post_comments')
-    .insert({ post_id: postId, author_id: user.id, body, is_anonymous: isAnonymous })
-    .select('*, profiles!author_id(id, full_name, department, level, avatar_url)')
-    .single()
+  const { data, errors: error } = await client.models.post_comments.create({ post_id: postId, author_id: user.userId, body, is_anonymous: isAnonymous })
 
   const comment = data as any
   if (comment && comment.is_anonymous) {
@@ -125,11 +121,9 @@ export async function addComment(postId: string, body: string, isAnonymous = fal
 }
 
 export async function getComments(postId: string) {
-  const { data, error } = await supabase
-    .from('post_comments')
-    .select('*, profiles!author_id(id, full_name, department, level, avatar_url)')
-    .eq('post_id', postId)
-    .order('created_at', { ascending: true })
+  const { data, errors: error } = await client.models.post_comments.list({
+    filter: { post_id: { eq: postId } }
+  })
 
   const sanitized = (data ?? []).map((c: any) => {
     if (c.is_anonymous) {

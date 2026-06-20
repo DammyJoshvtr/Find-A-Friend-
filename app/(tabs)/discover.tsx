@@ -26,7 +26,8 @@ import type { TrendingHashtag } from "../../lib/feed";
 import { getTrending } from "../../lib/feed";
 import type { FollowProfile } from "../../lib/follows";
 import { getMostFollowedUsers, getSuggestedUsers } from "../../lib/follows";
-import { supabase } from "../../lib/supabase";
+import { client } from '../../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth';
 import { showTabBar } from "../../lib/tabBarAnim";
 import { useTheme } from "../../lib/theme";
 import { typography } from "../../lib/typography";
@@ -142,7 +143,7 @@ export default function DiscoverScreen() {
     loadData();
     getLikesCounts().then(setLikesCount);
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    getCurrentUser().then(({ data: { user } }) => {
       if (!user) return;
 
       supabase
@@ -209,7 +210,7 @@ export default function DiscoverScreen() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(followsChannel);
+      // supabase.removeChannel(followsChannel);
     };
   }, []);
 

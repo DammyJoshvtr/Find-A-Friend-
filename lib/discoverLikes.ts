@@ -1,19 +1,19 @@
-import { supabase } from './supabase'
+import { client } from './aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import type { FollowProfile } from './follows'
 
 // ─── Record a like (swipe right) ─────────────────────────────────────────────
 
 export async function likeUser(likedId: string): Promise<{ error: Error | null }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    const authUser = await getCurrentUser()
+    if (!authUser) throw new Error('Not authenticated')
+    const user = { id: authUser.userId }
     if (user.id === likedId) return { error: null }
 
-    const { error } = await supabase
-      .from('discover_likes')
-      .insert({ liker_id: user.id, liked_id: likedId })
+    const { errors: error } = await client.models.DiscoverLikes.create({ liker_id: user.id, liked_id: likedId })
 
-    if (error && error.code !== '23505') throw error  // ignore duplicate
+    if (error) throw error[0]  // ignore duplicate
     return { error: null }
   } catch (err) {
     return { error: err as Error }
@@ -27,28 +27,20 @@ export async function getLikesReceived(): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    const authUser = await getCurrentUser()
+    if (!authUser) throw new Error('Not authenticated')
+    const user = { id: authUser.userId }
 
     // Fetch who we liked first to filter out mutual connections
-    const { data: iLiked } = await supabase
-      .from('discover_likes')
-      .select('liked_id')
-      .eq('liker_id', user.id)
+    const { data: iLiked } = await client.models.DiscoverLikes.list({
+      filter: { liker_id: { eq: user.id } }
+    })
     const iLikedIds = (iLiked ?? []).map((r: any) => r.liked_id)
 
-    const { data, error } = await supabase
-      .from('discover_likes')
-      .select(`
-        liker_id,
-        created_at,
-        profiles!discover_likes_liker_id_fkey(
-          id, full_name, department, level, avatar_url,
-          follower_count, following_count, interests
-        )
-      `)
-      .eq('liked_id', user.id)
-      .order('created_at', { ascending: false })
+    const { data, errors: error } = await client.models.DiscoverLikes.list({
+      filter: { liked_id: { eq: user.id } },
+      selectionSet: ['liker_id', 'created_at', 'profiles.*']
+    })
 
     if (error) throw error
 
@@ -70,34 +62,28 @@ export async function getMutualLikes(): Promise<{
   error: Error | null
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    const authUser = await getCurrentUser()
+    if (!authUser) throw new Error('Not authenticated')
+    const user = { id: authUser.userId }
 
     // IDs I liked
-    const { data: iLiked } = await supabase
-      .from('discover_likes')
-      .select('liked_id')
-      .eq('liker_id', user.id)
+    const { data: iLiked } = await client.models.DiscoverLikes.list({
+      filter: { liker_id: { eq: user.id } }
+    })
 
     const iLikedIds = (iLiked ?? []).map((r: any) => r.liked_id)
     if (iLikedIds.length === 0) return { data: [], error: null }
 
     // From those, who also liked me back?
-    const { data, error } = await supabase
-      .from('discover_likes')
-      .select(`
-        liker_id,
-        profiles!discover_likes_liker_id_fkey(
-          id, full_name, department, level, avatar_url,
-          follower_count, following_count, interests
-        )
-      `)
-      .eq('liked_id', user.id)
-      .in('liker_id', iLikedIds)
+    const { data, errors: error } = await client.models.DiscoverLikes.list({
+      filter: { liked_id: { eq: user.id } },
+      selectionSet: ['liker_id', 'profiles.*']
+    })
 
     if (error) throw error
 
     const profiles = (data ?? [])
+      .filter((r: any) => iLikedIds.includes(r.liker_id))
       .map((r: any) => r.profiles)
       .filter(Boolean) as FollowProfile[]
 
@@ -114,8 +100,8 @@ export async function getLikesCounts(): Promise<{
   mutual: number
 }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return { received: 0, mutual: 0 }
+    const authUser = await getCurrentUser()
+    if (!authUser) return { received: 0, mutual: 0 }
 
     const [likesRes, mutualRes] = await Promise.all([
       getLikesReceived(),
@@ -137,16 +123,19 @@ export type ConnectionStatus = 'none' | 'requested_sent' | 'requested_received' 
 
 export async function unlikeUser(likedId: string): Promise<{ error: Error | null }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) throw new Error('Not authenticated')
+    const authUser = await getCurrentUser()
+    if (!authUser) throw new Error('Not authenticated')
+    const user = { id: authUser.userId }
 
-    const { error } = await supabase
-      .from('discover_likes')
-      .delete()
-      .eq('liker_id', user.id)
-      .eq('liked_id', likedId)
+    const { data: records } = await client.models.DiscoverLikes.list({
+      filter: { liker_id: { eq: user.id }, liked_id: { eq: likedId } }
+    })
 
-    if (error) throw error
+    if (records && records.length > 0) {
+      const { errors: error } = await client.models.DiscoverLikes.delete({ id: records[0].id })
+      if (error) throw error[0]
+    }
+
     return { error: null }
   } catch (err) {
     return { error: err as Error }
@@ -155,25 +144,22 @@ export async function unlikeUser(likedId: string): Promise<{ error: Error | null
 
 export async function getConnectionStatus(targetUserId: string): Promise<ConnectionStatus> {
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return 'none'
+    const authUser = await getCurrentUser()
+    if (!authUser) return 'none'
+    const user = { id: authUser.userId }
     if (user.id === targetUserId) return 'none'
 
     // 1. Did I follow them?
-    const { data: iFollow } = await supabase
-      .from('follows')
-      .select('follower_id')
-      .eq('follower_id', user.id)
-      .eq('following_id', targetUserId)
-      .maybeSingle()
+    const { data: iFollowRes } = await client.models.Follows.list({
+      filter: { follower_id: { eq: user.id }, following_id: { eq: targetUserId } }
+    })
+    const iFollow = iFollowRes && iFollowRes.length > 0 ? iFollowRes[0] : null
 
     // 2. Did they follow me?
-    const { data: theyFollow } = await supabase
-      .from('follows')
-      .select('follower_id')
-      .eq('follower_id', targetUserId)
-      .eq('following_id', user.id)
-      .maybeSingle()
+    const { data: theyFollowRes } = await client.models.Follows.list({
+      filter: { follower_id: { eq: targetUserId }, following_id: { eq: user.id } }
+    })
+    const theyFollow = theyFollowRes && theyFollowRes.length > 0 ? theyFollowRes[0] : null
 
     if (iFollow && theyFollow) {
       return 'connected'
@@ -192,26 +178,23 @@ export async function getConnectionStatus(targetUserId: string): Promise<Connect
 export async function getConnectionStatusesBulk(targetUserIds: string[]): Promise<Record<string, ConnectionStatus>> {
   const result: Record<string, ConnectionStatus> = {}
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user || targetUserIds.length === 0) return result
+    const authUser = await getCurrentUser()
+    if (!authUser || targetUserIds.length === 0) return result
+    const user = { id: authUser.userId }
 
     // 1. Get all users from the list that I follow
-    const { data: followingRows } = await supabase
-      .from('follows')
-      .select('following_id')
-      .eq('follower_id', user.id)
-      .in('following_id', targetUserIds)
+    const { data: followingRows } = await client.models.Follows.list({
+      filter: { follower_id: { eq: user.id } }
+    })
 
-    const followingSet = new Set((followingRows ?? []).map(r => r.following_id))
+    const followingSet = new Set((followingRows ?? []).filter(r => targetUserIds.includes(r.following_id)).map(r => r.following_id))
 
     // 2. Get all users from the list that follow me
-    const { data: followerRows } = await supabase
-      .from('follows')
-      .select('follower_id')
-      .eq('following_id', user.id)
-      .in('follower_id', targetUserIds)
+    const { data: followerRows } = await client.models.Follows.list({
+      filter: { following_id: { eq: user.id } }
+    })
 
-    const followerSet = new Set((followerRows ?? []).map(r => r.follower_id))
+    const followerSet = new Set((followerRows ?? []).filter(r => targetUserIds.includes(r.follower_id)).map(r => r.follower_id))
 
     // 3. Compute status for each target user
     for (const id of targetUserIds) {

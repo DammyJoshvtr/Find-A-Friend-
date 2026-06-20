@@ -2,17 +2,15 @@ import ComingSoon from "@/components/maintainance";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { getTimeAgo } from "../lib/matching";
-import { supabase } from "../lib/supabase";
-import { useTheme } from "../lib/theme";
+  View, Text, StyleSheet, TouchableOpacity,
+  ScrollView, ActivityIndicator
+} from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { useState, useEffect } from 'react'
+import { router } from 'expo-router'
+import { client } from '../lib/aws'
+import { useTheme } from '../lib/theme'
+import { getTimeAgo } from '../lib/matching'
 
 const VENUES = [
   { name: "Engineering Hall", x: 0.25, y: 0.25, color: "#a78bfa" },
@@ -38,13 +36,10 @@ export default function MapScreen() {
 
   const loadEvents = async () => {
     try {
-      const { data } = await supabase
-        .from("events")
-        .select("*")
-        .gte("starts_at", new Date().toISOString())
-        .order("starts_at", { ascending: true })
-        .limit(10);
-      setEvents(data ?? []);
+      const { data } = await client.models.events.list({
+        // TODO: gte, order, limit
+      })
+      setEvents(data ?? [])
     } catch {
       // Non-fatal
     } finally {
