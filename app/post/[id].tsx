@@ -18,7 +18,7 @@ import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import { supabase } from '../../lib/supabase'
 import { pickCommentMedia, takeCommentPhoto, recordCommentVideo } from '../../lib/feedAttachments'
-import { Video, ResizeMode } from 'expo-av'
+import { useVideoPlayer, VideoView } from 'expo-video'
 import type { FeedMedia } from '../../lib/feedAttachments'
 import { StickerPicker } from '../../components/StickerPicker'
 import { ReplyBanner } from '../../components/chat/ReplyUI'
@@ -457,14 +457,8 @@ export default function PostDetailScreen() {
           {item.body ? renderCommentBody(item.body) : null}
           {item.media_url ? (
             item.media_type === 'video' ? (
-              <Video
-                source={{ uri: item.media_url }}
-                rate={1.0}
-                volume={1.0}
-                isMuted={false}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay={false}
-                useNativeControls
+              <InlineVideoPlayer
+                sourceUrl={item.media_url}
                 style={{ width: '100%', height: 180, borderRadius: 12, borderWidth: 1, borderColor: theme.border, marginTop: 6, backgroundColor: 'black' }}
               />
             ) : (
@@ -551,14 +545,8 @@ export default function PostDetailScreen() {
         {images.length > 0 && !isRepost ? (
           images.length === 1 ? (
             images[0].match(/\.(mp4|mov|webm)$/i) ? (
-             <Video
-                source={{ uri: images[0] }}
-                rate={1.0}
-                volume={1.0}
-                isMuted={false}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay={false}
-                useNativeControls
+             <InlineVideoPlayer
+                sourceUrl={images[0]}
                 style={[s.postImage, { borderColor: theme.border, height: 240, backgroundColor: 'black', borderRadius: 12 }]}
               />
             ) : (
@@ -1070,3 +1058,17 @@ const s = StyleSheet.create({
   },
   sendDisabled: { opacity: 0.4 },
 })
+
+function InlineVideoPlayer({ sourceUrl, style }: { sourceUrl: string; style: any }) {
+  const player = useVideoPlayer(sourceUrl, (p) => {
+    p.loop = false
+  })
+  return (
+    <VideoView
+      player={player}
+      style={style}
+      contentFit="contain"
+      nativeControls={true}
+    />
+  )
+}

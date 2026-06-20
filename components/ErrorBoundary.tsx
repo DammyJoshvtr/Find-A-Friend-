@@ -1,6 +1,9 @@
 import React from 'react'
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
 
+import { useThemeStore } from '../store/themeStore'
+import { LIGHT, DARK, DARKER } from '../lib/theme'
+
 interface Props {
   children: React.ReactNode
   fallbackLabel?: string
@@ -22,23 +25,19 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (!this.state.hasError) return this.props.children
-    // App is always dark — hardcode dark colours so this boundary never
-    // depends on Appearance.getColorScheme() which would return the system
-    // theme rather than the user's in-app preference.
-    const bg         = '#0a0a1a'
-    const textColor  = '#f0f0ff'
-    const mutedColor = 'rgba(240,240,255,0.4)'
-    const accentColor = '#a78bfa'
+    
+    const mode = useThemeStore.getState().mode
+    const theme = mode === 'light' ? LIGHT : (mode === 'darker' ? DARKER : DARK)
 
     return (
-      <View style={[s.container, { backgroundColor: bg }]}>
+      <View style={[s.container, { backgroundColor: theme.bg }]}>
         <Text style={s.emoji}>⚠️</Text>
-        <Text style={[s.title, { color: textColor }]}>{this.props.fallbackLabel ?? 'Something went wrong'}</Text>
-        <Text style={[s.message, { color: mutedColor }]}>{this.state.message}</Text>
+        <Text style={[s.title, { color: theme.text }]}>{this.props.fallbackLabel ?? 'Something went wrong'}</Text>
+        <Text style={[s.message, { color: theme.textMuted }]}>{this.state.message}</Text>
         <TouchableOpacity
-          style={[s.btn, { backgroundColor: 'rgba(167,139,250,0.15)', borderColor: 'rgba(167,139,250,0.3)' }]}
+          style={[s.btn, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]}
           onPress={this.reset}>
-          <Text style={[s.btnText, { color: accentColor }]}>Try again</Text>
+          <Text style={[s.btnText, { color: theme.accent }]}>Try again</Text>
         </TouchableOpacity>
       </View>
     )

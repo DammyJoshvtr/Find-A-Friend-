@@ -3,7 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, Linking } 
 import { Ionicons } from "@expo/vector-icons";
 import { typography } from "../../lib/typography";
 import type { Attachment } from "../../lib/chatAttachments";
-import { Video, ResizeMode } from "expo-av";
+import { useVideoPlayer, VideoView } from "expo-video";
 
 const SCREEN_W = Dimensions.get("window").width;
 
@@ -17,7 +17,7 @@ export function AttachmentBubble({
 }) {
   const handleOpen = () => Linking.openURL(attachment.url).catch(() => {});
 
-  if (attachment._type === "image" || attachment._type === "sticker") {
+  if ((attachment._type as string) === "image" || (attachment._type as string) === "sticker") {
     const imgW = Math.min(SCREEN_W * 0.65, 260);
     const aspectH =
       attachment.width && attachment.height
@@ -40,14 +40,8 @@ export function AttachmentBubble({
 
   return (
     <View style={{ borderRadius: 14, overflow: 'hidden' }}>
-      <Video
-        source={{ uri: attachment.url }}
-        rate={1.0}
-        volume={1.0}
-        isMuted={false}
-        resizeMode={ResizeMode.CONTAIN}
-        shouldPlay={false}
-        useNativeControls
+      <InlineVideoPlayer
+        sourceUrl={attachment.url}
         style={{ width: 220, height: 160, backgroundColor: 'black' }}
       />
     </View>
@@ -72,3 +66,17 @@ const attb = StyleSheet.create({
     fontFamily: typography.fontRegular,
   },
 });
+
+function InlineVideoPlayer({ sourceUrl, style }: { sourceUrl: string; style: any }) {
+  const player = useVideoPlayer(sourceUrl, (p) => {
+    p.loop = false
+  })
+  return (
+    <VideoView
+      player={player}
+      style={style}
+      contentFit="contain"
+      nativeControls={true}
+    />
+  )
+}

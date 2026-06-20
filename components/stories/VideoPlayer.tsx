@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { StyleSheet } from 'react-native'
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av'
+import { useVideoPlayer, VideoView } from 'expo-video'
 
 interface VideoPlayerProps {
   sourceUrl: string
@@ -9,39 +9,41 @@ interface VideoPlayerProps {
 }
 
 export default function VideoPlayer({ sourceUrl, paused, onLoad }: VideoPlayerProps) {
-  const videoRef = useRef<Video>(null)
+  const player = useVideoPlayer(sourceUrl, (p) => {
+    p.loop = false
+    if (!paused) {
+      p.play()
+    }
+  })
 
   useEffect(() => {
-    if (videoRef.current) {
-      if (paused) {
-        videoRef.current.pauseAsync().catch(() => {})
-      } else {
-        videoRef.current.playAsync().catch(() => {})
-      }
+    if (paused) {
+      player.pause()
+    } else {
+      player.play()
     }
-  }, [paused])
+  }, [paused, player])
 
-  const handleStatusUpdate = (status: AVPlaybackStatus) => {
-    if (status.isLoaded) {
-      if (status.isPlaying) {
-        onLoad()
-      } else if (!paused && !status.isBuffering) {
-        videoRef.current?.playAsync().catch(() => {})
-      }
+  useEffect(() => {
+    if (player.status === 'readyToPlay') {
+      onLoad()
     }
-  }
+    const subscription = player.addListener('statusChange', ({ status }) => {
+      if (status === 'readyToPlay') {
+        onLoad()
+      }
+    })
+    return () => {
+      subscription.remove()
+    }
+  }, [player, onLoad])
 
   return (
-    <Video
-      ref={videoRef}
-      source={{ uri: sourceUrl }}
+    <VideoView
+      player={player}
       style={styles.video}
-      resizeMode={ResizeMode.COVER}
-      shouldPlay={!paused}
-      isLooping={false}
-      onLoad={onLoad}
-      onPlaybackStatusUpdate={handleStatusUpdate}
-      onError={(err) => console.log('[VideoPlayer] Playback error:', err)}
+      nativeControls={false}
+      contentFit="cover"
     />
   )
 }

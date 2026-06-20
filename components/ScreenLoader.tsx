@@ -188,7 +188,7 @@ export default function ScreenLoader({ message = 'Loading...' }: ScreenLoaderPro
           {/* Logo circle */}
           <Animated.View style={[s.logoCircle, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }, logoStyle]}>
             {/* Scan line sweeping top→bottom */}
-            <Animated.View style={[s.scanLine, { backgroundColor: theme.accentGlow }], scanStyle} />
+            <Animated.View style={[s.scanLine, { backgroundColor: theme.accentGlow }, scanStyle]} />
 
             {/* FAF text */}
             <Text style={[s.logoText, { color: theme.accent }]} accessibilityLabel="FAF">FAF</Text>

@@ -9,6 +9,7 @@ import {
 import { Ionicons } from '@expo/vector-icons'
 import { router } from 'expo-router'
 import type { VendorWithDeals } from '../../lib/vendors'
+import { useTheme } from '../../lib/theme'
 
 interface VendorCardProps {
   vendor: VendorWithDeals
@@ -25,12 +26,13 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 export default function VendorCard({ vendor }: VendorCardProps) {
-  const accentColor = CATEGORY_COLORS[vendor.category] ?? '#a78bfa'
+  const theme = useTheme()
+  const accentColor = CATEGORY_COLORS[vendor.category] ?? theme.accent
   const activeDeals = vendor.vendor_deals?.filter(d => d.is_active).length ?? 0
 
   return (
     <TouchableOpacity
-      style={s.card}
+      style={[s.card, { backgroundColor: theme.card, borderColor: theme.border }]}
       onPress={() => router.push(`/vendor/${vendor.id}` as any)}
       activeOpacity={0.85}>
 
@@ -47,12 +49,12 @@ export default function VendorCard({ vendor }: VendorCardProps) {
 
       {/* Info */}
       <View style={s.info}>
-        <Text style={s.name} numberOfLines={1}>{vendor.name}</Text>
+        <Text style={[s.name, { color: theme.text }]} numberOfLines={1}>{vendor.name}</Text>
         <View style={s.metaRow}>
           <Text style={[s.category, { color: accentColor }]}>{vendor.category}</Text>
-          <Text style={s.sep}>·</Text>
-          <Ionicons name="location-outline" size={10} color="rgba(240,240,255,0.35)" />
-          <Text style={s.location} numberOfLines={1}>{vendor.location_text}</Text>
+          <Text style={[s.sep, { color: theme.textFaint }]}>·</Text>
+          <Ionicons name="location-outline" size={10} color={theme.textMuted} />
+          <Text style={[s.location, { color: theme.textMuted }]} numberOfLines={1}>{vendor.location_text}</Text>
         </View>
       </View>
 
@@ -69,8 +71,8 @@ export default function VendorCard({ vendor }: VendorCardProps) {
 
 const s = StyleSheet.create({
   card: {
-    backgroundColor: '#1c1c2e', borderRadius: 16, overflow: 'hidden',
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16, overflow: 'hidden',
+    borderWidth: 0.5,
     flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12,
   },
   logoWrap: {
@@ -80,11 +82,11 @@ const s = StyleSheet.create({
   logo: { width: 48, height: 48, borderRadius: 14 },
   iconEmoji: { fontSize: 22 },
   info: { flex: 1 },
-  name: { fontSize: 14, fontWeight: '600', color: '#f0f0ff', marginBottom: 4 },
+  name: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   category: { fontSize: 10, fontWeight: '600' },
-  sep: { fontSize: 10, color: 'rgba(240,240,255,0.2)' },
-  location: { fontSize: 10, color: 'rgba(240,240,255,0.35)', flex: 1 },
+  sep: { fontSize: 10 },
+  location: { fontSize: 10, flex: 1 },
   dealsBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     borderRadius: 20, paddingHorizontal: 7, paddingVertical: 3,

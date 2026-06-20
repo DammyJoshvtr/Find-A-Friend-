@@ -30,6 +30,7 @@ import {
   useStoriesStore,
 } from "../../store/storiesStore";
 import { supportsVideoStories } from "../../lib/featureFlags";
+import { router } from "expo-router";
 
 let VideoPlayer: any = null;
 try {
@@ -55,6 +56,7 @@ export default function StoryViewer() {
     groups,
   } = useStoriesStore();
 
+  const visible = !!viewerGroupId;
   const { user } = useAuthStore();
   const story = useStoriesStore(selectCurrentStory);
   const group = useStoriesStore(selectCurrentGroup);
@@ -91,8 +93,6 @@ export default function StoryViewer() {
   const [storyComment, setStoryComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
   const commentInputRef = useRef<TextInput>(null);
-
-  const visible = !!viewerGroupId;
 
   // Stable next handler — must be defined before startProgress
   const handleNext = useCallback(() => {

@@ -1,10 +1,10 @@
-import { NativeModules, Platform } from 'react-native'
+import { Platform } from 'react-native'
 
 // Central feature flag configuration
 export const VIDEO_STORIES_ENABLED = true
 
 /**
- * Checks whether the current native build supports video stories (requires expo-av).
+ * Checks whether the current native build supports video stories (requires expo-video).
  * Dynamically checks the native modules registry to prevent crashes on older builds.
  */
 export function supportsVideoStories(): boolean {
@@ -12,13 +12,15 @@ export function supportsVideoStories(): boolean {
     return false
   }
 
-  // Web does not crash on native module imports of expo-av, but we can verify support
+  // Web supports standard HTML5 video elements
   if (Platform.OS === 'web') {
     return true
   }
 
-  // Check both standard Expo Go/development environments and standalone builds
-  const hasExpoAV = !!NativeModules.ExpoAV || !!NativeModules.ExponentAV
-
-  return hasExpoAV
+  try {
+    const { requireNativeModule } = require('expo-modules-core')
+    return !!requireNativeModule('ExpoVideo')
+  } catch (e) {
+    return false
+  }
 }

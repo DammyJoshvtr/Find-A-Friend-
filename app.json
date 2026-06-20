@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "FAF",
@@ -71,6 +70,13 @@
           "icon": "./assets/images/icon.png",
           "color": "#a78bfa",
           "defaultChannel": "default"
+        }
+      ],
+      [
+        "expo-video",
+        {
+          "supportsBackgroundPlayback": true,
+          "supportsPictureInPicture": true
         }
       ],
       "expo-web-browser",
