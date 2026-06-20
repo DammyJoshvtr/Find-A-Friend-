@@ -121,8 +121,8 @@ export default function ClubsScreen() {
       if (error) throw error
       // If we have a cover image, update the club record
       if (coverUrl && data?.id) {
-        const { supabase: sb } = await import('../lib/supabase')
-        await sb.from('clubs').update({ cover_url: coverUrl }).eq('id', data.id)
+        const { client } = await import('../lib/aws')
+        await client.models.Club.update({ id: data.id, cover_url: coverUrl })
       }
       setShowCreate(false)
       setNewName(''); setNewDesc(''); setNewCategory('Tech')
