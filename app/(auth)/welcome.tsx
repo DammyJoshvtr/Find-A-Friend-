@@ -158,46 +158,49 @@ export default function WelcomeScreen() {
           </View>
 
           {/* Tagline & Subtitle */}
-          <Animated.View style={titleStyle}>
-            <Text style={[s.tagline, { color: theme.text }]}>Find A Friend</Text>
-            <View style={[s.taglineLine, { backgroundColor: theme.accent }]} />
-            <Text style={[s.sub, { color: theme.textMuted }]}>
-              The ultimate college community. Discover events, share stories, join study rooms, and connect with your coursemates.
+          <Animated.View style={[titleStyle, { alignItems: 'center' }]}>
+            <Text style={[s.tagline, { color: theme.text, textAlign: 'center' }]}>Find A Friend</Text>
+            <View style={[s.taglineLine, { backgroundColor: theme.accent, alignSelf: 'center' }]} />
+            <Text style={[s.sub, { color: theme.textMuted, textAlign: 'center' }]}>
+              Your campus social universe
             </Text>
           </Animated.View>
 
           {/* Key Features Quick Glance */}
           <Animated.View style={[s.featureCard, { backgroundColor: theme.card, borderColor: theme.border }, titleStyle]}>
             <View style={s.featureCardHeader}>
-              <View style={[s.featureCardDot, { backgroundColor: theme.accent }]} />
-              <Text style={[s.featureCardLabel, { color: theme.textMuted }]}>CAMPUS FEATURES</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <View style={[s.featureCardDot, { backgroundColor: theme.accent }]} />
+                <Text style={[s.featureCardLabel, { color: theme.textMuted }]}>PLATFORM FEATURES</Text>
+              </View>
+              <View style={[s.featureCardDotRight, { backgroundColor: theme.cyan }]} />
             </View>
-            {FEATURES.slice(0, 3).map((item, idx) => (
-              <FeatureRow key={idx} icon={item.icon} text={item.text} delay={400 + idx * 100} />
+            {FEATURES.map((item, idx) => (
+              <FeatureRow key={idx} icon={item.icon} text={item.text} delay={400 + idx * 80} />
             ))}
           </Animated.View>
 
           {/* Actions */}
           <Animated.View style={[s.actions, btnStyle]}>
             <TouchableOpacity
-              style={s.btnPrimary}
+              style={[s.btnPrimary, { backgroundColor: theme.accent }]}
               onPress={() => router.push('/(auth)/onboarding' as any)}
               activeOpacity={0.8}
             >
               <View style={s.btnGlow} />
-              <Text style={s.btnText}>Get Started</Text>
+              <Text style={s.btnText}>Get started →</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[s.btnSecondary, { backgroundColor: theme.card, borderColor: theme.border }]}
+              style={[s.btnSecondary, { borderColor: theme.border, backgroundColor: 'transparent' }]}
               onPress={() => router.push('/(auth)/verify' as any)}
               activeOpacity={0.85}
             >
-              <Text style={[s.btnSecondaryText, { color: theme.accent }]}>Sign In</Text>
+              <Text style={[s.btnSecondaryText, { color: theme.text }]}>Sign in to my account</Text>
             </TouchableOpacity>
 
             <Text style={[s.disclaimer, { color: theme.textFaint }]}>
-              By signing in, you agree to our Terms of Service.
+              University email required · Students only
             </Text>
           </Animated.View>
 
@@ -270,13 +273,16 @@ const s = StyleSheet.create({
     padding: 18, gap: 12,
   },
   featureCardHeader: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4,
   },
   featureCardDot: {
     width: 6, height: 6, borderRadius: 3, backgroundColor: '#a78bfa',
   },
+  featureCardDotRight: {
+    width: 6, height: 6, borderRadius: 3,
+  },
   featureCardLabel: {
-    flex: 1, fontSize: 9, fontFamily: typography.fontSemiBold,
+    fontSize: 9, fontFamily: typography.fontSemiBold,
     color: 'rgba(167,139,250,0.5)', letterSpacing: 2,
   },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },

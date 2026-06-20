@@ -66,6 +66,8 @@ export default function StoryViewer() {
   const currentProgress = useRef(0);
   const [paused, setPaused] = useState(false);
   const [mediaLoaded, setMediaLoaded] = useState(false);
+  const [isHolding, setIsHolding] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
 
   useEffect(() => {
     const id = progressAnim.addListener(({ value }) => {
@@ -77,6 +79,8 @@ export default function StoryViewer() {
   // Reset loading state when the story changes
   useEffect(() => {
     setMediaLoaded(false);
+    setIsHolding(false);
+    setIsVideoPlaying(false);
     progressAnim.setValue(0);
     currentProgress.current = 0;
   }, [story?.id, progressAnim]);
@@ -144,7 +148,9 @@ export default function StoryViewer() {
 
   useEffect(() => {
     if (visible && story && mediaLoaded) {
-      if (paused) {
+      const isVideo = story.media_type === "video";
+      const shouldPause = paused || (isVideo && !isVideoPlaying);
+      if (shouldPause) {
         progressRef.current?.stop();
       } else {
         const isNewStory = currentProgress.current === 0;
@@ -154,7 +160,7 @@ export default function StoryViewer() {
     return () => {
       progressRef.current?.stop();
     };
-  }, [visible, story?.id, mediaLoaded, paused, startProgress]);
+  }, [visible, story?.id, mediaLoaded, paused, isVideoPlaying, story?.media_type, startProgress]);
 
   // Load current user's reaction when story changes
   useEffect(() => {
@@ -306,6 +312,7 @@ export default function StoryViewer() {
               sourceUrl={story.media_url}
               paused={paused}
               onLoad={() => setMediaLoaded(true)}
+              onPlayingStateChange={(playing: boolean) => setIsVideoPlaying(playing)}
             />
           ) : (
             <View style={s.fallbackContainer}>
@@ -356,22 +363,34 @@ export default function StoryViewer() {
         )}
 
         {/* Dark gradient overlay */}
-        <View style={s.topGradient} />
-        <View style={s.bottomGradient} />
+        <View style={[s.topGradient, isHolding && { opacity: 0 }]} />
+        <View style={[s.bottomGradient, isHolding && { opacity: 0 }]} />
 
         {/* Tap zones — rendered before header so header sits on top and receives touches */}
         <View style={s.tapZones}>
           <TouchableWithoutFeedback
-            onPressIn={() => setPaused(true)}
-            onPressOut={() => setPaused(false)}
+            onPressIn={() => {
+              setPaused(true);
+              setIsHolding(true);
+            }}
+            onPressOut={() => {
+              setPaused(false);
+              setIsHolding(false);
+            }}
             onLongPress={() => {}}
             onPress={handlePrev}
           >
             <View style={s.tapLeft} />
           </TouchableWithoutFeedback>
           <TouchableWithoutFeedback
-            onPressIn={() => setPaused(true)}
-            onPressOut={() => setPaused(false)}
+            onPressIn={() => {
+              setPaused(true);
+              setIsHolding(true);
+            }}
+            onPressOut={() => {
+              setPaused(false);
+              setIsHolding(false);
+            }}
             onLongPress={() => {}}
             onPress={handleNext}
           >
@@ -380,7 +399,7 @@ export default function StoryViewer() {
         </View>
 
         {/* Progress bars */}
-        <View style={s.progressBars}>
+        <View style={[s.progressBars, isHolding && { opacity: 0 }]}>
           {Array.from({ length: storiesInGroup }).map((_, i) => (
             <View key={i} style={s.progressTrack}>
               <Animated.View
@@ -404,7 +423,7 @@ export default function StoryViewer() {
         </View>
 
         {/* Header — rendered after tap zones so it receives touches first */}
-        <View style={s.header}>
+        <View style={[s.header, isHolding && { opacity: 0 }]}>
           <View style={s.authorRow}>
             <View style={s.authorAvatar}>
               {group.author_avatar ? (
@@ -442,13 +461,13 @@ export default function StoryViewer() {
 
         {/* Caption */}
         {story.caption ? (
-          <View style={s.captionWrap}>
+          <View style={[s.captionWrap, isHolding && { opacity: 0 }]}>
             <Text style={s.caption}>{story.caption}</Text>
           </View>
         ) : null}
 
         {/* Bottom interaction bar: emoji reactions + comment input */}
-        <View style={s.interactionBar}>
+        <View style={[s.interactionBar, isHolding && { opacity: 0 }]}>
           <View style={s.emojiRow}>
             {STORY_EMOJIS.map((emoji) => (
               <TouchableOpacity

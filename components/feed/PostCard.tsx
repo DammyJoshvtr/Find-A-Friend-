@@ -1014,12 +1014,144 @@ function InlineVideoPlayer({
   const player = useVideoPlayer(sourceUrl, (p) => {
     p.loop = false;
   });
+
+  const [isPlaying, setIsPlaying] = React.useState(false);
+  const [showControls, setShowControls] = React.useState(true);
+  const [currentTime, setCurrentTime] = React.useState(0);
+  const [duration, setDuration] = React.useState(0);
+  const controlsTimeoutRef = React.useRef<any>(null);
+
+  const resetControlsTimeout = React.useCallback(() => {
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+    controlsTimeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 1500);
+  }, []);
+
+  React.useEffect(() => {
+    setIsPlaying(player.playing);
+    setDuration(player.duration || 0);
+
+    const subPlaying = player.addListener("playingChange", (event) => {
+      setIsPlaying(event.isPlaying);
+      if (event.isPlaying) {
+        resetControlsTimeout();
+      } else {
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+        }
+        setShowControls(true);
+      }
+    });
+
+    const subStatus = player.addListener("statusChange", ({ status }) => {
+      setDuration(player.duration || 0);
+    });
+
+    const subTime = player.addListener("timeUpdate", (event) => {
+      setCurrentTime(event.currentTime);
+    });
+
+    if (player.playing) {
+      resetControlsTimeout();
+    }
+
+    return () => {
+      subPlaying.remove();
+      subStatus.remove();
+      subTime.remove();
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, [player, resetControlsTimeout]);
+
+  const handlePressScreen = () => {
+    if (!showControls) {
+      setShowControls(true);
+      resetControlsTimeout();
+    } else {
+      setShowControls(false);
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    }
+  };
+
+  const handlePlayPause = () => {
+    if (isPlaying) {
+      player.pause();
+    } else {
+      player.play();
+    }
+    resetControlsTimeout();
+  };
+
+  const progress = duration > 0 ? currentTime / duration : 0;
+
   return (
-    <VideoView
-      player={player}
-      style={style}
-      contentFit="contain"
-      nativeControls={false}
-    />
+    <Pressable
+      style={[style, { overflow: "hidden", position: "relative" }]}
+      onPress={handlePressScreen}
+    >
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit="contain"
+        nativeControls={false}
+      />
+
+      {showControls && (
+        <View
+          style={{
+            ...StyleSheet.absoluteFillObject,
+            backgroundColor: "rgba(0,0,0,0.3)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <TouchableOpacity
+            onPress={handlePlayPause}
+            style={{
+              width: 50,
+              height: 50,
+              borderRadius: 25,
+              backgroundColor: "rgba(0,0,0,0.6)",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons
+              name={isPlaying ? "pause" : "play"}
+              size={24}
+              color="white"
+              style={!isPlaying ? { marginLeft: 3 } : {}}
+            />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Progress Bar at the bottom */}
+      <View
+        style={{
+          position: "absolute",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          backgroundColor: "rgba(255,255,255,0.2)",
+        }}
+      >
+        <View
+          style={{
+            height: "100%",
+            width: `${progress * 100}%`,
+            backgroundColor: "#a78bfa",
+          }}
+        />
+      </View>
+    </Pressable>
   );
 }

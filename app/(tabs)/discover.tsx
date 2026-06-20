@@ -741,5 +741,8 @@ const s = StyleSheet.create({
   },
   sectionTitle: {
     paddingHorizontal: 12,
+    fontSize: 30,
+    fontFamily: typography.fontBold,
+    marginHorizontal: 6,
   },
 });

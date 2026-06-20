@@ -6,9 +6,10 @@ interface VideoPlayerProps {
   sourceUrl: string
   paused: boolean
   onLoad: () => void
+  onPlayingStateChange?: (isPlaying: boolean) => void
 }
 
-export default function VideoPlayer({ sourceUrl, paused, onLoad }: VideoPlayerProps) {
+export default function VideoPlayer({ sourceUrl, paused, onLoad, onPlayingStateChange }: VideoPlayerProps) {
   const player = useVideoPlayer(sourceUrl, (p) => {
     p.loop = false
     if (!paused) {
@@ -33,10 +34,14 @@ export default function VideoPlayer({ sourceUrl, paused, onLoad }: VideoPlayerPr
         onLoad()
       }
     })
+    const playingSub = player.addListener('playingChange', ({ isPlaying }) => {
+      onPlayingStateChange?.(isPlaying)
+    })
     return () => {
       subscription.remove()
+      playingSub.remove()
     }
-  }, [player, onLoad])
+  }, [player, onLoad, onPlayingStateChange])
 
   return (
     <VideoView
