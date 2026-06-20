@@ -17,6 +17,7 @@ import { typography } from '../../lib/typography'
 import { createStory } from '../../lib/stories'
 import type { FeedPost } from '../../lib/feed'
 import VerifiedBadge from '../ui/VerifiedBadge'
+import { Video, ResizeMode } from 'expo-av'
 
 interface PostCardProps {
   post: FeedPost
@@ -299,13 +300,16 @@ export default function PostCard({ post }: PostCardProps) {
           {images.length > 0 && !isRepost ? (
             images.length === 1 ? (
               images[0].match(/\.(mp4|mov|webm)$/i) ? (
-                <TouchableOpacity
-                  style={[s.media, { borderColor: theme.border, height: 180, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center', borderRadius: 12 }]}
-                  onPress={() => Linking.openURL(images[0])}
-                >
-                  <Ionicons name="play-circle-outline" size={54} color="rgba(255,255,255,0.8)" />
-                  <Text style={{ color: 'white', marginTop: 6, fontSize: 12, fontFamily: typography.fontMedium }}>Play Video</Text>
-                </TouchableOpacity>
+                <Video
+                  source={{ uri: images[0] }}
+                  rate={1.0}
+                  volume={1.0}
+                  isMuted={false}
+                  resizeMode={ResizeMode.CONTAIN}
+                  shouldPlay={false}
+                  useNativeControls
+                  style={[s.media, { borderColor: theme.border, height: 240, backgroundColor: 'black', borderRadius: 12 }]}
+                />
               ) : (
                 <TouchableOpacity onPress={() => setSelectedImage(images[0])} activeOpacity={0.95}>
                   <Image

@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, Linking } 
 import { Ionicons } from "@expo/vector-icons";
 import { typography } from "../../lib/typography";
 import type { Attachment } from "../../lib/chatAttachments";
+import { Video, ResizeMode } from "expo-av";
 
 const SCREEN_W = Dimensions.get("window").width;
 
@@ -38,20 +39,18 @@ export function AttachmentBubble({
   }
 
   return (
-    <TouchableOpacity
-      style={[attb.videoWrap, { backgroundColor: "rgba(0,0,0,0.4)" }]}
-      onPress={handleOpen}
-      onLongPress={onLongPress}
-      activeOpacity={0.85}
-    >
-      <View style={attb.playBtn}>
-        <Ionicons name="play" size={24} color="#fff" />
-      </View>
-      <View style={attb.videoInfo}>
-        <Ionicons name="videocam" size={14} color="rgba(255,255,255,0.8)" />
-        <Text style={attb.videoLabel}>{attachment.name ?? "Video"}</Text>
-      </View>
-    </TouchableOpacity>
+    <View style={{ borderRadius: 14, overflow: 'hidden' }}>
+      <Video
+        source={{ uri: attachment.url }}
+        rate={1.0}
+        volume={1.0}
+        isMuted={false}
+        resizeMode={ResizeMode.CONTAIN}
+        shouldPlay={false}
+        useNativeControls
+        style={{ width: 220, height: 160, backgroundColor: 'black' }}
+      />
+    </View>
   );
 }
 

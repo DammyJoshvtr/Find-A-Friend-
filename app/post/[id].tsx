@@ -18,6 +18,7 @@ import { useTheme } from '../../lib/theme'
 import { typography } from '../../lib/typography'
 import { supabase } from '../../lib/supabase'
 import { pickCommentMedia, takeCommentPhoto, recordCommentVideo } from '../../lib/feedAttachments'
+import { Video, ResizeMode } from 'expo-av'
 import type { FeedMedia } from '../../lib/feedAttachments'
 import { StickerPicker } from '../../components/StickerPicker'
 import { ReplyBanner } from '../../components/chat/ReplyUI'
@@ -456,13 +457,16 @@ export default function PostDetailScreen() {
           {item.body ? renderCommentBody(item.body) : null}
           {item.media_url ? (
             item.media_type === 'video' ? (
-              <TouchableOpacity
-                style={{ width: '100%', height: 160, borderRadius: 6, borderWidth: 1, borderColor: theme.border, marginTop: 6, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center' }}
-                onPress={() => Linking.openURL(item.media_url!)}
-              >
-                <Ionicons name="play-circle" size={48} color="rgba(255,255,255,0.8)" />
-                <Text style={{ color: 'white', marginTop: 8, fontSize: 12 }}>Play Video</Text>
-              </TouchableOpacity>
+              <Video
+                source={{ uri: item.media_url }}
+                rate={1.0}
+                volume={1.0}
+                isMuted={false}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay={false}
+                useNativeControls
+                style={{ width: '100%', height: 180, borderRadius: 12, borderWidth: 1, borderColor: theme.border, marginTop: 6, backgroundColor: 'black' }}
+              />
             ) : (
               <Image source={{ uri: item.media_url }} style={[s.commentMedia, { borderColor: theme.border }]} resizeMode="cover" />
             )
@@ -547,13 +551,16 @@ export default function PostDetailScreen() {
         {images.length > 0 && !isRepost ? (
           images.length === 1 ? (
             images[0].match(/\.(mp4|mov|webm)$/i) ? (
-              <TouchableOpacity
-                style={[s.postImage, { borderColor: theme.border, height: 200, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center', borderRadius: 12 }]}
-                onPress={() => Linking.openURL(images[0])}
-              >
-                <Ionicons name="play-circle-outline" size={64} color="rgba(255,255,255,0.85)" />
-                <Text style={{ color: 'white', marginTop: 8, fontSize: 13, fontFamily: typography.fontMedium }}>Play Video in Browser</Text>
-              </TouchableOpacity>
+             <Video
+                source={{ uri: images[0] }}
+                rate={1.0}
+                volume={1.0}
+                isMuted={false}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay={false}
+                useNativeControls
+                style={[s.postImage, { borderColor: theme.border, height: 240, backgroundColor: 'black', borderRadius: 12 }]}
+              />
             ) : (
               <TouchableOpacity onPress={() => setSelectedImage(images[0])} activeOpacity={0.95}>
                 <Image source={{ uri: images[0] }} style={[s.postImage, { borderColor: theme.border }]} resizeMode="cover" />
