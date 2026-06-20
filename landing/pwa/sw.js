@@ -1,4 +1,4 @@
-const CACHE_NAME = "faf-1781912928819";
+const CACHE_NAME = "faf-1781941180899";
 const STATIC_ASSETS = ["/", "/manifest.json"];
 
 self.addEventListener("install", (event) => {

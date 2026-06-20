@@ -1,16 +1,4 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": false,
-  "redirects": [
-    {
-      "source": "/pwa",
-      "destination": "https://faf-pwa.vercel.app/",
-      "permanent": false
-    },
-    {
-      "source": "/pwa/:path*",
-      "destination": "https://faf-pwa.vercel.app/:path*",
-      "permanent": false
-    }
-  ]
+    "cleanUrls":  true,
+    "trailingSlash":  false
 }

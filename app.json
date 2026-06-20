@@ -1,98 +1,100 @@
-
 {
-  "expo": {
-    "name": "FAF",
-    "slug": "faf",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "faf",
-    "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0d0d14"
-    },
-    "ios": {
-      "icon": "./assets/images/actual-icon.jpg",
-      "supportsTablet": false,
-      "bundleIdentifier": "com.faf.campus"
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0d0d14"
-      },
-      "package": "com.ayomideenoch.faf",
-      "googleServicesFile": "./google-services.json",
-      "softwareKeyboardLayoutMode": "pan",
-      "jsEngine": "hermes",
-      "enableProguardInReleaseBuilds": true,
-      "enableShrinkResourcesInReleaseBuilds": true,
-      "usesCleartextTraffic": true,
-      "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.WRITE_EXTERNAL_STORAGE"
-      ]
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png",
-      "themeColor": "#0d0d14",
-      "backgroundColor": "#0d0d14",
-      "name": "FAF",
-      "shortName": "FAF",
-      "description": "Your campus social app",
-      "display": "standalone",
-      "orientation": "portrait",
-      "scope": "/",
-      "startUrl": "/"
-    },
-    "plugins": [
-      "expo-router",
-      "expo-secure-store",
-      "expo-image-picker",
-      [
-        "expo-font",
-        {
-          "fonts": [
-            "node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"
-          ]
-        }
-      ],
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/icon.png",
-          "color": "#a78bfa",
-          "defaultChannel": "default"
-        }
-      ],
-      "expo-web-browser",
-      "@react-native-community/datetimepicker"
-    ],
-    "experiments": {
-      "typedRoutes": true
-    },
-    "extra": {
-      "supabaseUrl": "https://vcbtvhociaioeyhhsczh.supabase.co",
-      "supabaseAnonKey": "sb_publishable_oN3ImQ-mtGa2QgnBXQ-xqA_gP3GfVwe",
-      "router": {},
-      "eas": {
-        "projectId": "c91925a9-42d3-43de-bc48-1bd279422541"
-      }
-    },
-    "owner": "ayomide_enoch",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/c91925a9-42d3-43de-bc48-1bd279422541"
-    }
-  }
+    "expo":  {
+                 "name":  "FAF",
+                 "slug":  "faf",
+                 "version":  "1.0.0",
+                 "orientation":  "portrait",
+                 "icon":  "./assets/images/icon.png",
+                 "scheme":  "faf",
+                 "userInterfaceStyle":  "dark",
+                 "splash":  {
+                                "image":  "./assets/images/splash-icon.png",
+                                "resizeMode":  "contain",
+                                "backgroundColor":  "#0d0d14"
+                            },
+                 "ios":  {
+                             "icon":  "./assets/images/actual-icon.jpg",
+                             "supportsTablet":  false,
+                             "bundleIdentifier":  "com.faf.campus"
+                         },
+                 "android":  {
+                                 "adaptiveIcon":  {
+                                                      "foregroundImage":  "./assets/images/adaptive-icon.png",
+                                                      "backgroundColor":  "#0d0d14"
+                                                  },
+                                 "package":  "com.ayomideenoch.faf",
+                                 "googleServicesFile":  "./google-services.json",
+                                 "softwareKeyboardLayoutMode":  "pan",
+                                 "jsEngine":  "hermes",
+                                 "enableProguardInReleaseBuilds":  true,
+                                 "enableShrinkResourcesInReleaseBuilds":  true,
+                                 "usesCleartextTraffic":  true,
+                                 "permissions":  [
+                                                     "android.permission.RECORD_AUDIO",
+                                                     "android.permission.CAMERA",
+                                                     "android.permission.READ_MEDIA_IMAGES",
+                                                     "android.permission.READ_MEDIA_VIDEO",
+                                                     "android.permission.READ_EXTERNAL_STORAGE",
+                                                     "android.permission.WRITE_EXTERNAL_STORAGE"
+                                                 ]
+                             },
+                 "web":  {
+                             "bundler":  "metro",
+                             "output":  "static",
+                             "favicon":  "./assets/images/favicon.png",
+                             "themeColor":  "#0d0d14",
+                             "backgroundColor":  "#0d0d14",
+                             "name":  "FAF",
+                             "shortName":  "FAF",
+                             "description":  "Your campus social app",
+                             "display":  "standalone",
+                             "orientation":  "portrait",
+                             "scope":  "/",
+                             "startUrl":  "/"
+                         },
+                 "plugins":  [
+                                 "expo-router",
+                                 "expo-secure-store",
+                                 "expo-image-picker",
+                                 [
+                                     "expo-font",
+                                     {
+                                         "fonts":  [
+                                                       "node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"
+                                                   ]
+                                     }
+                                 ],
+                                 [
+                                     "expo-notifications",
+                                     {
+                                         "icon":  "./assets/images/icon.png",
+                                         "color":  "#a78bfa",
+                                         "defaultChannel":  "default"
+                                     }
+                                 ],
+                                 "expo-web-browser",
+                                 "@react-native-community/datetimepicker"
+                             ],
+                 "experiments":  {
+                                     "typedRoutes":  true,
+                                     "baseUrl":  "/pwa"
+                                 },
+                 "extra":  {
+                               "supabaseUrl":  "https://vcbtvhociaioeyhhsczh.supabase.co",
+                               "supabaseAnonKey":  "sb_publishable_oN3ImQ-mtGa2QgnBXQ-xqA_gP3GfVwe",
+                               "router":  {
+
+                                          },
+                               "eas":  {
+                                           "projectId":  "c91925a9-42d3-43de-bc48-1bd279422541"
+                                       }
+                           },
+                 "owner":  "ayomide_enoch",
+                 "runtimeVersion":  {
+                                        "policy":  "appVersion"
+                                    },
+                 "updates":  {
+                                 "url":  "https://u.expo.dev/c91925a9-42d3-43de-bc48-1bd279422541"
+                             }
+             }
 }
