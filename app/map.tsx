@@ -1,6 +1,4 @@
 import ComingSoon from "@/components/maintainance";
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
   ScrollView, ActivityIndicator
