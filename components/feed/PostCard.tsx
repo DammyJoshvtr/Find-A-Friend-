@@ -1,6 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
-import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import * as React from "react";
 import { useState } from "react";
