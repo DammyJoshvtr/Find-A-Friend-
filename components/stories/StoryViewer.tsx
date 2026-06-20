@@ -29,6 +29,16 @@ import {
   selectCurrentStory,
   useStoriesStore,
 } from "../../store/storiesStore";
+import { supportsVideoStories } from "../../lib/featureFlags";
+
+let VideoPlayer: any = null;
+try {
+  if (supportsVideoStories()) {
+    VideoPlayer = require("./VideoPlayer").default;
+  }
+} catch (e) {
+  console.warn("Failed to load VideoPlayer component dynamically:", e);
+}
 
 const STORY_EMOJIS = ["❤️", "😂", "😮", "🔥", "👏"];
 
@@ -69,6 +79,13 @@ export default function StoryViewer() {
     currentProgress.current = 0;
   }, [story?.id, progressAnim]);
 
+  // Set media loaded automatically if we are showing fallback for video stories
+  useEffect(() => {
+    if (visible && story?.media_type === "video" && !supportsVideoStories()) {
+      setMediaLoaded(true);
+    }
+  }, [story?.id, visible]);
+
   // Reactions + comments
   const [myReaction, setMyReaction] = useState<string | null>(null);
   const [storyComment, setStoryComment] = useState("");
@@ -106,6 +123,15 @@ export default function StoryViewer() {
     },
     [story, progressAnim, handleNext],
   );
+
+  const handleUpdateApp = () => {
+    closeViewer();
+    router.push("/settings" as any);
+  };
+
+  const handleGoBack = () => {
+    closeViewer();
+  };
 
   useEffect(() => {
     if (visible && story?.id) {
@@ -274,13 +300,50 @@ export default function StoryViewer() {
       <StatusBar hidden />
       <View style={s.container}>
         {/* Story media */}
-        <Image
-          source={{ uri: story.media_url }}
-          style={s.media}
-          resizeMode="cover"
-          onLoadStart={() => setMediaLoaded(false)}
-          onLoad={() => setMediaLoaded(true)}
-        />
+        {story.media_type === "video" ? (
+          supportsVideoStories() && VideoPlayer ? (
+            <VideoPlayer
+              sourceUrl={story.media_url}
+              paused={paused}
+              onLoad={() => setMediaLoaded(true)}
+            />
+          ) : (
+            <View style={s.fallbackContainer}>
+              <Ionicons
+                name="videocam-off-outline"
+                size={64}
+                color="#ef4444"
+                style={{ marginBottom: 16 }}
+              />
+              <Text style={s.fallbackTitle}>Video Stories Not Supported</Text>
+              <Text style={s.fallbackMessage}>
+                Please update the app to watch video stories.
+              </Text>
+              <View style={s.fallbackBtnRow}>
+                <TouchableOpacity
+                  style={s.fallbackUpdateBtn}
+                  onPress={handleUpdateApp}
+                >
+                  <Text style={s.fallbackUpdateText}>Update App</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={s.fallbackBackBtn}
+                  onPress={handleGoBack}
+                >
+                  <Text style={s.fallbackBackText}>Go Back</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )
+        ) : (
+          <Image
+            source={{ uri: story.media_url }}
+            style={s.media}
+            resizeMode="cover"
+            onLoadStart={() => setMediaLoaded(false)}
+            onLoad={() => setMediaLoaded(true)}
+          />
+        )}
 
         {!mediaLoaded && (
           <View style={[StyleSheet.absoluteFill, s.loadingOverlay]}>
@@ -612,5 +675,56 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  fallbackContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+    backgroundColor: "#0a0a1a",
+  },
+  fallbackTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  fallbackMessage: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.6)",
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  fallbackBtnRow: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+    justifyContent: "center",
+  },
+  fallbackUpdateBtn: {
+    backgroundColor: "#a78bfa",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  fallbackUpdateText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 13,
+  },
+  fallbackBackBtn: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 0.5,
+    borderColor: "rgba(255,255,255,0.2)",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  fallbackBackText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 13,
   },
 });
