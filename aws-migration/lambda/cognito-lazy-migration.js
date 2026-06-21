@@ -57,6 +57,8 @@ exports.handler = async (event) => {
 
       const legacyUser = res.rows[0];
 
+      console.log(`User found. Hash prefix: ${legacyUser.encrypted_password ? legacyUser.encrypted_password.substring(0, 10) : 'null'}`);
+      
       // Compare password with bcrypt hash from Supabase (convert $2y$ to $2a$ for bcryptjs compatibility)
       let hash = legacyUser.encrypted_password;
       if (hash && hash.startsWith('$2y$')) {
