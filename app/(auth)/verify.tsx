@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { confirmSignUp, signIn, signUp } from "aws-amplify/auth";
+import { supabase } from "../../lib/supabase";
 import { router, useLocalSearchParams, useSegments } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -251,6 +251,12 @@ export default function VerifyScreen() {
   const [showVerification, setShowVerification] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (initialMode === "signin" || initialMode === "signup") {
+      setMode(initialMode);
+    }
+  }, [initialMode]);
+
   // Entry animations
   const cardOp = useSharedValue(0);
   const cardY = useSharedValue(30);
@@ -283,40 +289,6 @@ export default function VerifyScreen() {
   const handleSubmit = async () => {
     const trimmedEmail = email.toLowerCase().trim();
 
-    if (showVerification) {
-      if (!verificationCode) {
-        Toast.show({
-          type: "error",
-          text1: "Missing code",
-          text2: "Please enter the verification code",
-        });
-        return;
-      }
-      setLoading(true);
-      try {
-        await confirmSignUp({
-          username: trimmedEmail,
-          confirmationCode: verificationCode,
-        });
-        Toast.show({
-          type: "success",
-          text1: "Verified!",
-          text2: "Please sign in.",
-        });
-        setShowVerification(false);
-        setMode("signin");
-      } catch (error: any) {
-        Toast.show({
-          type: "error",
-          text1: "Verification failed",
-          text2: error.message,
-        });
-      } finally {
-        setLoading(false);
-      }
-      return;
-    }
-
     if (!trimmedEmail || !password) {
       Toast.show({
         type: "error",
@@ -345,26 +317,14 @@ export default function VerifyScreen() {
     setLoading(true);
 
     if (mode === "signup") {
-      try {
-        const { nextStep } = await signUp({
-          username: trimmedEmail,
-          password,
-          options: { userAttributes: { email: trimmedEmail } },
-        });
+      const { data, error } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password,
+        options: { data: { email: trimmedEmail } },
+      });
+      if (error) {
         setLoading(false);
-        if (nextStep?.signUpStep === "CONFIRM_SIGN_UP") {
-          Toast.show({
-            type: "success",
-            text1: "Check your email",
-            text2: `Verification code sent to ${trimmedEmail}`,
-          });
-          setShowVerification(true);
-        } else {
-          router.replace("/(auth)/onboarding");
-        }
-      } catch (error: any) {
-        setLoading(false);
-        if (error.name === "UsernameExistsException") {
+        if (error.message.toLowerCase().includes("already registered") || error.message.toLowerCase().includes("userexists")) {
           Toast.show({
             type: "info",
             text1: "Account exists",
@@ -378,32 +338,42 @@ export default function VerifyScreen() {
             text2: error.message,
           });
         }
+        return;
       }
-    } else {
-      try {
-        const { nextStep } = await signIn({
-          username: trimmedEmail,
+      if (data.session) {
+        setLoading(false);
+        router.replace("/(auth)/onboarding");
+      } else {
+        const { data: sd } = await supabase.auth.signInWithPassword({
+          email: trimmedEmail,
           password,
-          options: {
-            authFlowType: "USER_PASSWORD_AUTH",
-          },
         });
         setLoading(false);
-        if (nextStep?.signInStep === "CONFIRM_SIGN_UP") {
+        if (sd?.session) {
+          router.replace("/(auth)/onboarding");
+        } else {
+          Toast.show({
+            type: "success",
+            text1: "Check your email",
+            text2: `Confirmation sent to ${trimmedEmail}`,
+          });
+          setMode("signin");
+        }
+      }
+    } else {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password,
+      });
+      setLoading(false);
+      if (error) {
+        if (error.message.toLowerCase().includes("not confirmed") || error.message.toLowerCase().includes("unconfirmed")) {
           Toast.show({
             type: "info",
             text1: "Email not confirmed",
-            text2: "Please verify your email.",
+            text2: "Check your inbox for a confirmation link.",
           });
-          setShowVerification(true);
-        } else {
-          router.replace("/(tabs)"); // Skip profile check for now as data schema is pending
-        }
-      } catch (error: any) {
-        setLoading(false);
-        if (error.message?.includes("already a signed in user") || error.name === "AlreadySignedInException") {
-          router.replace("/(tabs)");
-        } else if (error.name === "NotAuthorizedException") {
+        } else if (error.message.toLowerCase().includes("invalid login credentials") || error.message.toLowerCase().includes("notauthorized")) {
           Toast.show({
             type: "error",
             text1: "Sign in failed",
@@ -416,6 +386,15 @@ export default function VerifyScreen() {
             text2: error.message,
           });
         }
+        return;
+      }
+      if (data.session) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("id", data.session.user.id)
+          .maybeSingle();
+        router.replace(profile ? "/(tabs)" : "/(auth)/onboarding");
       }
     }
   };
