@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons'
 
 const { width } = Dimensions.get('window')
 
-type Mode = 'signup' | 'signin'
+type Mode = 'signup' | 'signin' | 'forgot' | 'reset'
 
 const UNIVERSITY_DOMAINS = [
   'unilag.edu.ng', 'ui.edu.ng', 'oau.edu.ng', 'unn.edu.ng',
@@ -146,6 +146,7 @@ export default function VerifyScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
 
   // Entry animations
@@ -173,6 +174,46 @@ export default function VerifyScreen() {
 
   const handleSubmit = async () => {
     const trimmedEmail = email.toLowerCase().trim()
+
+    if (mode === 'forgot') {
+      if (!trimmedEmail) {
+        Toast.show({ type: 'error', text1: 'Missing email', text2: 'Please enter your university email' })
+        return
+      }
+      setLoading(true)
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail)
+      setLoading(false)
+      if (error) {
+        Toast.show({ type: 'error', text1: 'Request failed', text2: error.message })
+      } else {
+        Toast.show({ type: 'success', text1: 'Code sent', text2: 'Check your email inbox' })
+        setMode('reset')
+      }
+      return
+    }
+
+    if (mode === 'reset') {
+      if (!trimmedEmail || !code || !password) {
+        Toast.show({ type: 'error', text1: 'Missing fields', text2: 'Please fill in all fields' })
+        return
+      }
+      if (password.length < 6) {
+        Toast.show({ type: 'error', text1: 'Weak password', text2: 'Password must be at least 6 characters' })
+        return
+      }
+      setLoading(true)
+      const { error } = await (supabase.auth as any).updateUserPassword(trimmedEmail, code, password)
+      setLoading(false)
+      if (error) {
+        Toast.show({ type: 'error', text1: 'Reset failed', text2: error.message })
+      } else {
+        Toast.show({ type: 'success', text1: 'Password reset successful', text2: 'You can now sign in' })
+        setMode('signin')
+        setPassword('')
+        setCode('')
+      }
+      return
+    }
 
     if (!trimmedEmail || !password) {
       Toast.show({ type: 'error', text1: 'Missing fields', text2: 'Please fill in all fields' })
@@ -287,20 +328,28 @@ export default function VerifyScreen() {
 
             {/* Card */}
             <Animated.View style={[s.card, cardStyle]}>
-              {/* Tab switcher */}
-              <View style={s.tabBar}>
-                <Animated.View style={[s.tabIndicator, tabIndicatorStyle]} />
-                <TouchableOpacity
-                  style={s.tabBtn}
-                  onPress={() => { setMode('signup'); setPassword(''); setConfirmPassword('') }}>
-                  <Text style={[s.tabLabel, mode === 'signup' && s.tabLabelActive]}>Sign Up</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={s.tabBtn}
-                  onPress={() => { setMode('signin'); setPassword(''); setConfirmPassword('') }}>
-                  <Text style={[s.tabLabel, mode === 'signin' && s.tabLabelActive]}>Sign In</Text>
-                </TouchableOpacity>
-              </View>
+              {/* Tab switcher or Title Header */}
+              {mode === 'signup' || mode === 'signin' ? (
+                <View style={s.tabBar}>
+                  <Animated.View style={[s.tabIndicator, tabIndicatorStyle]} />
+                  <TouchableOpacity
+                    style={s.tabBtn}
+                    onPress={() => { setMode('signup'); setPassword(''); setConfirmPassword('') }}>
+                    <Text style={[s.tabLabel, mode === 'signup' && s.tabLabelActive]}>Sign Up</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={s.tabBtn}
+                    onPress={() => { setMode('signin'); setPassword(''); setConfirmPassword('') }}>
+                    <Text style={[s.tabLabel, mode === 'signin' && s.tabLabelActive]}>Sign In</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={s.tabBarTitle}>
+                  <Text style={s.tabBarTitleText}>
+                    {mode === 'forgot' ? 'Reset Password' : 'Set New Password'}
+                  </Text>
+                </View>
+              )}
 
               <View style={s.cardBody}>
                 <AnimatedInput
@@ -310,13 +359,37 @@ export default function VerifyScreen() {
                   onChangeText={setEmail}
                   keyboardType="email-address"
                 />
-                <AnimatedInput
-                  label="Password"
-                  placeholder={mode === 'signup' ? 'Min. 6 characters' : 'Your password'}
-                  value={password}
-                  onChangeText={setPassword}
-                  isPassword
-                />
+
+                {mode === 'reset' && (
+                  <AnimatedInput
+                    label="Verification Code"
+                    placeholder="Enter 6-digit code"
+                    value={code}
+                    onChangeText={setCode}
+                    keyboardType="number-pad"
+                  />
+                )}
+
+                {mode !== 'forgot' && (
+                  <AnimatedInput
+                    label={mode === 'reset' ? "New Password" : "Password"}
+                    placeholder={mode === 'signup' ? 'Min. 6 characters' : 'Your password'}
+                    value={password}
+                    onChangeText={setPassword}
+                    isPassword
+                  />
+                )}
+
+                {mode === 'signin' && (
+                  <TouchableOpacity
+                    onPress={() => setMode('forgot')}
+                    style={s.forgotBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={s.forgotText}>Forgot password?</Text>
+                  </TouchableOpacity>
+                )}
+
                 {mode === 'signup' && (
                   <AnimatedInput
                     label="Confirm Password"
@@ -336,6 +409,15 @@ export default function VerifyScreen() {
                   </View>
                 )}
 
+                {mode === 'forgot' && (
+                  <View style={[s.infoCard, { backgroundColor: 'rgba(96,165,250,0.08)', borderColor: 'rgba(96,165,250,0.2)' }]}>
+                    <View style={[s.infoDot, { backgroundColor: '#60a5fa' }]} />
+                    <Text style={[s.infoText, { color: 'rgba(96,165,250,0.8)' }]}>
+                      We will send a password reset code to your university email.
+                    </Text>
+                  </View>
+                )}
+
                 <TouchableOpacity
                   style={[s.btnPrimary, loading && s.btnDisabled]}
                   onPress={handleSubmit}
@@ -346,17 +428,32 @@ export default function VerifyScreen() {
                   {loading
                     ? <ActivityIndicator color="#fff" />
                     : <Text style={s.btnText}>
-                        {mode === 'signup' ? 'Create Account →' : 'Sign In →'}
+                        {mode === 'signup' && 'Create Account →'}
+                        {mode === 'signin' && 'Sign In →'}
+                        {mode === 'forgot' && 'Send Reset Code →'}
+                        {mode === 'reset' && 'Reset Password →'}
                       </Text>
                   }
                 </TouchableOpacity>
 
-                <Text style={s.termsText}>
-                  By continuing you agree to our{' '}
-                  <Text style={s.termsLink}>Terms</Text>
-                  {' '}and{' '}
-                  <Text style={s.termsLink}>Privacy Policy</Text>
-                </Text>
+                {mode === 'signup' && (
+                  <Text style={s.termsText}>
+                    By continuing you agree to our{' '}
+                    <Text style={s.termsLink}>Terms</Text>
+                    {' '}and{' '}
+                    <Text style={s.termsLink}>Privacy Policy</Text>
+                  </Text>
+                )}
+
+                {(mode === 'forgot' || mode === 'reset') && (
+                  <TouchableOpacity
+                    onPress={() => { setMode('signin'); setPassword(''); setConfirmPassword(''); setCode('') }}
+                    style={s.cancelBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={s.cancelText}>← Back to Sign In</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </Animated.View>
           </ScrollView>
@@ -472,5 +569,39 @@ const s = StyleSheet.create({
     color: 'rgba(196,181,253,0.3)', textAlign: 'center',
   },
   termsLink: { color: 'rgba(167,139,250,0.6)' },
+
+  forgotBtn: {
+    alignSelf: 'flex-end',
+    marginTop: -8,
+    marginBottom: 16,
+    paddingVertical: 4,
+  },
+  forgotText: {
+    fontSize: 12,
+    fontFamily: typography.fontMedium,
+    color: '#a78bfa',
+  },
+  tabBarTitle: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderBottomWidth: 0.5,
+    borderColor: 'rgba(167,139,250,0.15)',
+  },
+  tabBarTitleText: {
+    fontSize: 15,
+    fontFamily: typography.fontBold,
+    color: '#c4b5fd',
+    letterSpacing: 0.5,
+  },
+  cancelBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  cancelText: {
+    fontSize: 13,
+    fontFamily: typography.fontMedium,
+    color: 'rgba(196,181,253,0.45)',
+  },
 })
 

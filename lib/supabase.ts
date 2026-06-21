@@ -205,6 +205,34 @@ export class CognitoAuthAdapter {
     }
   }
 
+  async resetPasswordForEmail(email: string) {
+    try {
+      const formattedEmail = email.toLowerCase().trim();
+      await callCognito('ForgotPassword', {
+        ClientId: COGNITO_CLIENT_ID,
+        Username: formattedEmail,
+      });
+      return { data: {}, error: null };
+    } catch (err: any) {
+      return { data: null, error: err };
+    }
+  }
+
+  async updateUserPassword(email: string, code: string, newPassword: string) {
+    try {
+      const formattedEmail = email.toLowerCase().trim();
+      await callCognito('ConfirmForgotPassword', {
+        ClientId: COGNITO_CLIENT_ID,
+        Username: formattedEmail,
+        ConfirmationCode: code,
+        Password: newPassword,
+      });
+      return { data: {}, error: null };
+    } catch (err: any) {
+      return { data: null, error: err };
+    }
+  }
+
   onAuthStateChange(callback: (event: string, session: any) => void) {
     this.listeners.push(callback);
     // Trigger initial callback with current session
