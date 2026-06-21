@@ -17,7 +17,7 @@ export function AttachmentBubble({
 }) {
   const handleOpen = () => Linking.openURL(attachment.url).catch(() => {});
 
-  if ((attachment._type as string) === "image" || (attachment._type as string) === "sticker") {
+  if (attachment._type as string === "image" || attachment._type as string === "sticker") {
     const imgW = Math.min(SCREEN_W * 0.65, 260);
     const aspectH =
       attachment.width && attachment.height
