@@ -97,6 +97,7 @@ async function runMigration() {
         created_at TIMESTAMP WITH TIME ZONE
       );
       
+      DROP FUNCTION IF EXISTS auth.uid() CASCADE;
       CREATE OR REPLACE FUNCTION auth.uid()
       RETURNS UUID
       LANGUAGE sql
@@ -105,6 +106,7 @@ async function runMigration() {
         SELECT null::uuid;
       $$;
 
+      DROP FUNCTION IF EXISTS auth.role() CASCADE;
       CREATE OR REPLACE FUNCTION auth.role()
       RETURNS VARCHAR
       LANGUAGE sql

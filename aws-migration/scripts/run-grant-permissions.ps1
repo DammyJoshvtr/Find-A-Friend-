@@ -5,6 +5,11 @@
 # Cleans up the Lambda after execution.
 
 $ErrorActionPreference = "Stop"
+
+# Set default AWS region for CLI calls
+$env:AWS_DEFAULT_REGION = "us-east-1"
+$env:AWS_REGION = "us-east-1"
+
 $AWS_PATH = "C:\Program Files\Amazon\AWSCLIV2\aws.exe"
 
 Write-Output "============================================================"

@@ -5,6 +5,7 @@
   "main": "cognito-lazy-migration.js",
   "dependencies": {
     "bcryptjs": "^2.4.3",
+    "faf": "file:../..",
     "pg": "^8.11.3"
   },
   "scripts": {
