@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons'
 
 const { width } = Dimensions.get('window')
 
-type Mode = 'signup' | 'signin' | 'forgot' | 'reset'
+type Mode = 'signup' | 'signin' | 'forgot' | 'reset' | 'confirm'
 
 const UNIVERSITY_DOMAINS = [
   'unilag.edu.ng', 'ui.edu.ng', 'oau.edu.ng', 'unn.edu.ng',
@@ -172,6 +172,22 @@ export default function VerifyScreen() {
     transform: [{ translateX: tabSlide.value * ((width - 48) / 2) }],
   }))
 
+  const handleResendCode = async () => {
+    const trimmedEmail = email.toLowerCase().trim()
+    if (!trimmedEmail) {
+      Toast.show({ type: 'error', text1: 'Missing email', text2: 'Please enter your university email' })
+      return
+    }
+    setLoading(true)
+    const { error } = await (supabase.auth as any).resendConfirmationCode(trimmedEmail)
+    setLoading(false)
+    if (error) {
+      Toast.show({ type: 'error', text1: 'Resend failed', text2: error.message })
+    } else {
+      Toast.show({ type: 'success', text1: 'Code sent', text2: 'Please check your inbox' })
+    }
+  }
+
   const handleSubmit = async () => {
     const trimmedEmail = email.toLowerCase().trim()
 
@@ -215,6 +231,25 @@ export default function VerifyScreen() {
       return
     }
 
+    if (mode === 'confirm') {
+      if (!trimmedEmail || !code) {
+        Toast.show({ type: 'error', text1: 'Missing code', text2: 'Please enter verification code' })
+        return
+      }
+      setLoading(true)
+      const { error } = await (supabase.auth as any).confirmSignUp(trimmedEmail, code)
+      setLoading(false)
+      if (error) {
+        Toast.show({ type: 'error', text1: 'Verification failed', text2: error.message })
+      } else {
+        Toast.show({ type: 'success', text1: 'Email verified!', text2: 'You can now sign in with your password.' })
+        setMode('signin')
+        setCode('')
+        setPassword('')
+      }
+      return
+    }
+
     if (!trimmedEmail || !password) {
       Toast.show({ type: 'error', text1: 'Missing fields', text2: 'Please fill in all fields' })
       return
@@ -246,26 +281,19 @@ export default function VerifyScreen() {
         }
         return
       }
-      if (data.session) {
-        setLoading(false)
-        router.replace('/(auth)/onboarding')
-      } else {
-        const { data: sd } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
-        setLoading(false)
-        if (sd?.session) {
-          router.replace('/(auth)/onboarding')
-        } else {
-          Toast.show({ type: 'success', text1: 'Check your email', text2: `Confirmation sent to ${trimmedEmail}` })
-          setMode('signin')
-        }
-      }
+      setLoading(false)
+      Toast.show({ type: 'success', text1: 'Verify your email', text2: `Enter the code sent to ${trimmedEmail}` })
+      setMode('confirm')
+      setCode('')
     } else {
       const { data, error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
       setLoading(false)
       if (error) {
-        if (error.message.toLowerCase().includes('not confirmed')) {
-          Toast.show({ type: 'info', text1: 'Email not confirmed', text2: 'Check your inbox for a confirmation link.' })
-        } else if (error.message.toLowerCase().includes('invalid login credentials')) {
+        if (error.message.toLowerCase().includes('not confirmed') || error.message.includes('UserNotConfirmedException')) {
+          Toast.show({ type: 'info', text1: 'Email not confirmed', text2: 'Please enter the verification code sent to your email.' })
+          setMode('confirm')
+          setCode('')
+        } else if (error.message.toLowerCase().includes('invalid login credentials') || error.message.includes('NotAuthorizedException')) {
           Toast.show({ type: 'error', text1: 'Sign in failed', text2: 'Wrong email or password.' })
         } else {
           Toast.show({ type: 'error', text1: 'Sign in error', text2: error.message })
@@ -346,7 +374,9 @@ export default function VerifyScreen() {
               ) : (
                 <View style={s.tabBarTitle}>
                   <Text style={s.tabBarTitleText}>
-                    {mode === 'forgot' ? 'Reset Password' : 'Set New Password'}
+                    {mode === 'forgot' && 'Reset Password'}
+                    {mode === 'reset' && 'Set New Password'}
+                    {mode === 'confirm' && 'Confirm Email'}
                   </Text>
                 </View>
               )}
@@ -360,7 +390,7 @@ export default function VerifyScreen() {
                   keyboardType="email-address"
                 />
 
-                {mode === 'reset' && (
+                {(mode === 'reset' || mode === 'confirm') && (
                   <AnimatedInput
                     label="Verification Code"
                     placeholder="Enter 6-digit code"
@@ -370,7 +400,7 @@ export default function VerifyScreen() {
                   />
                 )}
 
-                {mode !== 'forgot' && (
+                {mode !== 'forgot' && mode !== 'confirm' && (
                   <AnimatedInput
                     label={mode === 'reset' ? "New Password" : "Password"}
                     placeholder={mode === 'signup' ? 'Min. 6 characters' : 'Your password'}
@@ -418,6 +448,25 @@ export default function VerifyScreen() {
                   </View>
                 )}
 
+                {mode === 'confirm' && (
+                  <View style={[s.infoCard, { backgroundColor: 'rgba(167,139,250,0.08)', borderColor: 'rgba(167,139,250,0.2)' }]}>
+                    <View style={[s.infoDot, { backgroundColor: '#a78bfa' }]} />
+                    <Text style={[s.infoText, { color: 'rgba(167,139,250,0.8)' }]}>
+                      Please check your university email inbox for the 6-digit confirmation code.
+                    </Text>
+                  </View>
+                )}
+
+                {mode === 'confirm' && (
+                  <TouchableOpacity
+                    onPress={handleResendCode}
+                    style={s.resendBtn}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={s.resendText}>Didn't receive code? Resend Code</Text>
+                  </TouchableOpacity>
+                )}
+
                 <TouchableOpacity
                   style={[s.btnPrimary, loading && s.btnDisabled]}
                   onPress={handleSubmit}
@@ -432,6 +481,7 @@ export default function VerifyScreen() {
                         {mode === 'signin' && 'Sign In →'}
                         {mode === 'forgot' && 'Send Reset Code →'}
                         {mode === 'reset' && 'Reset Password →'}
+                        {mode === 'confirm' && 'Verify Email →'}
                       </Text>
                   }
                 </TouchableOpacity>
@@ -445,7 +495,7 @@ export default function VerifyScreen() {
                   </Text>
                 )}
 
-                {(mode === 'forgot' || mode === 'reset') && (
+                {(mode === 'forgot' || mode === 'reset' || mode === 'confirm') && (
                   <TouchableOpacity
                     onPress={() => { setMode('signin'); setPassword(''); setConfirmPassword(''); setCode('') }}
                     style={s.cancelBtn}
@@ -602,6 +652,17 @@ const s = StyleSheet.create({
     fontSize: 13,
     fontFamily: typography.fontMedium,
     color: 'rgba(196,181,253,0.45)',
+  },
+  resendBtn: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  resendText: {
+    fontSize: 12,
+    fontFamily: typography.fontMedium,
+    color: '#a78bfa',
+    textDecorationLine: 'underline',
   },
 })
 

@@ -233,6 +233,33 @@ export class CognitoAuthAdapter {
     }
   }
 
+  async confirmSignUp(email: string, code: string) {
+    try {
+      const formattedEmail = email.toLowerCase().trim();
+      await callCognito('ConfirmSignUp', {
+        ClientId: COGNITO_CLIENT_ID,
+        Username: formattedEmail,
+        ConfirmationCode: code,
+      });
+      return { data: {}, error: null };
+    } catch (err: any) {
+      return { data: null, error: err };
+    }
+  }
+
+  async resendConfirmationCode(email: string) {
+    try {
+      const formattedEmail = email.toLowerCase().trim();
+      await callCognito('ResendConfirmationCode', {
+        ClientId: COGNITO_CLIENT_ID,
+        Username: formattedEmail,
+      });
+      return { data: {}, error: null };
+    } catch (err: any) {
+      return { data: null, error: err };
+    }
+  }
+
   onAuthStateChange(callback: (event: string, session: any) => void) {
     this.listeners.push(callback);
     // Trigger initial callback with current session
