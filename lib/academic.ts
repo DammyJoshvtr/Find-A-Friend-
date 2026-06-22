@@ -561,3 +561,84 @@ export async function createAcademicPost(
     return { data: null, error: err as Error }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Study Group Chat & Resource helpers
+// ---------------------------------------------------------------------------
+
+export async function getMyJoinedStudyGroups(): Promise<{
+  data: string[] | null
+  error: Error | null
+}> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { data: null, error: null }
+
+    const { data, error } = await supabase
+      .from('study_group_members')
+      .select('group_id')
+      .eq('user_id', user.id)
+
+    if (error) throw error
+    return { data: (data ?? []).map((r: any) => r.group_id), error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function getStudyGroupMessages(groupId: string): Promise<{
+  data: any[] | null
+  error: Error | null
+}> {
+  try {
+    const { data, error } = await supabase
+      .from('study_group_messages')
+      .select('*, profiles!sender_id(id, full_name, avatar_url)')
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function sendStudyGroupMessage(
+  groupId: string,
+  body: string
+): Promise<{ data: any | null; error: Error | null }> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
+
+    const { data, error } = await supabase
+      .from('study_group_messages')
+      .insert({ group_id: groupId, sender_id: user.id, body })
+      .select('*, profiles!sender_id(id, full_name, avatar_url)')
+      .single()
+
+    if (error) throw error
+    return { data, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
+
+export async function getResourceDetail(id: string): Promise<{
+  data: AcademicResource | null
+  error: Error | null
+}> {
+  try {
+    const { data, error } = await supabase
+      .from('academic_resources')
+      .select('*, courses(id, code, name), profiles!uploader_id(id, full_name, avatar_url)')
+      .eq('id', id)
+      .single()
+
+    if (error) throw error
+    return { data: data as AcademicResource, error: null }
+  } catch (err) {
+    return { data: null, error: err as Error }
+  }
+}
