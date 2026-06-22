@@ -141,7 +141,7 @@ export default function EditProfileScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
-        <ActivityIndicator color="#a78bfa" style={{ flex: 1 }} />
+        <ActivityIndicator color={theme.accent} style={{ flex: 1 }} />
       </SafeAreaView>
     )
   }
@@ -154,12 +154,12 @@ export default function EditProfileScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {/* Header */}
         <View style={[s.header, { borderBottomColor: theme.border }]}>
-          <TouchableOpacity onPress={() => router.back()} style={[s.closeBtn, { backgroundColor: theme.card }]}>
+          <TouchableOpacity onPress={() => router.back()} style={[s.closeBtn, { backgroundColor: theme.card, borderColor: theme.border, borderWidth: 0.5 }]}>
             <Ionicons name="close" size={22} color={theme.text} />
           </TouchableOpacity>
           <Text style={[s.title, { color: theme.text }]}>Edit Profile</Text>
           <TouchableOpacity
-            style={[s.saveBtn, saving && s.saveBtnDisabled]}
+            style={[s.saveBtn, { backgroundColor: theme.accent }, saving && s.saveBtnDisabled]}
             onPress={handleSave}
             disabled={saving}>
             {saving
@@ -197,11 +197,11 @@ export default function EditProfileScreen() {
               {avatarSource ? (
                 <Image source={{ uri: avatarSource }} style={s.avatar} />
               ) : (
-                <View style={[s.avatarFallback, { backgroundColor: theme.cardSolid }]}>
+                <View style={[s.avatarFallback, { backgroundColor: theme.cardSolid, borderColor: theme.accent }]}>
                   <Text style={[s.avatarInitials, { color: theme.accent }]}>{initials}</Text>
                 </View>
               )}
-              <View style={[s.avatarEdit, { borderColor: theme.bg }]}>
+              <View style={[s.avatarEdit, { borderColor: theme.bg, backgroundColor: theme.accent }]}>
                 <Ionicons name="camera" size={16} color="#fff" />
               </View>
             </TouchableOpacity>
