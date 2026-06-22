@@ -3,7 +3,8 @@ import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, Linking } 
 import { Ionicons } from "@expo/vector-icons";
 import { typography } from "../../lib/typography";
 import type { Attachment } from "../../lib/chatAttachments";
-import { useVideoPlayer, VideoView } from "expo-video";
+import { supportsVideoStories } from "../../lib/featureFlags";
+import { useTheme } from "../../lib/theme";
 
 const SCREEN_W = Dimensions.get("window").width;
 
@@ -68,9 +69,22 @@ const attb = StyleSheet.create({
 });
 
 function InlineVideoPlayer({ sourceUrl, style }: { sourceUrl: string; style: any }) {
+  const theme = useTheme();
+  if (!supportsVideoStories()) {
+    return (
+      <View style={[style, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg || '#1a1a24', gap: 6, padding: 12 }]}>
+        <Ionicons name="play-circle-outline" size={32} color={theme.textMuted || '#888'} />
+        <Text style={{ fontSize: 11, color: theme.textMuted || '#888', fontFamily: typography.fontMedium, textAlign: 'center' }}>
+          Video requires app update
+        </Text>
+      </View>
+    );
+  }
+
+  const { useVideoPlayer, VideoView } = require("expo-video");
   const player = useVideoPlayer(sourceUrl, (p) => {
-    p.loop = false
-  })
+    p.loop = false;
+  });
   return (
     <VideoView
       player={player}
@@ -78,5 +92,5 @@ function InlineVideoPlayer({ sourceUrl, style }: { sourceUrl: string; style: any
       contentFit="contain"
       nativeControls={true}
     />
-  )
+  );
 }

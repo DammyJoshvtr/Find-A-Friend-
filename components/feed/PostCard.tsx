@@ -1,6 +1,6 @@
-import { useVideoPlayer, VideoView } from "expo-video";
 import * as React from "react";
 import { useState } from "react";
+import { supportsVideoStories } from "../../lib/featureFlags";
 import {
   View, Text, StyleSheet, TouchableOpacity,
   Image, Modal, Share, Pressable, Alert, Platform, Linking, ScrollView,
@@ -983,6 +983,19 @@ function InlineVideoPlayer({
   sourceUrl: string;
   style: any;
 }) {
+  const theme = useTheme();
+  if (!supportsVideoStories()) {
+    return (
+      <View style={[style, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg || '#1a1a24', gap: 6, padding: 12 }]}>
+        <Ionicons name="play-circle-outline" size={32} color={theme.textMuted || '#888'} />
+        <Text style={{ fontSize: 11, color: theme.textMuted || '#888', fontFamily: typography.fontMedium, textAlign: 'center' }}>
+          Video requires app update
+        </Text>
+      </View>
+    );
+  }
+
+  const { useVideoPlayer, VideoView } = require("expo-video");
   const player = useVideoPlayer(sourceUrl, (p) => {
     p.loop = false;
   });
