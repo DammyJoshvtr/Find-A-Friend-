@@ -58,7 +58,7 @@ export default function EditProfileScreen() {
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
+      mediaTypes: ['images'],
       allowsEditing: false,
       quality: 0.8,
     })
@@ -72,7 +72,7 @@ export default function EditProfileScreen() {
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
+      mediaTypes: ['images'],
       allowsEditing: false,
       quality: 0.8,
     })
@@ -141,7 +141,7 @@ export default function EditProfileScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]}>
-        <ActivityIndicator color="#a78bfa" style={{ flex: 1 }} />
+        <ActivityIndicator color={theme.accent} style={{ flex: 1 }} />
       </SafeAreaView>
     )
   }
@@ -153,13 +153,13 @@ export default function EditProfileScreen() {
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         {/* Header */}
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()} style={s.closeBtn}>
-            <Ionicons name="close" size={22} color="rgba(240,240,255,0.6)" />
+        <View style={[s.header, { borderBottomColor: theme.border }]}>
+          <TouchableOpacity onPress={() => router.back()} style={[s.closeBtn, { backgroundColor: theme.card, borderColor: theme.border, borderWidth: 0.5 }]}>
+            <Ionicons name="close" size={22} color={theme.text} />
           </TouchableOpacity>
-          <Text style={s.title}>Edit Profile</Text>
+          <Text style={[s.title, { color: theme.text }]}>Edit Profile</Text>
           <TouchableOpacity
-            style={[s.saveBtn, saving && s.saveBtnDisabled]}
+            style={[s.saveBtn, { backgroundColor: theme.accent }, saving && s.saveBtnDisabled]}
             onPress={handleSave}
             disabled={saving}>
             {saving
@@ -174,7 +174,7 @@ export default function EditProfileScreen() {
           showsVerticalScrollIndicator={false}>
 
           {/* Cover image picker */}
-          <TouchableOpacity style={[s.coverPicker, { borderColor: theme.border }]} onPress={pickCover}>
+          <TouchableOpacity style={[s.coverPicker, { borderBottomColor: theme.border, backgroundColor: theme.card2 }]} onPress={pickCover}>
             {coverUri || profile?.cover_url ? (
               <>
                 <Image source={{ uri: coverUri ?? profile?.cover_url ?? '' }} style={s.coverImg} resizeMode="cover" />
@@ -185,8 +185,8 @@ export default function EditProfileScreen() {
               </>
             ) : (
               <View style={s.coverEmpty}>
-                <Ionicons name="image-outline" size={24} color="rgba(240,240,255,0.25)" />
-                <Text style={{ color: 'rgba(240,240,255,0.4)', fontSize: 12, marginTop: 4 }}>Add cover image</Text>
+                <Ionicons name="image-outline" size={24} color={theme.textFaint} />
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>Add cover image</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -197,15 +197,15 @@ export default function EditProfileScreen() {
               {avatarSource ? (
                 <Image source={{ uri: avatarSource }} style={s.avatar} />
               ) : (
-                <View style={s.avatarFallback}>
-                  <Text style={s.avatarInitials}>{initials}</Text>
+                <View style={[s.avatarFallback, { backgroundColor: theme.cardSolid, borderColor: theme.accent }]}>
+                  <Text style={[s.avatarInitials, { color: theme.accent }]}>{initials}</Text>
                 </View>
               )}
-              <View style={s.avatarEdit}>
+              <View style={[s.avatarEdit, { borderColor: theme.bg, backgroundColor: theme.accent }]}>
                 <Ionicons name="camera" size={16} color="#fff" />
               </View>
             </TouchableOpacity>
-            <Text style={s.avatarHint}>Tap to change photo</Text>
+            <Text style={[s.avatarHint, { color: theme.textFaint }]}>Tap to change photo</Text>
           </View>
 
           {/* Fields */}
@@ -228,7 +228,7 @@ export default function EditProfileScreen() {
             />
 
             {/* Department */}
-            <Text style={s.fieldLabel}>Department</Text>
+            <Text style={[s.fieldLabel, { color: theme.textMuted }]}>Department</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -237,32 +237,32 @@ export default function EditProfileScreen() {
               {DEPARTMENTS.map(d => (
                 <TouchableOpacity
                   key={d}
-                  style={[s.pill, department === d && s.pillActive]}
+                  style={[s.pill, { backgroundColor: theme.card, borderColor: theme.border }, department === d && [s.pillActive, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]]}
                   onPress={() => setDepartment(d)}>
-                  <Text style={[s.pillText, department === d && s.pillTextActive]}>{d}</Text>
+                  <Text style={[s.pillText, { color: theme.textMuted }, department === d && [s.pillTextActive, { color: theme.accent }]]}>{d}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
             <View style={s.fieldWrap}>
               <TextInput
-                style={[s.input, { color: theme.text }]}
+                style={[s.input, { backgroundColor: theme.card2, borderColor: theme.border, color: theme.text }]}
                 placeholder="Enter your department manually"
-                placeholderTextColor="rgba(240,240,255,0.25)"
+                placeholderTextColor={theme.textFaint}
                 value={department}
                 onChangeText={setDepartment}
               />
             </View>
 
             {/* Level */}
-            <Text style={[s.fieldLabel, { marginTop: 16 }]}>Level</Text>
+            <Text style={[s.fieldLabel, { marginTop: 16, color: theme.textMuted }]}>Level</Text>
             <View style={s.levelRow}>
               {LEVELS.map(l => (
                 <TouchableOpacity
                   key={l}
-                  style={[s.levelBtn, level === l && s.levelBtnActive]}
+                  style={[s.levelBtn, { backgroundColor: theme.card, borderColor: theme.border }, level === l && [s.levelBtnActive, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }]]}
                   onPress={() => setLevel(level === l ? '' : l)}>
-                  <Text style={[s.levelText, level === l && s.levelTextActive]}>{l}</Text>
+                  <Text style={[s.levelText, { color: theme.textMuted }, level === l && [s.levelTextActive, { color: theme.accent }]]}>{l}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -277,20 +277,21 @@ function Field({ label, value, onChangeText, placeholder, multiline, maxLength, 
   label: string; value: string; onChangeText: (t: string) => void
   placeholder?: string; multiline?: boolean; maxLength?: number; textColor?: string
 }) {
+  const theme = useTheme()
   return (
     <View style={s.fieldWrap}>
-      <Text style={s.fieldLabel}>{label}</Text>
+      <Text style={[s.fieldLabel, { color: theme.textMuted }]}>{label}</Text>
       <TextInput
-        style={[s.input, multiline && { minHeight: 80, textAlignVertical: 'top' }, textColor ? { color: textColor } : undefined]}
+        style={[s.input, { backgroundColor: theme.card2, borderColor: theme.border, color: theme.text }, multiline && { minHeight: 80, textAlignVertical: 'top' }]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="rgba(240,240,255,0.25)"
+        placeholderTextColor={theme.textFaint}
         multiline={multiline}
         maxLength={maxLength}
       />
       {maxLength && (
-        <Text style={s.charCount}>{value.length}/{maxLength}</Text>
+        <Text style={[s.charCount, { color: theme.textFaint }]}>{value.length}/{maxLength}</Text>
       )}
     </View>
   )

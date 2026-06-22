@@ -310,10 +310,10 @@ const s = StyleSheet.create({
   subtitle: { fontSize: 10, textAlign: 'center', fontFamily: typography.fontRegular },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle: { fontSize: 16, fontFamily: typography.fontSemiBold, color: '#f0f0ff' },
-  emptyText: { fontSize: 13, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontRegular },
+  emptyTitle: { fontSize: 16, fontFamily: typography.fontSemiBold },
+  emptyText: { fontSize: 13, fontFamily: typography.fontRegular },
   fab: {
-    position: 'absolute', bottom: 24, right: 20,
+    position: 'absolute', bottom: 96, right: 20,
     width: 54, height: 54, borderRadius: 27,
     backgroundColor: '#f472b6',
     alignItems: 'center', justifyContent: 'center',

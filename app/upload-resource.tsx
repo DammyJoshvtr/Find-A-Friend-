@@ -121,18 +121,18 @@ export default function UploadResourceScreen() {
             <Text style={[s.label, { color: theme.text }]}>Course (optional)</Text>
             <View style={s.courseList}>
               <TouchableOpacity
-                style={[s.courseChip, !courseId && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                style={[s.courseChip, { backgroundColor: theme.card, borderColor: theme.border }, !courseId && { backgroundColor: theme.accent, borderColor: theme.accent }]}
                 onPress={() => setCourseId('')}
               >
-                <Text style={[s.courseChipText, !courseId && { color: '#fff' }]}>None</Text>
+                <Text style={[s.courseChipText, { color: theme.textMuted }, !courseId && { color: '#fff' }]}>None</Text>
               </TouchableOpacity>
               {courses.map(c => (
                 <TouchableOpacity
                   key={c.id}
-                  style={[s.courseChip, courseId === c.id && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                  style={[s.courseChip, { backgroundColor: theme.card, borderColor: theme.border }, courseId === c.id && { backgroundColor: theme.accent, borderColor: theme.accent }]}
                   onPress={() => setCourseId(c.id)}
                 >
-                  <Text style={[s.courseChipText, courseId === c.id && { color: '#fff' }]}>{c.code}</Text>
+                  <Text style={[s.courseChipText, { color: theme.textMuted }, courseId === c.id && { color: '#fff' }]}>{c.code}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -150,10 +150,10 @@ export default function UploadResourceScreen() {
               ].map(type => (
                 <TouchableOpacity
                   key={type.value}
-                  style={[s.courseChip, resourceType === type.value && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                  style={[s.courseChip, { backgroundColor: theme.card, borderColor: theme.border }, resourceType === type.value && { backgroundColor: theme.accent, borderColor: theme.accent }]}
                   onPress={() => setResourceType(type.value as any)}
                 >
-                  <Text style={[s.courseChipText, resourceType === type.value && { color: '#fff' }]}>{type.label}</Text>
+                  <Text style={[s.courseChipText, { color: theme.textMuted }, resourceType === type.value && { color: '#fff' }]}>{type.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -161,7 +161,7 @@ export default function UploadResourceScreen() {
 
           <View style={s.field}>
             <Text style={[s.label, { color: theme.text }]}>File *</Text>
-            <TouchableOpacity style={s.fileBtn} onPress={pickFile} disabled={loading}>
+            <TouchableOpacity style={[s.fileBtn, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={pickFile} disabled={loading}>
               <Ionicons name={file ? 'checkmark-circle' : 'document'} size={20} color={theme.text} />
               <Text style={[s.fileBtnText, { color: theme.text }]}>{file ? file.name : 'Select file'}</Text>
             </TouchableOpacity>

@@ -250,8 +250,8 @@ export default function ProfileScreen() {
               <Text style={[s.profileName, { color: theme.text }]}>{profile?.full_name ?? 'Your name'}</Text>
               <VerifiedBadge type={profile?.badge_type} customColor={profile?.badge_color} size={18} />
               {profile?.role === 'admin' && (
-                <View style={{ backgroundColor: 'rgba(167,139,250,0.15)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 0.5, borderColor: 'rgba(167,139,250,0.45)' }}>
-                  <Text style={{ fontSize: 10, color: '#a78bfa', fontWeight: '500' }}>👑 Admin</Text>
+                <View style={{ backgroundColor: theme.accentBg, borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 0.5, borderColor: theme.accentBorder }}>
+                  <Text style={{ fontSize: 10, color: theme.accent, fontWeight: '500' }}>👑 Admin</Text>
                 </View>
               )}
             </View>

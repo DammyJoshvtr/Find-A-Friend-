@@ -66,7 +66,7 @@ export default function CreateEventScreen() {
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
+      mediaTypes: ['images'],
       allowsEditing: false,
       quality: 0.75,
     })
@@ -120,13 +120,13 @@ export default function CreateEventScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
 
         {/* ── Header ─────────────────────────────────────────────────────── */}
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()} style={s.closeBtn}>
-            <Ionicons name="close" size={22} color="rgba(240,240,255,0.6)" />
+        <View style={[s.header, { borderBottomColor: theme.border }]}>
+          <TouchableOpacity onPress={() => router.back()} style={[s.closeBtn, { backgroundColor: theme.card }]}>
+            <Ionicons name="close" size={22} color={theme.text} />
           </TouchableOpacity>
-          <Text style={s.headerTitle}>Create Event</Text>
+          <Text style={[s.headerTitle, { color: theme.text }]}>Create Event</Text>
           <TouchableOpacity
-            style={[s.submitBtn, !canSubmit && s.submitBtnOff]}
+            style={[s.submitBtn, { backgroundColor: theme.accent }, !canSubmit && s.submitBtnOff]}
             onPress={handleSubmit}
             disabled={!canSubmit}>
             {submitting
@@ -141,7 +141,7 @@ export default function CreateEventScreen() {
           showsVerticalScrollIndicator={false}>
 
           {/* ── Cover image ─────────────────────────────────────────────── */}
-          <TouchableOpacity style={s.coverBox} onPress={pickCover}>
+          <TouchableOpacity style={[s.coverBox, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={pickCover}>
             {coverUri ? (
               <>
                 <Image source={{ uri: coverUri }} style={s.coverImg} resizeMode="cover" />
@@ -152,8 +152,8 @@ export default function CreateEventScreen() {
               </>
             ) : (
               <View style={s.coverEmpty}>
-                <Ionicons name="image-outline" size={32} color="rgba(240,240,255,0.2)" />
-                <Text style={s.coverEmptyText}>Add cover image</Text>
+                <Ionicons name="image-outline" size={32} color={theme.textFaint} />
+                <Text style={[s.coverEmptyText, { color: theme.textMuted }]}>Add cover image</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -185,15 +185,15 @@ export default function CreateEventScreen() {
 
             {/* ── Start date/time ── */}
             <View style={s.fieldWrap}>
-              <Text style={s.label}>Start date & time *</Text>
-              <View style={[s.dateRow, !startValid && startsAtText.length > 0 && s.dateRowError]}>
-                <Ionicons name="calendar-outline" size={16} color={startValid ? '#a78bfa' : 'rgba(240,240,255,0.3)'} style={{ marginRight: 8 }} />
+              <Text style={[s.label, { color: theme.textMuted }]}>Start date & time *</Text>
+              <View style={[s.dateRow, { backgroundColor: theme.card, borderColor: theme.border }, !startValid && startsAtText.length > 0 && s.dateRowError]}>
+                <Ionicons name="calendar-outline" size={16} color={startValid ? theme.accent : theme.textFaint} style={{ marginRight: 8 }} />
                 <TextInput
-                  style={s.dateInput}
+                  style={[s.dateInput, { color: theme.text }]}
                   value={startsAtText}
                   onChangeText={setStartsAtText}
                   placeholder="YYYY-MM-DD HH:MM"
-                  placeholderTextColor="rgba(240,240,255,0.25)"
+                  placeholderTextColor={theme.textFaint}
                   keyboardType="numbers-and-punctuation"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -210,15 +210,15 @@ export default function CreateEventScreen() {
 
             {/* ── End date/time ── */}
             <View style={s.fieldWrap}>
-              <Text style={s.label}>End date & time (optional)</Text>
-              <View style={[s.dateRow, endsAtText.length > 0 && !endsAtDate && s.dateRowError]}>
-                <Ionicons name="calendar-outline" size={16} color={endsAtDate ? '#a78bfa' : 'rgba(240,240,255,0.3)'} style={{ marginRight: 8 }} />
+              <Text style={[s.label, { color: theme.textMuted }]}>End date & time (optional)</Text>
+              <View style={[s.dateRow, { backgroundColor: theme.card, borderColor: theme.border }, endsAtText.length > 0 && !endsAtDate && s.dateRowError]}>
+                <Ionicons name="calendar-outline" size={16} color={endsAtDate ? theme.accent : theme.textFaint} style={{ marginRight: 8 }} />
                 <TextInput
-                  style={s.dateInput}
+                  style={[s.dateInput, { color: theme.text }]}
                   value={endsAtText}
                   onChangeText={setEndsAtText}
                   placeholder="YYYY-MM-DD HH:MM (optional)"
-                  placeholderTextColor="rgba(240,240,255,0.25)"
+                  placeholderTextColor={theme.textFaint}
                   keyboardType="numbers-and-punctuation"
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -236,7 +236,7 @@ export default function CreateEventScreen() {
             </View>
 
             {/* ── Category ── */}
-            <Text style={[s.label, { marginTop: 4 }]}>Category</Text>
+            <Text style={[s.label, { marginTop: 4, color: theme.textMuted }]}>Category</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -244,9 +244,9 @@ export default function CreateEventScreen() {
               {CATEGORIES.map(cat => (
                 <TouchableOpacity
                   key={cat}
-                  style={[s.pill, category === cat && s.pillActive]}
+                  style={[s.pill, { backgroundColor: theme.card, borderColor: theme.border }, category === cat && { backgroundColor: theme.accent + '20', borderColor: theme.accent }]}
                   onPress={() => setCategory(category === cat ? '' : cat)}>
-                  <Text style={[s.pillText, category === cat && s.pillTextActive]}>{cat}</Text>
+                  <Text style={[s.pillText, { color: theme.textMuted }, category === cat && { color: theme.accent, fontWeight: '600' }]}>{cat}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -266,15 +266,16 @@ function Field({ label, value, onChangeText, placeholder, multiline }: {
   placeholder?: string
   multiline?: boolean
 }) {
+  const theme = useTheme()
   return (
     <View style={s.fieldWrap}>
-      <Text style={s.label}>{label}</Text>
+      <Text style={[s.label, { color: theme.textMuted }]}>{label}</Text>
       <TextInput
-        style={[s.input, multiline && { minHeight: 80, textAlignVertical: 'top' }]}
+        style={[s.input, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }, multiline && { minHeight: 80, textAlignVertical: 'top' }]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="rgba(240,240,255,0.25)"
+        placeholderTextColor={theme.textFaint}
         multiline={multiline}
       />
     </View>

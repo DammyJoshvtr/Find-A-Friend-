@@ -254,10 +254,27 @@ const baseSupabase = createClient(API_URL, 'aws-anonymous-key', {
         headers.delete('Authorization');
       }
       
-      return fetch(url, {
-        ...options,
-        headers,
-      });
+      try {
+        // Strip the '/rest/v1' prefix because the AWS ALB/ECS PostgREST service
+        // is mapped directly to the root path (/).
+        const targetUrl = url.toString().replace(`${API_URL}/rest/v1`, API_URL);
+        console.log('[Supabase Fetch] Attempting URL:', targetUrl);
+        const res = await fetch(targetUrl, {
+          ...options,
+          headers,
+        });
+        console.log('[Supabase Fetch] Status code:', res.status, 'for:', targetUrl);
+        if (!res.ok) {
+          try {
+            const body = await res.clone().text();
+            console.log('[Supabase Fetch] Response error body:', body);
+          } catch (_) {}
+        }
+        return res;
+      } catch (err: any) {
+        console.error('[Supabase Fetch] Network/TLS Error:', err?.message || err, 'Stack:', err?.stack);
+        throw err;
+      }
     },
   },
 });

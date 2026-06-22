@@ -1,5 +1,5 @@
 {
-    "expo":  {
+  "expo":  {
                  "name":  "FAF",
                  "slug":  "faf",
                  "version":  "1.0.0",
@@ -72,6 +72,13 @@
                                          "defaultChannel":  "default"
                                      }
                                  ],
+                                 [
+                                     "expo-video",
+                                     {
+                                         "supportsBackgroundPlayback": true,
+                                         "supportsPictureInPicture": true
+                                     }
+                                 ],
                                  "expo-web-browser",
                                  "@react-native-community/datetimepicker"
                              ],
@@ -83,7 +90,7 @@
                                "supabaseUrl":  "https://vcbtvhociaioeyhhsczh.supabase.co",
                                "supabaseAnonKey":  "sb_publishable_oN3ImQ-mtGa2QgnBXQ-xqA_gP3GfVwe",
                                "router":  {
-
+ 
                                           },
                                "eas":  {
                                            "projectId":  "c91925a9-42d3-43de-bc48-1bd279422541"

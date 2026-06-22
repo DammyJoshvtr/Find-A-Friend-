@@ -18,10 +18,12 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
   View,
+  Linking,
 } from "react-native";
 import Toast from "react-native-toast-message";
 import { getInitials, getTimeAgo } from "../../lib/matching";
 import { deleteStory } from "../../lib/stories";
+import { client } from "../../lib/aws";
 import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/authStore";
 import {
@@ -29,6 +31,17 @@ import {
   selectCurrentStory,
   useStoriesStore,
 } from "../../store/storiesStore";
+import { supportsVideoStories } from "../../lib/featureFlags";
+import { router } from "expo-router";
+
+let VideoPlayer: any = null;
+try {
+  if (supportsVideoStories()) {
+    VideoPlayer = require("./VideoPlayer").default;
+  }
+} catch (e) {
+  console.warn("Failed to load VideoPlayer component dynamically:", e);
+}
 
 const STORY_EMOJIS = ["❤️", "😂", "😮", "🔥", "👏"];
 
@@ -45,6 +58,7 @@ export default function StoryViewer() {
     groups,
   } = useStoriesStore();
 
+  const visible = !!viewerGroupId;
   const { user } = useAuthStore();
   const story = useStoriesStore(selectCurrentStory);
   const group = useStoriesStore(selectCurrentGroup);
@@ -54,6 +68,9 @@ export default function StoryViewer() {
   const currentProgress = useRef(0);
   const [paused, setPaused] = useState(false);
   const [mediaLoaded, setMediaLoaded] = useState(false);
+  const [isHolding, setIsHolding] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [videoDuration, setVideoDuration] = useState<number | null>(null);
 
   useEffect(() => {
     const id = progressAnim.addListener(({ value }) => {
@@ -62,20 +79,33 @@ export default function StoryViewer() {
     return () => progressAnim.removeListener(id);
   }, [progressAnim]);
 
-  // Reset loading state when the story changes
+  // Reset loading state and handle media load fallback when the story changes
   useEffect(() => {
-    setMediaLoaded(false);
-    progressAnim.setValue(0);
-    currentProgress.current = 0;
-  }, [story?.id, progressAnim]);
+    if (story?.id) {
+      setIsHolding(false);
+      setIsVideoPlaying(false);
+      progressAnim.setValue(0);
+      currentProgress.current = 0;
+      setStoryComment("");
+      setVideoDuration(null);
+
+      if (visible) {
+        markViewed(story.id);
+      }
+
+      if (story.media_type === "video" && !supportsVideoStories()) {
+        setMediaLoaded(true);
+      } else {
+        setMediaLoaded(false);
+      }
+    }
+  }, [story?.id, visible]);
 
   // Reactions + comments
   const [myReaction, setMyReaction] = useState<string | null>(null);
   const [storyComment, setStoryComment] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
   const commentInputRef = useRef<TextInput>(null);
-
-  const visible = !!viewerGroupId;
 
   // Stable next handler — must be defined before startProgress
   const handleNext = useCallback(() => {
@@ -90,7 +120,9 @@ export default function StoryViewer() {
         progressAnim.setValue(0);
         currentProgress.current = 0;
       }
-      const duration = Math.max(1000, (story?.duration_secs ?? 5) * 1000);
+      const duration = videoDuration
+        ? videoDuration * 1000
+        : Math.max(1000, (story?.duration_secs ?? 5) * 1000);
       const remainingDuration = resume
         ? duration * (1 - currentProgress.current)
         : duration;
@@ -104,21 +136,23 @@ export default function StoryViewer() {
         if (finished) handleNext();
       });
     },
-    [story, progressAnim, handleNext],
+    [story, progressAnim, handleNext, videoDuration],
   );
 
-  useEffect(() => {
-    if (visible && story?.id) {
-      setMediaLoaded(false);
-      progressAnim.setValue(0);
-      currentProgress.current = 0;
-      markViewed(story.id);
-    }
-  }, [story?.id, visible]);
+  const handleUpdateApp = () => {
+    closeViewer();
+    router.push("/settings" as any);
+  };
+
+  const handleGoBack = () => {
+    closeViewer();
+  };
 
   useEffect(() => {
     if (visible && story && mediaLoaded) {
-      if (paused) {
+      const isVideo = story.media_type === "video";
+      const shouldPause = paused || (isVideo && !isVideoPlaying);
+      if (shouldPause) {
         progressRef.current?.stop();
       } else {
         const isNewStory = currentProgress.current === 0;
@@ -128,7 +162,7 @@ export default function StoryViewer() {
     return () => {
       progressRef.current?.stop();
     };
-  }, [visible, story?.id, mediaLoaded, paused, startProgress]);
+  }, [visible, story?.id, mediaLoaded, paused, isVideoPlaying, story?.media_type, startProgress]);
 
   // Load current user's reaction when story changes
   useEffect(() => {
@@ -141,8 +175,11 @@ export default function StoryViewer() {
       .select("emoji")
       .eq("story_id", story.id)
       .eq("user_id", user.id)
-      .maybeSingle()
-      .then(({ data }) => setMyReaction(data?.emoji ?? null));
+      .then(({ data, error }: any) => {
+        if (!error && data) {
+          setMyReaction(data[0]?.emoji ?? null);
+        }
+      });
     setStoryComment("");
   }, [story?.id, user?.id]);
 
@@ -159,30 +196,25 @@ export default function StoryViewer() {
     } else {
       await supabase
         .from("story_reactions")
-        .upsert(
-          { user_id: user.id, story_id: story.id, emoji },
-          { onConflict: "user_id,story_id" },
-        );
+        .upsert({ user_id: user.id, story_id: story.id, emoji });
       // Mirror to author's DM so they see it in chat
       if (story.author_id !== user.id) {
-        const { data: convId } = await supabase.rpc(
-          "get_or_create_conversation",
-          {
-            p_other_user_id: story.author_id,
-          },
-        );
+        // TODO: Complex RPC
+        const convId = null as any;
         if (convId) {
-          await supabase.from("messages").insert({
-            conversation_id: convId,
-            sender_id: user.id,
-            body: JSON.stringify({
-              _type: "story_reaction",
-              emoji,
-              storyId: story.id,
-              caption: story.caption ?? "",
-              mediaUrl: story.media_url,
-            }),
-          });
+          await supabase
+            .from("messages")
+            .insert({
+              conversation_id: convId,
+              sender_id: user.id,
+              body: JSON.stringify({
+                _type: "story_reaction",
+                emoji,
+                storyId: story.id,
+                caption: story.caption ?? "",
+                mediaUrl: story.media_url,
+              }),
+            });
         }
       }
     }
@@ -195,33 +227,33 @@ export default function StoryViewer() {
 
     // Mirror to author's DM regardless of story_comments table availability
     if (story.author_id !== user.id) {
-      const { data: convId } = await supabase.rpc(
-        "get_or_create_conversation",
-        {
-          p_other_user_id: story.author_id,
-        },
-      );
+      // TODO: Complex RPC
+      const convId = null as any;
       if (convId) {
-        await supabase.from("messages").insert({
-          conversation_id: convId,
-          sender_id: user.id,
-          body: JSON.stringify({
-            _type: "story_comment",
-            body: text,
-            storyId: story.id,
-            caption: story.caption ?? "",
-            mediaUrl: story.media_url,
-          }),
-        });
+        await supabase
+          .from("messages")
+          .insert({
+            conversation_id: convId,
+            sender_id: user.id,
+            body: JSON.stringify({
+              _type: "story_comment",
+              body: text,
+              storyId: story.id,
+              caption: story.caption ?? "",
+              mediaUrl: story.media_url,
+            }),
+          });
       }
     }
 
     // Also insert into story_comments if the table exists (best-effort)
-    await supabase.from("story_comments").insert({
-      story_id: story.id,
-      author_id: user.id,
-      body: text,
-    });
+    await supabase
+      .from("story_comments")
+      .insert({
+        story_id: story.id,
+        author_id: user.id,
+        body: text,
+      });
 
     setStoryComment("");
     commentInputRef.current?.blur();
@@ -274,15 +306,58 @@ export default function StoryViewer() {
       <StatusBar hidden />
       <View style={s.container}>
         {/* Story media */}
-        <Image
-          source={{ uri: story.media_url }}
-          style={s.media}
-          resizeMode="cover"
-          onLoadStart={() => setMediaLoaded(false)}
-          onLoad={() => setMediaLoaded(true)}
-        />
+        {story.media_type === "video" ? (
+          supportsVideoStories() && VideoPlayer ? (
+            <View style={{ flex: 1, width: "100%", opacity: mediaLoaded ? 1 : 0 }}>
+              <VideoPlayer
+                sourceUrl={story.media_url}
+                paused={paused}
+                onLoad={(dur: number) => {
+                  if (dur) setVideoDuration(dur);
+                  setMediaLoaded(true);
+                }}
+                onPlayingStateChange={(playing: boolean) => setIsVideoPlaying(playing)}
+              />
+            </View>
+          ) : (
+            <View style={s.fallbackContainer}>
+              <Ionicons
+                name="videocam-off-outline"
+                size={64}
+                color="#ef4444"
+                style={{ marginBottom: 16 }}
+              />
+              <Text style={s.fallbackTitle}>New Update Available</Text>
+              <Text style={s.fallbackMessage}>
+                To view this video story, please update your app. Visit our website: fafcampus.site
+              </Text>
+              <View style={s.fallbackBtnRow}>
+                <TouchableOpacity
+                  style={s.fallbackUpdateBtn}
+                  onPress={() => Linking.openURL("https://fafcampus.site")}
+                >
+                  <Text style={s.fallbackUpdateText}>Visit Website</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={s.fallbackBackBtn}
+                  onPress={handleGoBack}
+                >
+                  <Text style={s.fallbackBackText}>Go Back</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )
+        ) : (
+          <Image
+            source={{ uri: story.media_url }}
+            style={[s.media, { opacity: mediaLoaded ? 1 : 0 }]}
+            resizeMode="cover"
+            onLoadStart={() => setMediaLoaded(false)}
+            onLoad={() => setMediaLoaded(true)}
+          />
+        )}
 
-        {!mediaLoaded && (
+        {!mediaLoaded && (story.media_type !== "video" || supportsVideoStories()) && (
           <View style={[StyleSheet.absoluteFill, s.loadingOverlay]}>
             <ActivityIndicator
               size="large"
@@ -293,22 +368,34 @@ export default function StoryViewer() {
         )}
 
         {/* Dark gradient overlay */}
-        <View style={s.topGradient} />
-        <View style={s.bottomGradient} />
+        <View style={[s.topGradient, isHolding && { opacity: 0 }]} />
+        <View style={[s.bottomGradient, isHolding && { opacity: 0 }]} />
 
         {/* Tap zones — rendered before header so header sits on top and receives touches */}
         <View style={s.tapZones}>
           <TouchableWithoutFeedback
-            onPressIn={() => setPaused(true)}
-            onPressOut={() => setPaused(false)}
+            onPressIn={() => {
+              setPaused(true);
+              setIsHolding(true);
+            }}
+            onPressOut={() => {
+              setPaused(false);
+              setIsHolding(false);
+            }}
             onLongPress={() => {}}
             onPress={handlePrev}
           >
             <View style={s.tapLeft} />
           </TouchableWithoutFeedback>
           <TouchableWithoutFeedback
-            onPressIn={() => setPaused(true)}
-            onPressOut={() => setPaused(false)}
+            onPressIn={() => {
+              setPaused(true);
+              setIsHolding(true);
+            }}
+            onPressOut={() => {
+              setPaused(false);
+              setIsHolding(false);
+            }}
             onLongPress={() => {}}
             onPress={handleNext}
           >
@@ -317,7 +404,7 @@ export default function StoryViewer() {
         </View>
 
         {/* Progress bars */}
-        <View style={s.progressBars}>
+        <View style={[s.progressBars, isHolding && { opacity: 0 }]}>
           {Array.from({ length: storiesInGroup }).map((_, i) => (
             <View key={i} style={s.progressTrack}>
               <Animated.View
@@ -341,7 +428,7 @@ export default function StoryViewer() {
         </View>
 
         {/* Header — rendered after tap zones so it receives touches first */}
-        <View style={s.header}>
+        <View style={[s.header, isHolding && { opacity: 0 }]}>
           <View style={s.authorRow}>
             <View style={s.authorAvatar}>
               {group.author_avatar ? (
@@ -379,13 +466,13 @@ export default function StoryViewer() {
 
         {/* Caption */}
         {story.caption ? (
-          <View style={s.captionWrap}>
+          <View style={[s.captionWrap, isHolding && { opacity: 0 }]}>
             <Text style={s.caption}>{story.caption}</Text>
           </View>
         ) : null}
 
         {/* Bottom interaction bar: emoji reactions + comment input */}
-        <View style={s.interactionBar}>
+        <View style={[s.interactionBar, isHolding && { opacity: 0 }]}>
           <View style={s.emojiRow}>
             {STORY_EMOJIS.map((emoji) => (
               <TouchableOpacity
@@ -612,5 +699,56 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  fallbackContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+    backgroundColor: "#0a0a1a",
+  },
+  fallbackTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#fff",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  fallbackMessage: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.6)",
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 20,
+  },
+  fallbackBtnRow: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+    justifyContent: "center",
+  },
+  fallbackUpdateBtn: {
+    backgroundColor: "#a78bfa",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  fallbackUpdateText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 13,
+  },
+  fallbackBackBtn: {
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 0.5,
+    borderColor: "rgba(255,255,255,0.2)",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  fallbackBackText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 13,
   },
 });

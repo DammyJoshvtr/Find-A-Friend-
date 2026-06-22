@@ -207,7 +207,7 @@ const s = StyleSheet.create({
   },
   card: {
     alignItems: 'center',
-    borderRadius: 20,
+    borderRadius: 12,
     padding: 14,
     borderWidth: 0.5,
     overflow: 'hidden',

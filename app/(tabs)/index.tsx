@@ -100,7 +100,7 @@ export default function HomeScreen() {
     ), []
   )
 
-  const renderHeader = useCallback(() => <View><StoriesRow /></View>, [])
+  const renderHeader = useCallback(() => <View><AdCarousel /><StoriesRow /></View>, [])
 
   const renderFooter = useCallback(() =>
     loading && posts.length > 0 ? (
@@ -169,8 +169,6 @@ export default function HomeScreen() {
     </View>
   )
 
-  const proofBanner = <AdCarousel />
-
   if (loading && !posts.length) {
     return <ScreenLoader message="Loading feed..." />
   }
@@ -193,7 +191,6 @@ export default function HomeScreen() {
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <NeuralBackground intensity="light" />
       {header}
-      {proofBanner}
       <View style={[s.tabs, { borderBottomColor: theme.border }]}>
         <TouchableOpacity style={s.tab} onPress={() => setTab('forYou')}>
           {activeTab === 'forYou' ? (

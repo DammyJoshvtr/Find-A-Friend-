@@ -22,7 +22,8 @@ import { router, useLocalSearchParams } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
 import { createPost } from '../lib/feed'
 import { getClubs } from '../lib/clubs'
-import { supabase } from '../lib/supabase'
+import { client } from '../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import { uploadFile } from '../lib/upload'
 import type { Club } from '../lib/clubs'
 import { useTheme } from '../lib/theme'
@@ -83,7 +84,7 @@ export default function CreatePostScreen() {
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      mediaTypes: ['images', 'videos'],
       allowsMultipleSelection: true,
       selectionLimit: 4 - imageUris.length,
       allowsEditing: false,
@@ -96,11 +97,11 @@ export default function CreatePostScreen() {
   }
 
   const uploadMedia = async (uri: string): Promise<string> => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) throw new Error('Not authenticated')
+    const user = await getCurrentUser()
+    if (!user) throw new Error('Not authenticated')
     const ext = uri.split('.').pop()?.toLowerCase() ?? 'jpg'
     const randomStr = Math.random().toString(36).substring(7)
-    const path = `${session.user.id}/${Date.now()}-${randomStr}.${ext}`
+    const path = `${user.userId}/${Date.now()}-${randomStr}.${ext}`
     const isVideo = ['mp4', 'mov', 'm4v', '3gp'].includes(ext)
     const mimeType = isVideo ? `video/${ext === 'mov' ? 'quicktime' : 'mp4'}` : `image/${ext === 'jpg' ? 'jpeg' : ext}`
 
@@ -170,13 +171,13 @@ export default function CreatePostScreen() {
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.closeBtn}>
-          <Ionicons name="close" size={22} color="rgba(240,240,255,0.6)" />
+      <View style={[s.header, { borderBottomColor: theme.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={[s.closeBtn, { backgroundColor: theme.card }]}>
+          <Ionicons name="close" size={22} color={theme.text} />
         </TouchableOpacity>
-        <Text style={s.title}>New Post</Text>
+        <Text style={[s.title, { color: theme.text }]}>New Post</Text>
         <TouchableOpacity
-          style={[s.postBtn, (!body.trim() || posting) && s.postBtnDisabled]}
+          style={[s.postBtn, { backgroundColor: theme.accent }, (!body.trim() || posting) && s.postBtnDisabled]}
           onPress={handlePost}
           disabled={!body.trim() || posting}>
           {posting
@@ -198,14 +199,14 @@ export default function CreatePostScreen() {
             {POST_TYPES.map(t => (
               <TouchableOpacity
                 key={t.value}
-                style={[s.typeBtn, postType === t.value && s.typeBtnActive]}
+                style={[s.typeBtn, { backgroundColor: theme.card, borderColor: theme.border }, postType === t.value && { backgroundColor: theme.accent + '20', borderColor: theme.accent }]}
                 onPress={() => handleTypeChange(t.value)}>
                 <Ionicons
                   name={t.icon as any}
                   size={14}
-                  color={postType === t.value ? '#a78bfa' : 'rgba(240,240,255,0.4)'}
+                  color={postType === t.value ? theme.accent : theme.textMuted}
                 />
-                <Text style={[s.typeBtnText, postType === t.value && s.typeBtnTextActive]}>
+                <Text style={[s.typeBtnText, { color: theme.textMuted }, postType === t.value && { color: theme.accent, fontWeight: '500' }]}>
                   {t.label}
                 </Text>
               </TouchableOpacity>
@@ -215,9 +216,9 @@ export default function CreatePostScreen() {
           {/* Club picker */}
           {postType === 'club' && (
             <View style={s.clubSection}>
-              <Text style={s.clubLabel}>Post to club</Text>
+              <Text style={[s.clubLabel, { color: theme.textMuted }]}>Post to club</Text>
               {loadingClubs ? (
-                <ActivityIndicator color="#a78bfa" style={{ marginVertical: 8 }} />
+                <ActivityIndicator color={theme.accent} style={{ marginVertical: 8 }} />
               ) : (
                 <ScrollView
                   horizontal
@@ -228,13 +229,15 @@ export default function CreatePostScreen() {
                       key={club.id}
                       style={[
                         s.clubPill,
-                        selectedClub?.id === club.id && s.clubPillActive,
+                        { backgroundColor: theme.card, borderColor: theme.border },
+                        selectedClub?.id === club.id && { backgroundColor: theme.accent + '20', borderColor: theme.accent },
                       ]}
                       onPress={() => setSelectedClub(club)}>
                       <Text
                         style={[
                           s.clubPillText,
-                          selectedClub?.id === club.id && s.clubPillTextActive,
+                          { color: theme.textMuted },
+                          selectedClub?.id === club.id && { color: theme.accent, fontWeight: '500' },
                         ]}>
                         {club.name}
                       </Text>
@@ -249,9 +252,9 @@ export default function CreatePostScreen() {
           <View style={s.inputWrap}>
             <TextInput
               ref={inputRef}
-              style={s.textInput}
+              style={[s.textInput, { color: theme.text }]}
               placeholder="What's on your mind? Use #hashtags..."
-              placeholderTextColor="rgba(240,240,255,0.25)"
+              placeholderTextColor={theme.textFaint}
               value={body}
               onChangeText={setBody}
               multiline
@@ -259,7 +262,7 @@ export default function CreatePostScreen() {
               autoFocus
               textAlignVertical="top"
             />
-            <Text style={s.charCount}>{body.length}/500</Text>
+            <Text style={[s.charCount, { color: theme.textFaint }]}>{body.length}/500</Text>
           </View>
 
           {/* Media preview */}
@@ -299,9 +302,9 @@ export default function CreatePostScreen() {
 
           {/* Media button */}
           {imageUris.length === 0 && (
-            <TouchableOpacity style={s.mediaBtn} onPress={pickImage}>
-              <Ionicons name="image-outline" size={18} color="rgba(240,240,255,0.5)" />
-              <Text style={s.mediaBtnText}>Add photo (4 max)</Text>
+            <TouchableOpacity style={[s.mediaBtn, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={pickImage}>
+              <Ionicons name="image-outline" size={18} color={theme.textMuted} />
+              <Text style={[s.mediaBtnText, { color: theme.textMuted }]}>Add photo (4 max)</Text>
             </TouchableOpacity>
           )}
         </ScrollView>

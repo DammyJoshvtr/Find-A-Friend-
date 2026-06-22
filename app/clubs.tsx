@@ -147,62 +147,69 @@ export default function ClubsScreen() {
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={20} color="#f0f0ff" />
+        <TouchableOpacity onPress={() => router.back()} style={[s.backBtn, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Ionicons name="arrow-back" size={20} color={theme.text} />
         </TouchableOpacity>
-        <Text style={s.title}>Clubs & Societies</Text>
+        <Text style={[s.title, { color: theme.text }]}>Clubs & Societies</Text>
         <View style={{ width: 36 }} />
       </View>
 
       {loading ? (
         <View style={s.loadingWrap}>
-          <ActivityIndicator size="large" color="#a78bfa" />
+          <ActivityIndicator size="large" color={theme.accent} />
         </View>
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#a78bfa" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}
           contentContainerStyle={{ paddingBottom: 40 }}>
 
           {myClubs.length > 0 && (
             <View style={{ marginBottom: 16 }}>
-              <Text style={s.sectionTitle}>My Clubs</Text>
+              <Text style={[s.sectionTitle, { color: theme.textMuted }]}>My Clubs</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16 }}>
                 {myClubs.map(club => <ClubCard key={club.id} club={club} compact />)}
               </ScrollView>
             </View>
           )}
 
-          <View style={s.searchBar}>
-            <Ionicons name="search-outline" size={15} color="rgba(240,240,255,0.3)" />
+          <View style={[s.searchBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Ionicons name="search-outline" size={15} color={theme.textMuted} />
             <TextInput
-              style={s.searchInput}
+              style={[s.searchInput, { color: theme.text }]}
               placeholder="Search clubs..."
-              placeholderTextColor="rgba(240,240,255,0.3)"
+              placeholderTextColor={theme.textFaint}
               value={search}
               onChangeText={setSearch}
             />
             {search.length > 0 && (
               <TouchableOpacity onPress={() => setSearch('')}>
-                <Ionicons name="close-circle" size={15} color="rgba(240,240,255,0.3)" />
+                <Ionicons name="close-circle" size={15} color={theme.textMuted} />
               </TouchableOpacity>
             )}
           </View>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.catRow}>
             {CATEGORIES.map(cat => (
-              <TouchableOpacity key={cat} style={[s.catPill, category === cat && s.catPillActive]} onPress={() => setCategory(cat)}>
-                <Text style={[s.catText, category === cat && s.catTextActive]}>{cat}</Text>
+              <TouchableOpacity
+                key={cat}
+                style={[
+                  s.catPill,
+                  { backgroundColor: theme.card, borderColor: theme.border },
+                  category === cat && { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }
+                ]}
+                onPress={() => setCategory(cat)}>
+                <Text style={[s.catText, { color: theme.textMuted }, category === cat && { color: theme.accent, fontFamily: typography.fontBold }]}>{cat}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
 
-          <Text style={s.sectionTitle}>All Clubs ({filtered.length})</Text>
+          <Text style={[s.sectionTitle, { color: theme.textMuted }]}>All Clubs ({filtered.length})</Text>
 
           {filtered.length === 0 ? (
             <View style={s.empty}>
-              <Ionicons name="people-outline" size={40} color="rgba(240,240,255,0.12)" />
-              <Text style={s.emptyText}>No clubs found</Text>
+              <Ionicons name="people-outline" size={40} color={theme.textFaint} />
+              <Text style={[s.emptyText, { color: theme.textFaint }]}>No clubs found</Text>
             </View>
           ) : (
             <View style={s.grid}>
@@ -332,34 +339,33 @@ const s = StyleSheet.create({
   },
   backBtn: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
-  title: { fontSize: 18, fontFamily: typography.fontBold, color: '#f0f0ff' },
+  title: { fontSize: 18, fontFamily: typography.fontBold },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   sectionTitle: {
-    fontSize: 13, fontFamily: typography.fontSemiBold, color: 'rgba(240,240,255,0.5)',
+    fontSize: 13, fontFamily: typography.fontSemiBold,
     marginBottom: 10, paddingHorizontal: 16,
   },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    marginHorizontal: 16, marginBottom: 10,
-    backgroundColor: '#1c1c2e',
-    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16, paddingHorizontal: 12, paddingVertical: 8,
+    marginHorizontal: 16, marginBottom: 12,
+    borderWidth: 0.5,
   },
-  searchInput: { flex: 1, fontSize: 13, color: '#f0f0ff', fontFamily: typography.fontRegular },
+  searchInput: { flex: 1, fontSize: 13, fontFamily: typography.fontRegular },
   catRow: { paddingHorizontal: 16, gap: 8, marginBottom: 14 },
   catPill: {
     paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
-    backgroundColor: '#1c1c2e', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 0.5,
   },
-  catPillActive: { backgroundColor: 'rgba(167,139,250,0.15)', borderColor: 'rgba(167,139,250,0.4)' },
-  catText: { fontSize: 12, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontMedium },
-  catTextActive: { color: '#a78bfa', fontFamily: typography.fontBold },
+  catPillActive: {},
+  catText: { fontSize: 12, fontFamily: typography.fontMedium },
+  catTextActive: { fontFamily: typography.fontBold },
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 12, gap: 8 },
   gridItem: { width: '47%' },
   empty: { alignItems: 'center', paddingVertical: 40, gap: 10 },
-  emptyText: { fontSize: 13, color: 'rgba(240,240,255,0.3)', fontFamily: typography.fontRegular },
+  emptyText: { fontSize: 13, fontFamily: typography.fontRegular },
 
   fab: {
     position: 'absolute', bottom: 24, right: 20,
@@ -423,7 +429,11 @@ const s = StyleSheet.create({
   },
   coverImg: { width: '100%', height: '100%' },
   coverDim: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.45)',
     alignItems: 'center', justifyContent: 'center',
   },

@@ -36,10 +36,12 @@ if (fs.existsSync(jsDir)) {
     if (file.startsWith('entry-') && file.endsWith('.js')) {
       const filePath = path.join(jsDir, file);
       let content = fs.readFileSync(filePath, 'utf8');
-      if (content.includes('import.meta')) {
+      if (content.includes('import.meta') || content.includes('assets/node_modules') || content.includes('assets%2Fnode_modules')) {
         content = content.replace(/import\.meta/g, '({env:{MODE:"production"}})');
+        content = content.replace(/assets\/node_modules/g, 'assets/vendor');
+        content = content.replace(/assets%2Fnode_modules/g, 'assets%2Fvendor');
         fs.writeFileSync(filePath, content, 'utf8');
-        console.log(`Successfully patched import.meta in ${file}`);
+        console.log(`Successfully patched ${file}`);
         processedCount++;
       }
     }

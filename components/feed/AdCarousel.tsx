@@ -38,10 +38,9 @@ export default function AdCarousel() {
   useEffect(() => {
     supabase
       .from('app_ads')
-      .select('id, title, subtitle, color, icon')
+      .select('*')
       .eq('active', true)
-      .order('display_order', { ascending: true })
-      .then(({ data }) => {
+      .then(({ data }: any) => {
         if (data && data.length > 0) setAds(data)
       })
   }, [])

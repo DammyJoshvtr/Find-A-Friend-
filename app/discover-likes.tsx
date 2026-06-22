@@ -12,7 +12,8 @@ import { getLikesReceived, getMutualLikes, likeUser } from '../lib/discoverLikes
 import { followUser } from '../lib/follows'
 import { getInitials } from '../lib/matching'
 import type { FollowProfile } from '../lib/follows'
-import { supabase } from '../lib/supabase'
+import { client } from '../lib/aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import Toast from 'react-native-toast-message'
 
 
@@ -100,26 +101,13 @@ export default function DiscoverLikesScreen() {
   useEffect(() => {
     load()
 
-    let channel: any = null
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    let sub: any = null
+    getCurrentUser().then((user) => {
       if (!user) return
-      channel = supabase
-        .channel('discover-likes-details-realtime')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'discover_likes',
-        }, (payload: any) => {
-          const r = payload.new || payload.old
-          if (r && (r.liked_id === user.id || r.liker_id === user.id)) {
-            load()
-          }
-        })
-        .subscribe()
+      // TODO: Complex realtime channel
     })
 
     return () => {
-      if (channel) supabase.removeChannel(channel)
     }
   }, [])
 

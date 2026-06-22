@@ -1,6 +1,6 @@
 import { ConnectionStatus, likeUser, unlikeUser } from "@/lib/discoverLikes";
 import { FollowProfile, followUser, unfollowUser } from "@/lib/follows";
-import { supabase } from "@/lib/supabase";
+import { client } from "@/lib/aws";
 import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -18,6 +18,8 @@ import {
 import { getInitials } from "../lib/matching";
 import { useTheme } from "../lib/theme";
 import { typography } from "../lib/typography";
+
+import { supabase } from "../lib/supabase";
 
 interface TopUserCardProps {
   user: FollowProfile;
@@ -51,7 +53,7 @@ export default function TopUserCard({
   }, [user.follower_count]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user: authUser } }) => {
+    supabase.auth.getUser().then(({ data: { user: authUser } }: any) => {
       if (authUser) setCurrentUserId(authUser.id);
     });
   }, []);
@@ -262,7 +264,7 @@ const styles = StyleSheet.create({
   container: {
     height: 200,
     width: 200,
-    borderRadius: 20,
+    borderRadius: 12,
     overflow: "hidden",
     marginHorizontal: 5,
     marginVertical: 10,

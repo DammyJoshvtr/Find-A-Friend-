@@ -12,6 +12,14 @@ export default function AppearanceScreen() {
 
   const themes = [
     {
+      label: 'Light',
+      icon: '☀️',
+      value: 'light' as const,
+      description: 'Clean light layout — perfect for daytime',
+      active: mode === 'light',
+      onPress: () => setMode('light'),
+    },
+    {
       label: 'Dark',
       icon: '🌑',
       value: 'dark' as const,
@@ -29,6 +37,8 @@ export default function AppearanceScreen() {
     },
   ]
 
+  const activeThemeObj = themes.find(t => t.active) || themes[1]
+
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       <View style={[s.header, { borderBottomColor: theme.border }]}>
@@ -42,35 +52,35 @@ export default function AppearanceScreen() {
       <View style={{ padding: 16, gap: 16 }}>
         <Text style={[s.sectionLabel, { color: theme.textMuted }]}>Theme</Text>
 
-        {themes.map(t => (
-          <TouchableOpacity
-            key={t.value}
-            style={[
-              s.themeCard,
-              { backgroundColor: theme.card, borderColor: t.active ? theme.accent : theme.border },
-            ]}
-            onPress={t.onPress}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel={`${t.label} theme`}>
-            <View style={s.themeLeft}>
-              <Text style={s.themeIcon}>{t.icon}</Text>
-              <View style={{ flex: 1, gap: 2 }}>
-                <Text style={[s.themeLabel, { color: t.active ? theme.accent : theme.text }]}>
-                  {t.label}
-                </Text>
-                <Text style={[s.themeDesc, { color: theme.textMuted }]}>
-                  {t.description}
-                </Text>
-              </View>
-            </View>
-            {t.active && (
-              <View style={[s.activeCheck, { backgroundColor: theme.accent }]}>
-                <Ionicons name="checkmark" size={14} color="#fff" />
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
+        {/* Beautified segmented select */}
+        <View style={[s.selectorContainer, { backgroundColor: theme.card2, borderColor: theme.border }]}>
+          {themes.map(t => (
+            <TouchableOpacity
+              key={t.value}
+              style={[
+                s.selectorTab,
+                t.active && {
+                  backgroundColor: theme.cardSolid,
+                  borderColor: theme.border,
+                }
+              ]}
+              onPress={t.onPress}
+              activeOpacity={0.8}
+            >
+              <Text style={s.selectorIcon}>{t.icon}</Text>
+              <Text style={[
+                s.selectorText,
+                { color: t.active ? theme.accent : theme.textMuted }
+              ]}>
+                {t.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={[s.descriptionText, { color: theme.textMuted }]}>
+          {activeThemeObj.description}
+        </Text>
 
         {/* Dynamic Theme Preview Widget */}
         <Text style={[s.sectionLabel, { color: theme.textMuted, marginTop: 12 }]}>Preview</Text>
@@ -118,7 +128,7 @@ export default function AppearanceScreen() {
         </View>
 
         <Text style={[s.note, { color: theme.textFaint }]}>
-          Both themes use a dark background optimised for night use. Darker uses near-black AMOLED colours for maximum contrast on OLED screens.
+          Choose between Light, Dark, or Darker (AMOLED) modes. Themes apply instantly across all tabs and screens.
         </Text>
       </View>
     </SafeAreaView>
@@ -134,16 +144,36 @@ const s = StyleSheet.create({
   backBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 17, fontFamily: typography.fontSemiBold },
   sectionLabel: { fontSize: 12, fontFamily: typography.fontMedium, textTransform: 'uppercase', letterSpacing: 0.8 },
-  themeCard: {
-    borderRadius: 16, padding: 16, borderWidth: 1.5,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  selectorContainer: {
+    flexDirection: 'row',
+    borderRadius: 24,
+    padding: 4,
+    borderWidth: 1,
+    gap: 4,
   },
-  themeLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
-  themeIcon: { fontSize: 28 },
-  themeLabel: { fontSize: 15, fontFamily: typography.fontSemiBold },
-  themeDesc: { fontSize: 12, fontFamily: typography.fontRegular },
-  activeCheck: {
-    width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+  selectorTab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  selectorIcon: {
+    fontSize: 16,
+  },
+  selectorText: {
+    fontSize: 14,
+    fontFamily: typography.fontSemiBold,
+  },
+  descriptionText: {
+    fontSize: 13,
+    fontFamily: typography.fontRegular,
+    textAlign: 'center',
+    marginTop: -4,
   },
   note: {
     fontSize: 12, fontFamily: typography.fontRegular, lineHeight: 18,

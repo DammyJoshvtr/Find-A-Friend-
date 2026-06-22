@@ -29,6 +29,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated'
 import { typography } from '../lib/typography'
+import { useTheme } from '../lib/theme'
 import NeuralBackground from './NeuralBackground'
 
 // ---------------------------------------------------------------------------
@@ -44,6 +45,8 @@ export interface ScreenLoaderProps {
 // ---------------------------------------------------------------------------
 
 export default function ScreenLoader({ message = 'Loading...' }: ScreenLoaderProps) {
+  const theme = useTheme()
+
   // --- Logo entrance ---
   const logoScale = useSharedValue(0.5)
   const logoOpacity = useSharedValue(0)
@@ -169,7 +172,7 @@ export default function ScreenLoader({ message = 'Loading...' }: ScreenLoaderPro
   return (
     <View style={s.container}>
       {/* Layer 1: solid background */}
-      <View style={s.bg} />
+      <View style={[s.bg, { backgroundColor: theme.bg }]} />
 
       {/* Layer 2: neural network canvas */}
       <NeuralBackground intensity="light" />
@@ -180,15 +183,15 @@ export default function ScreenLoader({ message = 'Loading...' }: ScreenLoaderPro
         {/* Logo section */}
         <View style={s.logoOuter}>
           {/* Pulsing glow ring */}
-          <Animated.View style={[s.glowRing, glowStyle]} />
+          <Animated.View style={[s.glowRing, { backgroundColor: theme.accentGlow }, glowStyle]} />
 
           {/* Logo circle */}
-          <Animated.View style={[s.logoCircle, logoStyle]}>
+          <Animated.View style={[s.logoCircle, { backgroundColor: theme.accentBg, borderColor: theme.accentBorder }, logoStyle]}>
             {/* Scan line sweeping top→bottom */}
-            <Animated.View style={[s.scanLine, scanStyle]} />
+            <Animated.View style={[s.scanLine, { backgroundColor: theme.accentGlow }, scanStyle]} />
 
             {/* FAF text */}
-            <Text style={s.logoText} accessibilityLabel="FAF">FAF</Text>
+            <Text style={[s.logoText, { color: theme.accent }]} accessibilityLabel="FAF">FAF</Text>
 
             {/* Status indicator dot (green = alive) */}
             <View style={s.statusDot} />
@@ -197,11 +200,11 @@ export default function ScreenLoader({ message = 'Loading...' }: ScreenLoaderPro
 
         {/* Message + animated dots */}
         <Animated.View style={[s.messageRow, msgStyle]}>
-          <Text style={s.messageText}>{message}</Text>
+          <Text style={[s.messageText, { color: theme.textMuted }]}>{message}</Text>
           <View style={s.dotsRow}>
-            <Animated.View style={[s.dot, dot1Style]} />
-            <Animated.View style={[s.dot, dot2Style]} />
-            <Animated.View style={[s.dot, dot3Style]} />
+            <Animated.View style={[s.dot, { backgroundColor: theme.accent }, dot1Style]} />
+            <Animated.View style={[s.dot, { backgroundColor: theme.accent }, dot2Style]} />
+            <Animated.View style={[s.dot, { backgroundColor: theme.accent }, dot3Style]} />
           </View>
         </Animated.View>
 
@@ -223,7 +226,6 @@ const s = StyleSheet.create({
   },
   bg: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0d0d14',
   },
 
   // Centre column
@@ -245,15 +247,12 @@ const s = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: 'rgba(167,139,250,0.18)',
   },
   logoCircle: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(167,139,250,0.08)',
     borderWidth: 1.5,
-    borderColor: 'rgba(167,139,250,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
     // Clip the scan line inside the circle
@@ -264,12 +263,10 @@ const s = StyleSheet.create({
     left: 0,
     right: 0,
     height: 1.5,
-    backgroundColor: 'rgba(167,139,250,0.35)',
   },
   logoText: {
     fontSize: 30,
     fontFamily: typography.fontExtraBold,
-    color: '#c4b5fd',
     letterSpacing: 2,
   },
   statusDot: {
@@ -291,7 +288,6 @@ const s = StyleSheet.create({
   messageText: {
     fontSize: 14,
     fontFamily: typography.fontMedium,
-    color: 'rgba(167,139,250,0.55)',
     letterSpacing: 0.4,
   },
   dotsRow: {
@@ -303,6 +299,5 @@ const s = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(167,139,250,0.7)',
   },
 })

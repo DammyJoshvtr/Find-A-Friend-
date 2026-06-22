@@ -818,7 +818,7 @@ const FeedbackCard = React.memo(function FeedbackCard({
 
         {/* Inline comments */}
         {expanded && (
-          <View style={[fc.commentsWrap, { borderColor: PURPLE_BORDER }]}>
+          <View style={fc.commentsWrap}>
             <CommentsSection
               feedbackId={item.id}
               myId={myId}
@@ -919,7 +919,6 @@ const fc = StyleSheet.create({
   commentCount: { fontSize: 12, fontFamily: typography.fontMedium },
   commentsWrap: {
     marginTop: 6,
-    borderWidth: 1,
     borderRadius: 14,
     padding: 10,
     backgroundColor: "rgba(167,139,250,0.04)",

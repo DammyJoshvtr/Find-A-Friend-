@@ -33,6 +33,11 @@ export default function EventCard({ event, onRsvpChange }: EventCardProps) {
   const [loading, setLoading] = useState(false)
   const theme = useTheme()
 
+  React.useEffect(() => {
+    setRsvpStatus(event.user_rsvp_status ?? null)
+    setRsvpCount(event.rsvp_count)
+  }, [event.user_rsvp_status, event.rsvp_count])
+
   const catColor = CATEGORY_COLORS[event.category ?? ''] ?? theme.accent
   const isGoing = rsvpStatus === 'going'
 
@@ -82,7 +87,7 @@ export default function EventCard({ event, onRsvpChange }: EventCardProps) {
   return (
     <Animated.View style={[cardAnim, s.wrapper]}>
       <TouchableOpacity
-        style={[s.card, { backgroundColor: 'rgba(12,12,32,0.85)', borderColor: `${catColor}22` }]}
+        style={[s.card, { backgroundColor: theme.card, borderColor: theme.border }, theme.cardShadow]}
         onPress={handlePress}
         activeOpacity={0.9}>
 

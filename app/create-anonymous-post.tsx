@@ -55,11 +55,11 @@ export default function CreateAnonPostScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         {/* Header */}
-        <View style={s.header}>
-          <TouchableOpacity onPress={() => router.back()} style={s.closeBtn}>
-            <Ionicons name="close" size={22} color="rgba(240,240,255,0.6)" />
+        <View style={[s.header, { borderBottomColor: theme.border }]}>
+          <TouchableOpacity onPress={() => router.back()} style={[s.closeBtn, { backgroundColor: theme.card }]}>
+            <Ionicons name="close" size={22} color={theme.text} />
           </TouchableOpacity>
-          <Text style={s.title}>Post Anonymously</Text>
+          <Text style={[s.title, { color: theme.text }]}>Post Anonymously</Text>
           <TouchableOpacity
             style={[s.postBtn, !canPost && s.postBtnDisabled]}
             onPress={handlePost}
@@ -78,7 +78,7 @@ export default function CreateAnonPostScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Ghost header */}
-          <View style={s.anonHeader}>
+          <View style={[s.anonHeader, { backgroundColor: theme.dark ? "rgba(244,114,182,0.08)" : "rgba(244,114,182,0.04)", borderColor: theme.border }]}>
             <View style={s.anonAvatar}>
               <Ionicons
                 name="eye-off-outline"
@@ -87,8 +87,8 @@ export default function CreateAnonPostScreen() {
               />
             </View>
             <View>
-              <Text style={s.anonName}>Anonymous</Text>
-              <Text style={s.anonSub}>
+              <Text style={[s.anonName, { color: theme.text }]}>Anonymous</Text>
+              <Text style={[s.anonSub, { color: theme.textMuted }]}>
                 Your identity is hidden from other students
               </Text>
             </View>
@@ -96,9 +96,9 @@ export default function CreateAnonPostScreen() {
 
           {/* Text input */}
           <TextInput
-            style={s.input}
+            style={[s.input, { color: theme.text }]}
             placeholder="Share something anonymously with campus..."
-            placeholderTextColor="rgba(240,240,255,0.25)"
+            placeholderTextColor={theme.textFaint}
             value={body}
             onChangeText={setBody}
             multiline
@@ -106,7 +106,7 @@ export default function CreateAnonPostScreen() {
             autoFocus
             textAlignVertical="top"
           />
-          <Text style={s.charCount}>{body.length}/500</Text>
+          <Text style={[s.charCount, { color: theme.textFaint }]}>{body.length}/500</Text>
 
           {/* Disclaimer checkbox */}
           {/* <TouchableOpacity
@@ -145,17 +145,15 @@ const s = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: "rgba(255,255,255,0.06)",
   },
   closeBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#1c1c2e",
     alignItems: "center",
     justifyContent: "center",
   },
-  title: { fontSize: 16, fontWeight: "600", color: "#f0f0ff" },
+  title: { fontSize: 16, fontWeight: "600" },
   postBtn: {
     backgroundColor: "#f472b6",
     borderRadius: 20,
@@ -186,11 +184,10 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  anonName: { fontSize: 14, fontWeight: "600", color: "rgba(240,240,255,0.7)" },
-  anonSub: { fontSize: 11, color: "rgba(240,240,255,0.35)", marginTop: 1 },
+  anonName: { fontSize: 14, fontWeight: "600" },
+  anonSub: { fontSize: 11, marginTop: 1 },
   input: {
     fontSize: 15,
-    color: "#f0f0ff",
     minHeight: 160,
     lineHeight: 22,
     textAlignVertical: "top",
@@ -198,7 +195,6 @@ const s = StyleSheet.create({
   },
   charCount: {
     fontSize: 10,
-    color: "rgba(240,240,255,0.25)",
     textAlign: "right",
     marginBottom: 20,
   },
@@ -207,11 +203,9 @@ const s = StyleSheet.create({
     alignItems: "flex-start",
     gap: 10,
     marginBottom: 16,
-    backgroundColor: "#1c1c2e",
     borderRadius: 12,
     padding: 14,
     borderWidth: 0.5,
-    borderColor: "rgba(255,255,255,0.06)",
   },
   checkbox: {
     width: 20,
@@ -219,7 +213,6 @@ const s = StyleSheet.create({
     borderRadius: 5,
     flexShrink: 0,
     borderWidth: 1.5,
-    borderColor: "rgba(255,255,255,0.3)",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 1,
@@ -228,10 +221,9 @@ const s = StyleSheet.create({
   checkLabel: {
     flex: 1,
     fontSize: 12,
-    color: "rgba(240,240,255,0.6)",
     lineHeight: 18,
   },
-  checkLabelBold: { fontWeight: "600", color: "#f0f0ff" },
+  checkLabelBold: { fontWeight: "600" },
   warning: {
     flexDirection: "row",
     alignItems: "flex-start",

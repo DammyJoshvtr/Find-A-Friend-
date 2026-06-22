@@ -1261,8 +1261,8 @@ export default function DirectMessageScreen() {
           style={[
             s.inputOuter,
             {
-              backgroundColor: "rgba(13,13,20,0.97)",
-              borderTopColor: "rgba(167,139,250,0.2)",
+              backgroundColor: theme.card,
+              borderTopColor: theme.border,
             },
           ]}
         >
@@ -1336,12 +1336,12 @@ export default function DirectMessageScreen() {
               style={[
                 s.input,
                 {
-                  backgroundColor: "rgba(255,255,255,0.06)",
+                  backgroundColor: theme.card2,
                   borderColor: inputFocused
-                    ? "rgba(167,139,250,0.5)"
-                    : "rgba(167,139,250,0.15)",
+                    ? theme.accent
+                    : theme.border,
                   color: theme.text,
-                  shadowColor: inputFocused ? "#a78bfa" : "transparent",
+                  shadowColor: inputFocused ? theme.accent : "transparent",
                   shadowOffset: { width: 0, height: 0 },
                   shadowOpacity: inputFocused ? 0.3 : 0,
                   shadowRadius: 6,

@@ -101,16 +101,16 @@ export default function CreateStudyGroupScreen() {
             <Text style={[s.label, { color: theme.text }]}>Related Course (Optional)</Text>
             <View style={s.courseList}>
               <TouchableOpacity
-                style={[s.courseChip, !courseId && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                style={[s.courseChip, { backgroundColor: theme.card, borderColor: theme.border }, !courseId && { backgroundColor: theme.accent, borderColor: theme.accent }]}
                 onPress={() => setCourseId('')}>
-                <Text style={[s.courseChipText, !courseId && { color: '#fff' }]}>None</Text>
+                <Text style={[s.courseChipText, { color: theme.textMuted }, !courseId && { color: '#fff' }]}>None</Text>
               </TouchableOpacity>
               {courses.map(c => (
                 <TouchableOpacity
                   key={c.id}
-                  style={[s.courseChip, courseId === c.id && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                  style={[s.courseChip, { backgroundColor: theme.card, borderColor: theme.border }, courseId === c.id && { backgroundColor: theme.accent, borderColor: theme.accent }]}
                   onPress={() => setCourseId(c.id)}>
-                  <Text style={[s.courseChipText, courseId === c.id && { color: '#fff' }]}>{c.code}</Text>
+                  <Text style={[s.courseChipText, { color: theme.textMuted }, courseId === c.id && { color: '#fff' }]}>{c.code}</Text>
                 </TouchableOpacity>
               ))}
             </View>

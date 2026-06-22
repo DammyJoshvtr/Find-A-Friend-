@@ -1,17 +1,19 @@
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native'
+import { useTheme } from '../lib/theme'
 
 /**
  * Custom splash screen shown while the app is initializing.
  * Displayed by _layout.tsx before the session check resolves.
  */
 export default function SplashScreen() {
+  const theme = useTheme()
   return (
-    <View style={s.container}>
-      <View style={s.logoCircle}>
-        <Text style={s.logoText}>FAF</Text>
+    <View style={[s.container, { backgroundColor: theme.bg }]}>
+      <View style={[s.logoCircle, { backgroundColor: theme.accentBg, borderColor: theme.accent }]}>
+        <Text style={[s.logoText, { color: theme.accent }]}>FAF</Text>
       </View>
-      <Text style={s.tagline}>Find A Friend</Text>
-      <ActivityIndicator color="#a78bfa" size="small" style={s.spinner} />
+      <Text style={[s.tagline, { color: theme.text }]}>Find A Friend</Text>
+      <ActivityIndicator color={theme.accent} size="small" style={s.spinner} />
     </View>
   )
 }
@@ -19,7 +21,6 @@ export default function SplashScreen() {
 const s = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d0d14',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
@@ -28,21 +29,17 @@ const s = StyleSheet.create({
     width: 96,
     height: 96,
     borderRadius: 48,
-    backgroundColor: 'rgba(167,139,250,0.15)',
     borderWidth: 2,
-    borderColor: '#a78bfa',
     alignItems: 'center',
     justifyContent: 'center',
   },
   logoText: {
     fontSize: 30,
     fontWeight: '800',
-    color: '#a78bfa',
     letterSpacing: 2,
   },
   tagline: {
     fontSize: 16,
-    color: 'rgba(240,240,255,0.45)',
     fontWeight: '500',
   },
   spinner: {

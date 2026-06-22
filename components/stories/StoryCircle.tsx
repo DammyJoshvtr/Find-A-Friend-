@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons'
 import { getInitials } from '../../lib/matching'
 import { useStoriesStore } from '../../store/storiesStore'
 import type { StoryGroup } from '../../lib/stories'
+import { useTheme } from '../../lib/theme'
 
 interface StoryCircleProps {
   group: StoryGroup
@@ -15,6 +16,7 @@ interface StoryCircleProps {
 
 export default function StoryCircle({ group, isOwn, onAddStory }: StoryCircleProps) {
   const { openViewer } = useStoriesStore()
+  const theme = useTheme()
   const glowAnim = useRef(new Animated.Value(0.3)).current
 
   const hasUnviewed = !group.all_viewed
@@ -39,7 +41,7 @@ export default function StoryCircle({ group, isOwn, onAddStory }: StoryCirclePro
     openViewer(group.author_id, 0)
   }
 
-  const ringColor = hasUnviewed ? '#a78bfa' : 'rgba(255,255,255,0.12)'
+  const ringColor = hasUnviewed ? '#a78bfa' : theme.border
 
   return (
     <TouchableOpacity style={s.container} onPress={handlePress}>
@@ -52,7 +54,7 @@ export default function StoryCircle({ group, isOwn, onAddStory }: StoryCirclePro
         {group.author_avatar ? (
           <Image source={{ uri: group.author_avatar }} style={s.avatar} />
         ) : (
-          <View style={s.avatarFallback}>
+          <View style={[s.avatarFallback, { backgroundColor: theme.card2 }]}>
             <Text style={s.initials}>
               {getInitials(group.author_name ?? '?')}
             </Text>
@@ -61,7 +63,7 @@ export default function StoryCircle({ group, isOwn, onAddStory }: StoryCirclePro
 
         {isOwn && (
           <TouchableOpacity
-            style={s.addBadge}
+            style={[s.addBadge, { borderColor: theme.card }]}
             onPress={() => onAddStory?.()}
             hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
@@ -70,7 +72,7 @@ export default function StoryCircle({ group, isOwn, onAddStory }: StoryCirclePro
         )}
       </View>
 
-      <Text style={s.label} numberOfLines={1}>
+      <Text style={[s.label, { color: theme.textMuted }]} numberOfLines={1}>
         {isOwn ? 'Your story' : (group.author_name?.split(' ')[0] ?? 'User')}
       </Text>
     </TouchableOpacity>
@@ -113,7 +115,6 @@ const s = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 27,
-    backgroundColor: '#1a1a2e',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -133,7 +134,6 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#0a0a1a',
     shadowColor: '#a78bfa',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.6,
@@ -142,7 +142,6 @@ const s = StyleSheet.create({
   },
   label: {
     fontSize: 10,
-    color: 'rgba(240,240,255,0.55)',
     textAlign: 'center',
     maxWidth: 68,
   },

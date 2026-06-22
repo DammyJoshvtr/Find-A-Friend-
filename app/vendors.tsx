@@ -74,23 +74,23 @@ export default function VendorsScreen() {
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color="#f0f0ff" />
+      <View style={[s.header, { borderBottomColor: theme.border2 }]}>
+        <TouchableOpacity style={[s.backBtn, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={20} color={theme.text} />
         </TouchableOpacity>
-        <Text style={s.title}>Campus Deals</Text>
+        <Text style={[s.title, { color: theme.text }]}>Campus Deals</Text>
         <View style={{ width: 36 }} />
       </View>
 
       {loading ? (
         <View style={s.loadingWrap}>
-          <ActivityIndicator size="large" color="#fbbf24" />
+          <ActivityIndicator size="large" color={theme.accent} />
         </View>
       ) : error ? (
         <View style={s.errorWrap}>
-          <Ionicons name="alert-circle-outline" size={40} color="rgba(240,240,255,0.2)" />
-          <Text style={s.errorText}>{error}</Text>
-          <TouchableOpacity style={s.retryBtn} onPress={loadVendors}>
+          <Ionicons name="alert-circle-outline" size={40} color={theme.textFaint} />
+          <Text style={[s.errorText, { color: theme.textMuted }]}>{error}</Text>
+          <TouchableOpacity style={[s.retryBtn, { backgroundColor: theme.accent }]} onPress={loadVendors}>
             <Text style={s.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -106,18 +106,18 @@ export default function VendorsScreen() {
           ListHeaderComponent={
             <>
               {/* Search */}
-              <View style={s.searchBar}>
-                <Ionicons name="search-outline" size={15} color="rgba(240,240,255,0.3)" />
+              <View style={[s.searchBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                <Ionicons name="search-outline" size={15} color={theme.textMuted} />
                 <TextInput
-                  style={s.searchInput}
+                  style={[s.searchInput, { color: theme.text }]}
                   placeholder="Search vendors..."
-                  placeholderTextColor="rgba(240,240,255,0.3)"
+                  placeholderTextColor={theme.textMuted}
                   value={search}
                   onChangeText={setSearch}
                 />
                 {search.length > 0 && (
                   <TouchableOpacity onPress={() => setSearch('')}>
-                    <Ionicons name="close-circle" size={15} color="rgba(240,240,255,0.3)" />
+                    <Ionicons name="close-circle" size={15} color={theme.textMuted} />
                   </TouchableOpacity>
                 )}
               </View>
@@ -130,47 +130,61 @@ export default function VendorsScreen() {
                 {CATEGORIES.map(cat => (
                   <TouchableOpacity
                     key={cat}
-                    style={[s.catPill, category === cat && s.catPillActive]}
+                    style={[
+                      s.catPill,
+                      { backgroundColor: theme.card, borderColor: theme.border },
+                      category === cat && {
+                        backgroundColor: theme.accentBg,
+                        borderColor: theme.accentBorder
+                      }
+                    ]}
                     onPress={() => setCategory(cat)}>
-                    <Text style={[s.catText, category === cat && s.catTextActive]}>{cat}</Text>
+                    <Text style={[
+                      s.catText,
+                      { color: theme.textMuted },
+                      category === cat && {
+                        color: theme.accent,
+                        fontFamily: typography.fontBold
+                      }
+                    ]}>{cat}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
 
               {/* Stats strip */}
-              <View style={s.statsStrip}>
+              <View style={[s.statsStrip, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <View style={s.statItem}>
-                  <Text style={s.statValue}>{filtered.length}</Text>
-                  <Text style={s.statLabel}>Vendors</Text>
+                  <Text style={[s.statValue, { color: theme.accent }]}>{filtered.length}</Text>
+                  <Text style={[s.statLabel, { color: theme.textMuted }]}>Vendors</Text>
                 </View>
-                <View style={s.statDivider} />
+                <View style={[s.statDivider, { backgroundColor: theme.border2 }]} />
                 <View style={s.statItem}>
-                  <Text style={s.statValue}>{totalDeals}</Text>
-                  <Text style={s.statLabel}>Active Deals</Text>
+                  <Text style={[s.statValue, { color: theme.accent }]}>{totalDeals}</Text>
+                  <Text style={[s.statLabel, { color: theme.textMuted }]}>Active Deals</Text>
                 </View>
-                <View style={s.statDivider} />
+                <View style={[s.statDivider, { backgroundColor: theme.border2 }]} />
                 <TouchableOpacity
                   style={s.statItem}
                   onPress={() => router.push('/vendor-apply' as any)}>
-                  <Ionicons name="storefront-outline" size={18} color="#fbbf24" />
-                  <Text style={[s.statLabel, { color: '#fbbf24' }]}>Become a Vendor</Text>
+                  <Ionicons name="storefront-outline" size={18} color={theme.accent} />
+                  <Text style={[s.statLabel, { color: theme.accent }]}>Become a Vendor</Text>
                 </TouchableOpacity>
               </View>
 
-              <Text style={s.sectionTitle}>
+              <Text style={[s.sectionTitle, { color: theme.textMuted }]}>
                 {category === 'All' ? 'All Vendors' : category} ({filtered.length})
               </Text>
             </>
           }
           ListEmptyComponent={
             <View style={s.empty}>
-              <Ionicons name="storefront-outline" size={40} color="rgba(240,240,255,0.1)" />
-              <Text style={s.emptyTitle}>No vendors found</Text>
+              <Ionicons name="storefront-outline" size={40} color={theme.textFaint} />
+              <Text style={[s.emptyTitle, { color: theme.textMuted }]}>No vendors found</Text>
               {search || category !== 'All'
-                ? <Text style={s.emptySub}>Try a different search or category</Text>
-                : <Text style={s.emptySub}>Be the first to list your business</Text>}
+                ? <Text style={[s.emptySub, { color: theme.textFaint }]}>Try a different search or category</Text>
+                : <Text style={[s.emptySub, { color: theme.textFaint }]}>Be the first to list your business</Text>}
               <TouchableOpacity
-                style={s.applyBtn}
+                style={[s.applyBtn, { backgroundColor: theme.accent }]}
                 onPress={() => router.push('/vendor-apply' as any)}>
                 <Ionicons name="add" size={16} color="#fff" />
                 <Text style={s.applyBtnText}>Apply as Vendor</Text>
@@ -178,7 +192,7 @@ export default function VendorsScreen() {
             </View>
           }
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#fbbf24" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />
           }
           contentContainerStyle={{ paddingBottom: 40 }}
           showsVerticalScrollIndicator={false}
@@ -193,58 +207,54 @@ const s = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomWidth: 0.5,
   },
   backBtn: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 0.5,
   },
-  title: { fontSize: 18, fontFamily: typography.fontBold, color: '#f0f0ff' },
+  title: { fontSize: 18, fontFamily: typography.fontBold },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   errorWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 32 },
-  errorText: { fontSize: 14, color: 'rgba(240,240,255,0.4)', textAlign: 'center', fontFamily: typography.fontRegular },
-  retryBtn: { backgroundColor: '#fbbf24', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8 },
-  retryText: { fontSize: 13, fontFamily: typography.fontSemiBold, color: '#000' },
+  errorText: { fontSize: 14, textAlign: 'center', fontFamily: typography.fontRegular },
+  retryBtn: { borderRadius: 20, paddingHorizontal: 20, paddingVertical: 8 },
+  retryText: { fontSize: 13, fontFamily: typography.fontSemiBold, color: '#fff' },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     marginHorizontal: 16, marginTop: 12, marginBottom: 10,
-    backgroundColor: '#1c1c2e', borderRadius: 20,
+    borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 0.5,
   },
-  searchInput: { flex: 1, fontSize: 13, color: '#f0f0ff', fontFamily: typography.fontRegular },
+  searchInput: { flex: 1, fontSize: 13, fontFamily: typography.fontRegular },
   catRow: { paddingHorizontal: 16, gap: 8, marginBottom: 12 },
   catPill: {
     paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
-    backgroundColor: '#1c1c2e', borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 0.5,
   },
-  catPillActive: {
-    backgroundColor: 'rgba(251,191,36,0.15)',
-    borderColor: 'rgba(251,191,36,0.4)',
-  },
-  catText: { fontSize: 12, color: 'rgba(240,240,255,0.4)', fontFamily: typography.fontMedium },
-  catTextActive: { color: '#fbbf24', fontFamily: typography.fontBold },
+  catText: { fontSize: 12, fontFamily: typography.fontMedium },
   statsStrip: {
     flexDirection: 'row', alignItems: 'center',
     marginHorizontal: 16, marginBottom: 16,
-    backgroundColor: '#1c1c2e', borderRadius: 14, padding: 14,
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 14, padding: 14,
+    borderWidth: 0.5,
   },
   statItem: { flex: 1, alignItems: 'center', gap: 2 },
-  statDivider: { width: 0.5, height: 32, backgroundColor: 'rgba(255,255,255,0.08)' },
-  statValue: { fontSize: 20, fontFamily: typography.fontBold, color: '#fbbf24' },
-  statLabel: { fontSize: 10, color: 'rgba(240,240,255,0.35)', fontFamily: typography.fontMedium },
+  statDivider: { width: 0.5, height: 32 },
+  statValue: { fontSize: 20, fontFamily: typography.fontBold },
+  statLabel: { fontSize: 10, fontFamily: typography.fontMedium },
   sectionTitle: {
-    fontSize: 13, fontFamily: typography.fontSemiBold, color: 'rgba(240,240,255,0.5)',
+    fontSize: 13, fontFamily: typography.fontSemiBold,
     paddingHorizontal: 16, marginBottom: 8,
   },
   cardWrap: { paddingHorizontal: 16, marginBottom: 8 },
   empty: { alignItems: 'center', paddingTop: 40, paddingBottom: 40, gap: 8 },
-  emptyTitle: { fontSize: 15, fontFamily: typography.fontSemiBold, color: 'rgba(240,240,255,0.4)' },
-  emptySub: { fontSize: 12, color: 'rgba(240,240,255,0.25)', textAlign: 'center', fontFamily: typography.fontRegular },
+  emptyTitle: { fontSize: 15, fontFamily: typography.fontSemiBold },
+  emptySub: { fontSize: 12, textAlign: 'center', fontFamily: typography.fontRegular },
   applyBtn: {
     marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#fbbf24', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 9,
+    borderRadius: 20, paddingHorizontal: 20, paddingVertical: 9,
   },
-  applyBtnText: { fontSize: 13, fontFamily: typography.fontSemiBold, color: '#000' },
+  applyBtnText: { fontSize: 13, fontFamily: typography.fontSemiBold, color: '#fff' },
 })

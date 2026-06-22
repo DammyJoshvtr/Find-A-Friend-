@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
-import { AppState, Platform, Alert } from 'react-native'
+import { AppState, Platform, Alert, useWindowDimensions, View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { Stack, router, useSegments } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
@@ -434,11 +434,52 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
         <ThemeProvider>
-          <AppStack />
-          <StreakModal />
-          <Toast />
+          <ResponsiveAppContainer>
+            <AppStack />
+            <StreakModal />
+            <Toast />
+          </ResponsiveAppContainer>
         </ThemeProvider>
       </ErrorBoundary>
     </GestureHandlerRootView>
   );
+}
+
+function ResponsiveAppContainer({ children }: { children: React.ReactNode }) {
+  const theme = useTheme();
+  const { width } = useWindowDimensions();
+  // On web, if screen is wider than typical mobile/tablet, center it with a max-width
+  const isLargeScreen = Platform.OS === "web" && width > 600;
+
+  if (isLargeScreen) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: theme.bg || "#0a0a0a",
+          alignItems: "center",
+        }}
+      >
+        <View
+          style={{
+            flex: 1,
+            width: "100%",
+            maxWidth: 500,
+            backgroundColor: theme.bg,
+            borderLeftWidth: 1,
+            borderRightWidth: 1,
+            borderColor: theme.border || "rgba(150,150,150,0.1)",
+            shadowColor: "#000",
+            shadowOpacity: 0.2,
+            shadowRadius: 20,
+            elevation: 10,
+          }}
+        >
+          {children}
+        </View>
+      </View>
+    );
+  }
+
+  return <View style={{ flex: 1 }}>{children}</View>;
 }

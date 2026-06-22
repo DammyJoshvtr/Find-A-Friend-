@@ -2,7 +2,9 @@ import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, Alert,
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useState } from 'react'
 import { router } from 'expo-router'
+import { client } from '../../lib/aws'
 import { supabase } from '../../lib/supabase'
+import { getCurrentUser } from 'aws-amplify/auth'
 import { useTheme } from '../../lib/theme'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { registerForPushNotifications, savePushToken, subscribeToWebPush } from '../../lib/notifications'
@@ -52,7 +54,7 @@ export default function OnboardingScreen() {
   }
   setLoading(true)
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getCurrentUser()
   if (!user) {
     Alert.alert('Error', 'Not logged in')
     setLoading(false)
@@ -62,7 +64,7 @@ export default function OnboardingScreen() {
   let badgeType = 'guest'
   let badgeColor = '#ec4899'
   try {
-    const wasVerifiedViaCode = await AsyncStorage.getItem('verified_via_code_' + user.email)
+    const wasVerifiedViaCode = await AsyncStorage.getItem('verified_via_code_' + user.username)
     if (wasVerifiedViaCode === 'true') {
       badgeType = 'verified'
       badgeColor = '#a78bfa'
@@ -74,8 +76,8 @@ export default function OnboardingScreen() {
   const { error } = await supabase
     .from('profiles')
     .upsert({
-      id: user.id,
-      email: user.email,
+      id: user.userId,
+      email: user.username,
       full_name: fullName.trim(),
       department: department === 'Other' ? manualDepartment.trim() : department,
       level,
@@ -100,7 +102,7 @@ export default function OnboardingScreen() {
     // is the perfect place to do it before navigating away.
     if (Platform.OS === 'web') {
       try {
-        await subscribeToWebPush(user.id)
+        await subscribeToWebPush(user.userId)
       } catch {}
     }
 
@@ -114,7 +116,7 @@ export default function OnboardingScreen() {
 
       <View style={s.progressBar}>
         {[1, 2, 3].map(i => (
-          <View key={i} style={[s.progressStep, i <= step && s.progressStepActive]} />
+          <View key={i} style={[s.progressStep, { backgroundColor: theme.border }, i <= step && { backgroundColor: theme.accent }]} />
         ))}
       </View>
 
@@ -122,36 +124,36 @@ export default function OnboardingScreen() {
 
         {step === 1 && (
           <>
-            <Text style={s.title}>Tell us about you</Text>
-            <Text style={s.subtitle}>Set up your FAF profile</Text>
+            <Text style={[s.title, { color: theme.text }]}>Tell us about you</Text>
+            <Text style={[s.subtitle, { color: theme.textMuted }]}>Set up your FAF profile</Text>
 
             <View style={s.inputWrap}>
-              <Text style={s.label}>Full name</Text>
+              <Text style={[s.label, { color: theme.textMuted }]}>Full name</Text>
               <TextInput
-                style={s.input}
+                style={[s.input, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
                 placeholder="Your full name"
-                placeholderTextColor="rgba(240,240,255,0.25)"
+                placeholderTextColor={theme.textFaint}
                 value={fullName}
                 onChangeText={setFullName}
               />
             </View>
 
             <View style={s.inputWrap}>
-              <Text style={s.label}>Bio (optional)</Text>
+              <Text style={[s.label, { color: theme.textMuted }]}>Bio (optional)</Text>
               <TextInput
-                style={[s.input, s.bioInput]}
+                style={[s.input, s.bioInput, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
                 placeholder="Tell other students a little about yourself..."
-                placeholderTextColor="rgba(240,240,255,0.25)"
+                placeholderTextColor={theme.textFaint}
                 value={bio}
                 onChangeText={setBio}
                 multiline
                 maxLength={160}
               />
-              <Text style={s.charCount}>{bio.length}/160</Text>
+              <Text style={[s.charCount, { color: theme.textFaint }]}>{bio.length}/160</Text>
             </View>
 
             <TouchableOpacity
-              style={s.btnPrimary}
+              style={[s.btnPrimary, { backgroundColor: theme.accent }]}
               onPress={() => {
                 if (!fullName.trim()) {
                   Alert.alert('Error', 'Please enter your full name')
@@ -166,16 +168,24 @@ export default function OnboardingScreen() {
 
         {step === 2 && (
           <>
-            <Text style={s.title}>Your department</Text>
-            <Text style={s.subtitle}>Help others find you by course</Text>
+            <Text style={[s.title, { color: theme.text }]}>Your department</Text>
+            <Text style={[s.subtitle, { color: theme.textMuted }]}>Help others find you by course</Text>
 
             <View style={s.optionsGrid}>
               {departments.map((d, i) => (
                 <TouchableOpacity
                   key={i}
-                  style={[s.optionChip, department === d && s.optionChipActive]}
+                  style={[
+                    s.optionChip,
+                    { backgroundColor: theme.card, borderColor: theme.border },
+                    department === d && { backgroundColor: theme.accent + '20', borderColor: theme.accent }
+                  ]}
                   onPress={() => setDepartment(d)}>
-                  <Text style={[s.optionText, department === d && s.optionTextActive]}>
+                  <Text style={[
+                    s.optionText,
+                    { color: theme.textMuted },
+                    department === d && { color: theme.accent, fontWeight: '600' }
+                  ]}>
                     {d}
                   </Text>
                 </TouchableOpacity>
@@ -184,11 +194,11 @@ export default function OnboardingScreen() {
 
             {department === 'Other' && (
               <View style={[s.inputWrap, { marginTop: 16 }]}>
-                <Text style={s.label}>Enter your department</Text>
+                <Text style={[s.label, { color: theme.textMuted }]}>Enter your department</Text>
                 <TextInput
-                  style={s.input}
+                  style={[s.input, { backgroundColor: theme.card, borderColor: theme.border, color: theme.text }]}
                   placeholder="e.g. Political Science"
-                  placeholderTextColor="rgba(240,240,255,0.25)"
+                  placeholderTextColor={theme.textFaint}
                   value={manualDepartment}
                   onChangeText={setManualDepartment}
                   autoFocus
@@ -196,24 +206,32 @@ export default function OnboardingScreen() {
               </View>
             )}
 
-            <Text style={[s.label, { marginTop: 20 }]}>Level</Text>
+            <Text style={[s.label, { marginTop: 20, color: theme.textMuted }]}>Level</Text>
             <View style={s.levelRow}>
               {levels.map((l, i) => (
                 <TouchableOpacity
                   key={i}
-                  style={[s.levelChip, level === l && s.optionChipActive]}
+                  style={[
+                    s.levelChip,
+                    { backgroundColor: theme.card, borderColor: theme.border },
+                    level === l && { backgroundColor: theme.accent + '20', borderColor: theme.accent }
+                  ]}
                   onPress={() => setLevel(l)}>
-                  <Text style={[s.optionText, level === l && s.optionTextActive]}>{l}</Text>
+                  <Text style={[
+                    s.optionText,
+                    { color: theme.textMuted },
+                    level === l && { color: theme.accent, fontWeight: '600' }
+                  ]}>{l}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
             <View style={s.btnRow}>
-              <TouchableOpacity style={s.btnSecondary} onPress={() => setStep(1)}>
-                <Text style={s.btnSecText}>Back</Text>
+              <TouchableOpacity style={[s.btnSecondary, { borderColor: theme.border, backgroundColor: theme.card }]} onPress={() => setStep(1)}>
+                <Text style={[s.btnSecText, { color: theme.textMuted }]}>Back</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[s.btnPrimary, { flex: 1 }]}
+                style={[s.btnPrimary, { flex: 1, backgroundColor: theme.accent }]}
                 onPress={() => setStep(3)}>
                 <Text style={s.btnText}>Continue</Text>
               </TouchableOpacity>
@@ -223,8 +241,8 @@ export default function OnboardingScreen() {
 
         {step === 3 && (
           <>
-            <Text style={s.title}>Your interests</Text>
-            <Text style={s.subtitle}>
+            <Text style={[s.title, { color: theme.text }]}>Your interests</Text>
+            <Text style={[s.subtitle, { color: theme.textMuted }]}>
               Pick 3–8 things you love — this powers your matches
             </Text>
 
@@ -234,12 +252,14 @@ export default function OnboardingScreen() {
                   key={i}
                   style={[
                     s.interestChip,
-                    interests.includes(interest) && s.interestChipActive,
+                    { backgroundColor: theme.card, borderColor: theme.border },
+                    interests.includes(interest) && { backgroundColor: theme.accent + '20', borderColor: theme.accent },
                   ]}
                   onPress={() => toggleInterest(interest)}>
                   <Text style={[
                     s.interestText,
-                    interests.includes(interest) && s.interestTextActive,
+                    { color: theme.textMuted },
+                    interests.includes(interest) && { color: theme.accent, fontWeight: '600' },
                   ]}>
                     {interest}
                   </Text>
@@ -247,16 +267,16 @@ export default function OnboardingScreen() {
               ))}
             </View>
 
-            <Text style={s.selectedCount}>
+            <Text style={[s.selectedCount, { color: theme.textMuted }]}>
               {interests.length} selected {interests.length < 3 ? `(need ${3 - interests.length} more)` : '✓'}
             </Text>
 
             <View style={s.btnRow}>
-              <TouchableOpacity style={s.btnSecondary} onPress={() => setStep(2)}>
-                <Text style={s.btnSecText}>Back</Text>
+              <TouchableOpacity style={[s.btnSecondary, { borderColor: theme.border, backgroundColor: theme.card }]} onPress={() => setStep(2)}>
+                <Text style={[s.btnSecText, { color: theme.textMuted }]}>Back</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[s.btnPrimary, { flex: 1 }, loading && s.btnDisabled]}
+                style={[s.btnPrimary, { flex: 1, backgroundColor: theme.accent }, loading && s.btnDisabled]}
                 onPress={saveProfile}
                 disabled={loading}>
                 {loading
@@ -285,74 +305,51 @@ const s = StyleSheet.create({
   },
   progressStep: {
     flex: 1, height: 4, borderRadius: 2,
-    backgroundColor: '#1c1c2e',
   },
-  progressStepActive: { backgroundColor: '#a78bfa' },
   content: { paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 },
-  title: { fontSize: 26, fontWeight: '700', color: '#f0f0ff', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: 'rgba(240,240,255,0.4)', marginBottom: 28, lineHeight: 20 },
+  title: { fontSize: 26, fontWeight: '700', marginBottom: 6 },
+  subtitle: { fontSize: 14, marginBottom: 28, lineHeight: 20 },
   inputWrap: { marginBottom: 18 },
-  label: { fontSize: 12, color: 'rgba(240,240,255,0.4)', marginBottom: 8, fontWeight: '500' },
+  label: { fontSize: 12, marginBottom: 8, fontWeight: '500' },
   input: {
-    backgroundColor: '#1c1c2e',
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 14,
-    color: '#f0f0ff',
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
   bioInput: { height: 100, textAlignVertical: 'top' },
-  charCount: { fontSize: 11, color: 'rgba(240,240,255,0.25)', textAlign: 'right', marginTop: 4 },
+  charCount: { fontSize: 11, textAlign: 'right', marginTop: 4 },
   optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   optionChip: {
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#1c1c2e',
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
-  optionChipActive: {
-    backgroundColor: 'rgba(167,139,250,0.2)',
-    borderColor: '#a78bfa',
-  },
-  optionText: { fontSize: 13, color: 'rgba(240,240,255,0.5)' },
-  optionTextActive: { color: '#a78bfa', fontWeight: '600' },
+  optionText: { fontSize: 13 },
   levelRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
   levelChip: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    backgroundColor: '#1c1c2e',
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   interestsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
   interestChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#1c1c2e',
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
-  interestChipActive: {
-    backgroundColor: 'rgba(167,139,250,0.2)',
-    borderColor: '#a78bfa',
-  },
-  interestText: { fontSize: 13, color: 'rgba(240,240,255,0.5)' },
-  interestTextActive: { color: '#a78bfa', fontWeight: '600' },
+  interestText: { fontSize: 13 },
   selectedCount: {
     fontSize: 12,
-    color: 'rgba(240,240,255,0.4)',
     marginBottom: 24,
     textAlign: 'center',
   },
   btnRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
   btnPrimary: {
-    backgroundColor: '#a78bfa',
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
@@ -361,13 +358,11 @@ const s = StyleSheet.create({
   btnDisabled: { opacity: 0.6 },
   btnText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   btnSecondary: {
-    backgroundColor: '#1c1c2e',
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 20,
     alignItems: 'center',
     borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
-  btnSecText: { fontSize: 15, color: 'rgba(240,240,255,0.5)' },
+  btnSecText: { fontSize: 15 },
 })

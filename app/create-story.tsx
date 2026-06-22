@@ -75,13 +75,13 @@ export default function CreateStoryScreen() {
   return (
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top', 'bottom']}>
       {/* Header */}
-      <View style={s.header}>
-        <TouchableOpacity onPress={() => router.back()} style={s.closeBtn}>
-          <Ionicons name="close" size={22} color="rgba(240,240,255,0.6)" />
+      <View style={[s.header, { borderBottomColor: theme.border }]}>
+        <TouchableOpacity onPress={() => router.back()} style={[s.closeBtn, { backgroundColor: theme.card }]}>
+          <Ionicons name="close" size={22} color={theme.text} />
         </TouchableOpacity>
-        <Text style={s.title}>New Story</Text>
+        <Text style={[s.title, { color: theme.text }]}>New Story</Text>
         <TouchableOpacity
-          style={[s.postBtn, (!mediaUri || uploading) && s.postBtnDisabled]}
+          style={[s.postBtn, { backgroundColor: theme.accent }, (!mediaUri || uploading) && s.postBtnDisabled]}
           onPress={handlePost}
           disabled={!mediaUri || uploading}>
           {uploading
@@ -95,7 +95,7 @@ export default function CreateStoryScreen() {
         <View style={s.previewWrap}>
           {mediaType === 'video' ? (
             <View style={[s.preview, s.videoPlaceholder]}>
-              <Ionicons name="videocam-outline" size={48} color="rgba(240,240,255,0.4)" />
+              <Ionicons name="videocam-outline" size={48} color="rgba(255,255,255,0.4)" />
               <Text style={s.videoPlaceholderText}>Video Selected</Text>
               <Text style={s.videoPlaceholderSub}>
                 A preview is not available, but the video will be uploaded and optimized for your story.
@@ -124,10 +124,10 @@ export default function CreateStoryScreen() {
         </View>
       ) : (
         <TouchableOpacity style={s.pickArea} onPress={pickMedia}>
-          <Ionicons name="image-outline" size={64} color="rgba(240,240,255,0.15)" />
-          <Text style={s.pickTitle}>Add photo or video</Text>
-          <Text style={s.pickSub}>Tap to pick from your library</Text>
-          <View style={s.pickBtn}>
+          <Ionicons name="image-outline" size={64} color={theme.textFaint} />
+          <Text style={[s.pickTitle, { color: theme.text }]}>Add photo or video</Text>
+          <Text style={[s.pickSub, { color: theme.textMuted }]}>Tap to pick from your library</Text>
+          <View style={[s.pickBtn, { backgroundColor: theme.accent }]}>
             <Ionicons name="add" size={18} color="#fff" />
             <Text style={s.pickBtnText}>Choose media</Text>
           </View>

@@ -54,19 +54,37 @@ export async function createAnonymousPost(
     const { data, error } = await supabase
       .from('posts')
       .insert({
-        author_id: user.id,     // stored for audit; masked in public_posts view
+        author_id: user.id,
         body,
         tags: tags ?? [],
         image_url: imageUrl ?? null,
         is_anonymous: true,
         post_type: 'anonymous',
       })
-      .select('id, body, tags, image_url, is_anonymous, post_type, likes_count, comments_count, created_at')
+      .select()
       .single()
 
     if (error) throw error
 
-    // Return sanitized row — never expose author_id to caller
+    // Parse and upsert hashtags from the body text
+    const hashtagMatches = body.match(/#(\w+)/g) ?? []
+    if (hashtagMatches.length > 0) {
+      const tagsList = hashtagMatches.map(h => h.slice(1).toLowerCase())
+      for (const tag of tagsList) {
+        const { data: hashtagRow } = await supabase
+          .from('hashtags')
+          .upsert({ tag }, { onConflict: 'tag' })
+          .select('id')
+          .single()
+
+        if (hashtagRow) {
+          await supabase
+            .from('post_hashtags')
+            .upsert({ post_id: data.id, hashtag_id: hashtagRow.id })
+        }
+      }
+    }
+
     const sanitized: AnonymousPost = {
       id: data.id,
       body: data.body,
@@ -91,8 +109,7 @@ export async function createAnonymousPost(
 // ---------------------------------------------------------------------------
 
 /**
- * Fetches anonymous posts via the `public_posts` view.
- * The view enforces author_id = NULL for all anonymous posts.
+ * Fetches anonymous posts via the `posts` table (or public_posts view if defined).
  */
 export async function getAnonymousPosts(
   cursor?: string,
@@ -134,29 +151,20 @@ export async function getAnonymousPosts(
 /**
  * Returns the real author profile for an anonymous post.
  * Requires the calling user to have role = 'admin' in profiles.
- * The query reads from `anonymous_post_audit` which is blocked for regular
- * users by RLS (USING false). The admin role check happens in the admin
- * layout guard; this function itself cannot enforce it at the SQL level
- * because the client anon key cannot bypass RLS.
- *
- * In production, this should go through an Edge Function with service_role.
- * This helper is provided for use inside a trusted admin Edge Function.
  */
 export async function getAnonymousPostIdentity(postId: string): Promise<{
   data: { post_id: string; real_author: string; created_at: string } | null
   error: Error | null
 }> {
   try {
-    // This will only succeed when called with a service_role client.
-    // The admin Edge Function (lib/admin.ts) creates a service_role client.
     const { data, error } = await supabase
       .from('anonymous_post_audit')
       .select('post_id, real_author, created_at')
       .eq('post_id', postId)
-      .single()
+      .maybeSingle()
 
     if (error) throw error
-    return { data, error: null }
+    return { data: data as any, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -170,19 +178,22 @@ export async function getAnonymousPostIdentity(postId: string): Promise<{
 /**
  * Checks if the current user is the real author of an anonymous post.
  * Uses the raw `posts` table — the current user's author_id is compared.
- * Does NOT use public_posts view so it can access the unmasked author_id.
  */
 export async function isMyAnonymousPost(postId: string): Promise<boolean> {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return false
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return false
 
-  const { data } = await supabase
-    .from('posts')
-    .select('id')
-    .eq('id', postId)
-    .eq('author_id', user.id)
-    .eq('is_anonymous', true)
-    .maybeSingle()
+    const { data, error } = await supabase
+      .from('posts')
+      .select('id')
+      .eq('id', postId)
+      .eq('author_id', user.id)
+      .eq('is_anonymous', true)
+      .maybeSingle()
 
-  return !!data
+    return !!data
+  } catch {
+    return false
+  }
 }

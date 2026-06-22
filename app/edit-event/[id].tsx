@@ -95,7 +95,7 @@ export default function EditEventScreen() {
       return
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
+      mediaTypes: ['images'],
       allowsEditing: false,
       quality: 0.75,
     })

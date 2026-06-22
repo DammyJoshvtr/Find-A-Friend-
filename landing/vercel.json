@@ -1,4 +1,18 @@
 {
+    "trailingSlash":  false,
     "cleanUrls":  true,
-    "trailingSlash":  false
+    "rewrites":  [
+                     {
+                         "destination":  "/pwa/sw.js",
+                         "source":  "/sw.js"
+                     },
+                     {
+                         "destination":  "/pwa/manifest.json",
+                         "source":  "/manifest.json"
+                     },
+                     {
+                         "destination":  "/pwa/favicon.ico",
+                         "source":  "/favicon.ico"
+                     }
+                 ]
 }

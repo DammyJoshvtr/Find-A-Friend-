@@ -5,7 +5,6 @@ import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   Animated,
-  FlatList,
   ScrollView,
   StyleSheet,
   Text,
@@ -548,7 +547,15 @@ export default function DiscoverScreen() {
 
         {/* Student Directory Grid */}
         {loading ? (
-          <ScreenLoader message="Loading campus directory..." />
+          <View
+            style={{
+              height: 250,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <ScreenLoader message="Loading campus directory..." />
+          </View>
         ) : remaining === 0 ? (
           <View style={s.center}>
             <Text style={s.doneEmoji}>🔍</Text>
@@ -572,21 +579,24 @@ export default function DiscoverScreen() {
             </TouchableOpacity>
           </View>
         ) : (
-          <FlatList
-            data={filteredDeck}
-            keyExtractor={(item) => item.id}
-            numColumns={2}
-            key={`grid-2`}
-            renderItem={({ item }) => (
-              <StudentCard
-                user={item}
-                initialStatus={statuses[item.id] || "none"}
-                onConnectToggle={handleConnectToggle}
-              />
-            )}
-            contentContainerStyle={s.listContent}
-            showsVerticalScrollIndicator={false}
-          />
+          <View
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              paddingHorizontal: 8,
+              paddingBottom: 120,
+            }}
+          >
+            {filteredDeck.map((item) => (
+              <View key={item.id} style={{ width: "50%", padding: 6 }}>
+                <StudentCard
+                  user={item}
+                  initialStatus={statuses[item.id] || "none"}
+                  onConnectToggle={handleConnectToggle}
+                />
+              </View>
+            ))}
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>
@@ -726,5 +736,7 @@ const s = StyleSheet.create({
   },
   sectionTitle: {
     paddingHorizontal: 12,
+    fontSize: 20,
+    fontWeight: "bold",
   },
 });

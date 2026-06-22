@@ -2,7 +2,8 @@
  * lib/search.ts
  * Global search across users, posts, hashtags, and clubs.
  */
-import { supabase } from './supabase'
+import { client } from './aws'
+import { getCurrentUser } from 'aws-amplify/auth'
 import type { FollowProfile } from './follows'
 import type { FeedPost } from './feed'
 import type { Club } from './clubs'
@@ -18,13 +19,16 @@ export async function searchUsers(query: string, limit = 20): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, department, level, avatar_url, follower_count, following_count')
-      .or(`full_name.ilike.%${query}%,department.ilike.%${query}%`)
-      .neq('full_name', '')
-      .not('full_name', 'is', null)
-      .limit(limit)
+    const { data, errors } = await client.models.profiles.list({
+      filter: {
+        or: [
+          { full_name: { contains: query } },
+          { department: { contains: query } }
+        ]
+      },
+      limit
+    })
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
     return { data: data as FollowProfile[], error: null }
@@ -38,13 +42,16 @@ export async function searchPosts(query: string, limit = 20): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('posts')
-      .select('*, profiles!author_id(id, full_name, department, level, avatar_url)')
-      .ilike('body', `%${query}%`)
-      .eq('is_anonymous', false)
-      .order('created_at', { ascending: false })
-      .limit(limit)
+    const { data, errors } = await client.models.posts.list({
+      filter: {
+        and: [
+          { body: { contains: query } },
+          { is_anonymous: { eq: false } }
+        ]
+      },
+      limit
+    })
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
     return { data: data as FeedPost[], error: null }
@@ -58,11 +65,13 @@ export async function searchHashtags(query: string, limit = 20): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('hashtags')
-      .select('id, tag')
-      .ilike('tag', `%${query}%`)
-      .limit(limit)
+    const { data, errors } = await client.models.hashtags.list({
+      filter: {
+        tag: { contains: query }
+      },
+      limit
+    })
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
     return { data: data as SearchHashtag[], error: null }
@@ -76,12 +85,16 @@ export async function searchClubs(query: string, limit = 20): Promise<{
   error: Error | null
 }> {
   try {
-    const { data, error } = await supabase
-      .from('clubs')
-      .select('*')
-      .ilike('name', `%${query}%`)
-      .eq('is_active', true)
-      .limit(limit)
+    const { data, errors } = await client.models.clubs.list({
+      filter: {
+        and: [
+          { name: { contains: query } },
+          { is_active: { eq: true } }
+        ]
+      },
+      limit
+    })
+    const error = errors ? new Error(errors[0].message) : null
 
     if (error) throw error
     return { data: data as Club[], error: null }

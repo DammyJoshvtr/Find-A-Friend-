@@ -129,13 +129,13 @@ export default function SearchScreen() {
             keyExtractor={i => i.id}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={s.hashtagRow}
+                style={[s.hashtagRow, { borderBottomColor: theme.border }]}
                 onPress={() => router.push(`/hashtag/${item.tag}` as any)}>
                 <View style={s.hashtagIcon}>
-                  <Ionicons name="pricetag-outline" size={18} color="#a78bfa" />
+                  <Ionicons name="pricetag-outline" size={18} color={theme.accent} />
                 </View>
-                <Text style={s.hashtagTag}>#{item.tag}</Text>
-                <Ionicons name="chevron-forward" size={14} color="rgba(240,240,255,0.3)" />
+                <Text style={[s.hashtagTag, { color: theme.text }]}>#{item.tag}</Text>
+                <Ionicons name="chevron-forward" size={14} color={theme.textFaint} />
               </TouchableOpacity>
             )}
             ListEmptyComponent={<EmptyResult query={query} type="hashtags" />}
@@ -149,16 +149,16 @@ export default function SearchScreen() {
             keyExtractor={i => i.id}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={s.clubRow}
+                style={[s.clubRow, { backgroundColor: theme.card, borderColor: theme.border }]}
                 onPress={() => router.push(`/club/${item.id}` as any)}>
                 <View style={[s.clubIcon, { backgroundColor: item.color + '22' }]}>
-                  <Ionicons name="people-outline" size={18} color={item.color || '#a78bfa'} />
+                  <Ionicons name="people-outline" size={18} color={item.color || theme.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={s.clubName}>{item.name}</Text>
-                  <Text style={s.clubMeta}>{item.category} · {item.member_count} members</Text>
+                  <Text style={[s.clubName, { color: theme.text }]}>{item.name}</Text>
+                  <Text style={[s.clubMeta, { color: theme.textMuted }]}>{item.category} · {item.member_count} members</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={14} color="rgba(240,240,255,0.3)" />
+                <Ionicons name="chevron-forward" size={14} color={theme.textFaint} />
               </TouchableOpacity>
             )}
             ListEmptyComponent={<EmptyResult query={query} type="clubs" />}
@@ -172,15 +172,15 @@ export default function SearchScreen() {
     <SafeAreaView style={[s.container, { backgroundColor: theme.bg }]} edges={['top']}>
       {/* Search input */}
       <View style={s.searchRow}>
-        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
-          <Ionicons name="arrow-back" size={20} color="#f0f0ff" />
+        <TouchableOpacity onPress={() => router.back()} style={[s.backBtn, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Ionicons name="arrow-back" size={20} color={theme.text} />
         </TouchableOpacity>
-        <View style={s.searchBar}>
-          <Ionicons name="search-outline" size={16} color="rgba(240,240,255,0.3)" />
+        <View style={[s.searchBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Ionicons name="search-outline" size={16} color={theme.textMuted} />
           <TextInput
-            style={s.searchInput}
+            style={[s.searchInput, { color: theme.text }]}
             placeholder="Search..."
-            placeholderTextColor="rgba(240,240,255,0.3)"
+            placeholderTextColor={theme.textFaint}
             value={query}
             onChangeText={setQuery}
             autoFocus
@@ -188,20 +188,20 @@ export default function SearchScreen() {
           />
           {query.length > 0 && (
             <TouchableOpacity onPress={() => setQuery('')}>
-              <Ionicons name="close-circle" size={16} color="rgba(240,240,255,0.35)" />
+              <Ionicons name="close-circle" size={16} color={theme.textMuted} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
       {/* Tabs */}
-      <View style={s.tabBar}>
+      <View style={[s.tabBar, { backgroundColor: theme.card, borderColor: theme.border }]}>
         {TABS.map(tab => (
           <TouchableOpacity
             key={tab.value}
-            style={[s.tab, activeTab === tab.value && s.tabActive]}
+            style={[s.tab, activeTab === tab.value && { backgroundColor: theme.accentBg }]}
             onPress={() => setActiveTab(tab.value)}>
-            <Text style={[s.tabText, activeTab === tab.value && s.tabTextActive]}>
+            <Text style={[s.tabText, { color: theme.textMuted }, activeTab === tab.value && { color: theme.accent, fontWeight: '600' }]}>
               {tab.label}
             </Text>
           </TouchableOpacity>
@@ -221,9 +221,10 @@ export default function SearchScreen() {
 }
 
 function EmptyResult({ query, type }: { query: string; type: string }) {
+  const theme = useTheme()
   return (
     <View style={s.emptyWrap}>
-      <Text style={s.emptyText}>No {type} matching "{query}"</Text>
+      <Text style={[s.emptyText, { color: theme.textMuted }]}>No {type} matching "{query}"</Text>
     </View>
   )
 }
@@ -236,50 +237,47 @@ const s = StyleSheet.create({
   },
   backBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#1c1c2e', alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
   },
   searchBar: {
     flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#1c1c2e',
     borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 0.5,
   },
-  searchInput: { flex: 1, fontSize: 14, color: '#f0f0ff' },
+  searchInput: { flex: 1, fontSize: 14 },
   tabBar: {
     flexDirection: 'row',
     marginHorizontal: 16, marginBottom: 12,
-    backgroundColor: '#1c1c2e',
     borderRadius: 12, padding: 3,
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 0.5,
   },
   tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
-  tabActive: { backgroundColor: 'rgba(167,139,250,0.2)' },
-  tabText: { fontSize: 11, color: 'rgba(240,240,255,0.4)', fontWeight: '500' },
-  tabTextActive: { color: '#a78bfa', fontWeight: '600' },
+  tabActive: {},
+  tabText: { fontSize: 11, fontWeight: '500' },
+  tabTextActive: { fontWeight: '600' },
   emptyWrap: { alignItems: 'center', paddingTop: 48, gap: 10 },
-  emptyText: { fontSize: 14, color: 'rgba(240,240,255,0.3)' },
+  emptyText: { fontSize: 14 },
   hashtagRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomWidth: 0.5,
   },
   hashtagIcon: {
     width: 36, height: 36, borderRadius: 10,
     backgroundColor: 'rgba(167,139,250,0.12)',
     alignItems: 'center', justifyContent: 'center',
   },
-  hashtagTag: { flex: 1, fontSize: 14, color: '#a78bfa', fontWeight: '500' },
+  hashtagTag: { flex: 1, fontSize: 14, fontWeight: '500' },
   clubRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     marginHorizontal: 16, marginBottom: 8,
-    backgroundColor: '#1c1c2e',
     borderRadius: 14, padding: 12,
-    borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 0.5,
   },
   clubIcon: {
     width: 36, height: 36, borderRadius: 10,
     alignItems: 'center', justifyContent: 'center',
   },
-  clubName: { fontSize: 14, fontWeight: '600', color: '#f0f0ff', marginBottom: 2 },
-  clubMeta: { fontSize: 11, color: 'rgba(240,240,255,0.4)' },
+  clubName: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  clubMeta: { fontSize: 11 },
 })

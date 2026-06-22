@@ -35,15 +35,10 @@ export default function EventDetailScreen() {
       .channel(`event-detail-realtime-${id}`)
       .on(
         "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "events",
-          filter: `id=eq.${id}`,
-        },
-        (payload) => {
+        { event: "UPDATE", schema: "public", table: "events", filter: `id=eq.${id}` },
+        (payload: any) => {
           const updated = payload.new as Event;
-          setEvent((e) => (e ? { ...e, rsvp_count: updated.rsvp_count } : e));
+          setEvent((e) => e ? { ...e, ...updated } : updated);
         }
       )
       .subscribe();
@@ -52,15 +47,10 @@ export default function EventDetailScreen() {
       .channel(`event-rsvps-realtime-${id}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "event_rsvps",
-          filter: `event_id=eq.${id}`,
-        },
+        { event: "*", schema: "public", table: "event_rsvps", filter: `event_id=eq.${id}` },
         async () => {
-          const attendeesRes = await getEventAttendees(id, "going");
-          setAttendees(attendeesRes.data ?? []);
+          const attendeesRes = await getEventAttendees(id, 'going')
+          setAttendees(attendeesRes.data ?? [])
         }
       )
       .subscribe();
@@ -74,17 +64,17 @@ export default function EventDetailScreen() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [eventRes, attendeesRes, authUserRes] = await Promise.all([
+      const [eventRes, attendeesRes] = await Promise.all([
         getEventDetail(id),
         getEventAttendees(id, 'going'),
-        supabase.auth.getUser()
       ])
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) setMyUserId(user.id)
+      } catch (e) {}
       setEvent(eventRes.data)
       setRsvpStatus(eventRes.data?.user_rsvp_status ?? null)
       setAttendees(attendeesRes.data ?? [])
-      if (authUserRes.data?.user) {
-        setMyUserId(authUserRes.data.user.id)
-      }
     } catch {
       // Non-fatal
     } finally {
