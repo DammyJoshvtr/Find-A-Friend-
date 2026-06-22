@@ -5,7 +5,7 @@ import { useVideoPlayer, VideoView } from 'expo-video'
 interface VideoPlayerProps {
   sourceUrl: string
   paused: boolean
-  onLoad: () => void
+  onLoad: (duration?: number) => void
   onPlayingStateChange?: (isPlaying: boolean) => void
 }
 
@@ -27,11 +27,11 @@ export default function VideoPlayer({ sourceUrl, paused, onLoad, onPlayingStateC
 
   useEffect(() => {
     if (player.status === 'readyToPlay') {
-      onLoad()
+      onLoad(player.duration)
     }
     const subscription = player.addListener('statusChange', ({ status }) => {
       if (status === 'readyToPlay') {
-        onLoad()
+        onLoad(player.duration)
       }
     })
     const playingSub = player.addListener('playingChange', ({ isPlaying }) => {

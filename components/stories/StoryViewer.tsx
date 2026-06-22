@@ -70,6 +70,7 @@ export default function StoryViewer() {
   const [mediaLoaded, setMediaLoaded] = useState(false);
   const [isHolding, setIsHolding] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [videoDuration, setVideoDuration] = useState<number | null>(null);
 
   useEffect(() => {
     const id = progressAnim.addListener(({ value }) => {
@@ -78,19 +79,25 @@ export default function StoryViewer() {
     return () => progressAnim.removeListener(id);
   }, [progressAnim]);
 
-  // Reset loading state when the story changes
+  // Reset loading state and handle media load fallback when the story changes
   useEffect(() => {
-    setMediaLoaded(false);
-    setIsHolding(false);
-    setIsVideoPlaying(false);
-    progressAnim.setValue(0);
-    currentProgress.current = 0;
-  }, [story?.id, progressAnim]);
+    if (story?.id) {
+      setIsHolding(false);
+      setIsVideoPlaying(false);
+      progressAnim.setValue(0);
+      currentProgress.current = 0;
+      setStoryComment("");
+      setVideoDuration(null);
 
-  // Set media loaded automatically if we are showing fallback for video stories
-  useEffect(() => {
-    if (visible && story?.media_type === "video" && !supportsVideoStories()) {
-      setMediaLoaded(true);
+      if (visible) {
+        markViewed(story.id);
+      }
+
+      if (story.media_type === "video" && !supportsVideoStories()) {
+        setMediaLoaded(true);
+      } else {
+        setMediaLoaded(false);
+      }
     }
   }, [story?.id, visible]);
 
@@ -113,7 +120,9 @@ export default function StoryViewer() {
         progressAnim.setValue(0);
         currentProgress.current = 0;
       }
-      const duration = Math.max(1000, (story?.duration_secs ?? 5) * 1000);
+      const duration = videoDuration
+        ? videoDuration * 1000
+        : Math.max(1000, (story?.duration_secs ?? 5) * 1000);
       const remainingDuration = resume
         ? duration * (1 - currentProgress.current)
         : duration;
@@ -127,7 +136,7 @@ export default function StoryViewer() {
         if (finished) handleNext();
       });
     },
-    [story, progressAnim, handleNext],
+    [story, progressAnim, handleNext, videoDuration],
   );
 
   const handleUpdateApp = () => {
@@ -138,15 +147,6 @@ export default function StoryViewer() {
   const handleGoBack = () => {
     closeViewer();
   };
-
-  useEffect(() => {
-    if (visible && story?.id) {
-      setMediaLoaded(false);
-      progressAnim.setValue(0);
-      currentProgress.current = 0;
-      markViewed(story.id);
-    }
-  }, [story?.id, visible]);
 
   useEffect(() => {
     if (visible && story && mediaLoaded) {
@@ -308,12 +308,17 @@ export default function StoryViewer() {
         {/* Story media */}
         {story.media_type === "video" ? (
           supportsVideoStories() && VideoPlayer ? (
-            <VideoPlayer
-              sourceUrl={story.media_url}
-              paused={paused}
-              onLoad={() => setMediaLoaded(true)}
-              onPlayingStateChange={(playing: boolean) => setIsVideoPlaying(playing)}
-            />
+            <View style={{ flex: 1, width: "100%", opacity: mediaLoaded ? 1 : 0 }}>
+              <VideoPlayer
+                sourceUrl={story.media_url}
+                paused={paused}
+                onLoad={(dur: number) => {
+                  if (dur) setVideoDuration(dur);
+                  setMediaLoaded(true);
+                }}
+                onPlayingStateChange={(playing: boolean) => setIsVideoPlaying(playing)}
+              />
+            </View>
           ) : (
             <View style={s.fallbackContainer}>
               <Ionicons
@@ -324,14 +329,14 @@ export default function StoryViewer() {
               />
               <Text style={s.fallbackTitle}>New Update Available</Text>
               <Text style={s.fallbackMessage}>
-                To view this video story, please download the latest APK from our official website: fafcampus.site
+                To view this video story, please update your app. Visit our website: fafcampus.site
               </Text>
               <View style={s.fallbackBtnRow}>
                 <TouchableOpacity
                   style={s.fallbackUpdateBtn}
                   onPress={() => Linking.openURL("https://fafcampus.site")}
                 >
-                  <Text style={s.fallbackUpdateText}>Download APK</Text>
+                  <Text style={s.fallbackUpdateText}>Visit Website</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={s.fallbackBackBtn}
@@ -345,14 +350,14 @@ export default function StoryViewer() {
         ) : (
           <Image
             source={{ uri: story.media_url }}
-            style={s.media}
+            style={[s.media, { opacity: mediaLoaded ? 1 : 0 }]}
             resizeMode="cover"
             onLoadStart={() => setMediaLoaded(false)}
             onLoad={() => setMediaLoaded(true)}
           />
         )}
 
-        {!mediaLoaded && (
+        {!mediaLoaded && (story.media_type !== "video" || supportsVideoStories()) && (
           <View style={[StyleSheet.absoluteFill, s.loadingOverlay]}>
             <ActivityIndicator
               size="large"

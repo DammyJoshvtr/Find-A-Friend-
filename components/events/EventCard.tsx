@@ -33,6 +33,11 @@ export default function EventCard({ event, onRsvpChange }: EventCardProps) {
   const [loading, setLoading] = useState(false)
   const theme = useTheme()
 
+  React.useEffect(() => {
+    setRsvpStatus(event.user_rsvp_status ?? null)
+    setRsvpCount(event.rsvp_count)
+  }, [event.user_rsvp_status, event.rsvp_count])
+
   const catColor = CATEGORY_COLORS[event.category ?? ''] ?? theme.accent
   const isGoing = rsvpStatus === 'going'
 

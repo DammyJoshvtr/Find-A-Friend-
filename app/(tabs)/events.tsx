@@ -197,6 +197,20 @@ export default function EventsScreen() {
 
   const listData = useMemo(() => buildListData(filteredEvents), [filteredEvents])
 
+  const handleRsvpChange = useCallback((eventId: string, status: 'going' | null) => {
+    setEvents(prev => prev.map(e => {
+      if (e.id === eventId) {
+        const diff = status === 'going' ? 1 : -1;
+        return {
+          ...e,
+          user_rsvp_status: status,
+          rsvp_count: Math.max(0, (e.rsvp_count ?? 0) + diff)
+        };
+      }
+      return e;
+    }));
+  }, []);
+
   const renderItem = ({ item }: { item: ListItem }) => {
     if (item.type === 'section') {
       return (
@@ -207,7 +221,7 @@ export default function EventsScreen() {
         </View>
       )
     }
-    return <EventCard event={item.event} />
+    return <EventCard event={item.event} onRsvpChange={handleRsvpChange} />
   }
 
   const emptyMessage = activeTab === 'rsvps'

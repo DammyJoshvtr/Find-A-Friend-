@@ -10,8 +10,7 @@
  * Admin identity reveal goes through an Edge Function (or service_role call
  * in lib/admin.ts) — never directly from this file.
  */
-import { client } from './aws'
-import { getCurrentUser } from 'aws-amplify/auth'
+import { supabase } from './supabase'
 import type { FeedPost, CreatePostPayload } from './feed'
 
 // ---------------------------------------------------------------------------
@@ -49,20 +48,43 @@ export async function createAnonymousPost(
   imageUrl?: string | null
 ): Promise<{ data: AnonymousPost | null; error: Error | null }> {
   try {
-    const user = await getCurrentUser()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Not authenticated')
 
-    const { data, errors } = await client.models.Post.create({
-      author_id: user.userId,     // stored for audit; masked in public_posts view
-      body,
-      tags: tags ?? [],
-      image_url: imageUrl ?? null,
-      is_anonymous: true,
-      post_type: 'anonymous',
-    })
+    const { data, error } = await supabase
+      .from('posts')
+      .insert({
+        author_id: user.id,
+        body,
+        tags: tags ?? [],
+        image_url: imageUrl ?? null,
+        is_anonymous: true,
+        post_type: 'anonymous',
+      })
+      .select()
+      .single()
 
-    if (errors) throw new Error(errors[0].message)
+    if (error) throw error
 
-    // Return sanitized row — never expose author_id to caller
+    // Parse and upsert hashtags from the body text
+    const hashtagMatches = body.match(/#(\w+)/g) ?? []
+    if (hashtagMatches.length > 0) {
+      const tagsList = hashtagMatches.map(h => h.slice(1).toLowerCase())
+      for (const tag of tagsList) {
+        const { data: hashtagRow } = await supabase
+          .from('hashtags')
+          .upsert({ tag }, { onConflict: 'tag' })
+          .select('id')
+          .single()
+
+        if (hashtagRow) {
+          await supabase
+            .from('post_hashtags')
+            .upsert({ post_id: data.id, hashtag_id: hashtagRow.id })
+        }
+      }
+    }
+
     const sanitized: AnonymousPost = {
       id: data.id,
       body: data.body,
@@ -73,7 +95,7 @@ export async function createAnonymousPost(
       likes_count: data.likes_count ?? 0,
       comments_count: data.comments_count ?? 0,
       author_id: null,
-      created_at: data.createdAt,
+      created_at: data.created_at,
     }
 
     return { data: sanitized, error: null }
@@ -87,26 +109,31 @@ export async function createAnonymousPost(
 // ---------------------------------------------------------------------------
 
 /**
- * Fetches anonymous posts via the `public_posts` view.
- * The view enforces author_id = NULL for all anonymous posts.
+ * Fetches anonymous posts via the `posts` table (or public_posts view if defined).
  */
 export async function getAnonymousPosts(
   cursor?: string,
   limit = 20
 ): Promise<{ data: AnonymousPost[] | null; error: Error | null }> {
   try {
-    const { data, errors } = await client.models.Post.list({
-      filter: { is_anonymous: { eq: true } },
-      limit
-    })
-    
-    if (errors) throw new Error(errors[0].message)
+    let query = supabase
+      .from('posts')
+      .select('id, body, tags, image_url, is_anonymous, post_type, likes_count, comments_count, author_id, created_at')
+      .eq('is_anonymous', true)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+
+    if (cursor) {
+      query = query.lt('created_at', cursor)
+    }
+
+    const { data, error } = await query
+    if (error) throw error
 
     // Ensure author_id is always null on the way out (belt-and-suspenders)
     const sanitized = (data ?? []).map((post: any) => ({
       ...post,
       author_id: null,
-      created_at: post.createdAt
     })) as AnonymousPost[]
 
     return { data: sanitized, error: null }
@@ -124,26 +151,20 @@ export async function getAnonymousPosts(
 /**
  * Returns the real author profile for an anonymous post.
  * Requires the calling user to have role = 'admin' in profiles.
- * The query reads from `anonymous_post_audit` which is blocked for regular
- * users by RLS (USING false). The admin role check happens in the admin
- * layout guard; this function itself cannot enforce it at the SQL level
- * because the client anon key cannot bypass RLS.
- *
- * In production, this should go through an Edge Function with service_role.
- * This helper is provided for use inside a trusted admin Edge Function.
  */
 export async function getAnonymousPostIdentity(postId: string): Promise<{
   data: { post_id: string; real_author: string; created_at: string } | null
   error: Error | null
 }> {
   try {
-    // Requires an AppSync mutation or direct model query with admin auth
-    const { data, errors } = await client.models.AnonymousPostAudit.list({
-      filter: { post_id: { eq: postId } }
-    })
+    const { data, error } = await supabase
+      .from('anonymous_post_audit')
+      .select('post_id, real_author, created_at')
+      .eq('post_id', postId)
+      .maybeSingle()
 
-    if (errors) throw new Error(errors[0].message)
-    return { data: data?.[0] as any, error: null }
+    if (error) throw error
+    return { data: data as any, error: null }
   } catch (err) {
     return { data: null, error: err as Error }
   }
@@ -157,19 +178,22 @@ export async function getAnonymousPostIdentity(postId: string): Promise<{
 /**
  * Checks if the current user is the real author of an anonymous post.
  * Uses the raw `posts` table — the current user's author_id is compared.
- * Does NOT use public_posts view so it can access the unmasked author_id.
  */
 export async function isMyAnonymousPost(postId: string): Promise<boolean> {
-  let user;
-  try { user = await getCurrentUser() } catch { return false }
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return false
 
-  const { data } = await client.models.Post.list({
-    filter: {
-      id: { eq: postId },
-      author_id: { eq: user.userId },
-      is_anonymous: { eq: true }
-    }
-  })
+    const { data, error } = await supabase
+      .from('posts')
+      .select('id')
+      .eq('id', postId)
+      .eq('author_id', user.id)
+      .eq('is_anonymous', true)
+      .maybeSingle()
 
-  return (data?.length ?? 0) > 0
+    return !!data
+  } catch {
+    return false
+  }
 }
